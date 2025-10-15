@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <AssemblyName>PSCue.CommandPredictor</AssemblyName>
+    <RootNamespace>PSCue.CommandPredictor</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+
+    <!-- This is a library, not an executable -->
+    <OutputType>Library</OutputType>
+
+    <!-- Enable module initializer for auto-registration -->
+    <EnablePreviewFeatures>true</EnablePreviewFeatures>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- PowerShell SDK for ICommandPredictor and IFeedbackProvider -->
+    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PSCue.Shared\PSCue.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

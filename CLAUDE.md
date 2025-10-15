@@ -6,7 +6,7 @@ PSCue is a unified PowerShell module that provides intelligent command-line comp
 
 **Key Components**:
 1. **PSCue.ArgumentCompleter** - NativeAOT executable for fast Tab completion via `Register-ArgumentCompleter`
-2. **PSCue.Predictor** - Managed DLL implementing `ICommandPredictor` (inline suggestions) and `IFeedbackProvider` (learning)
+2. **PSCue.CommandPredictor** - Managed DLL implementing `ICommandPredictor` (inline suggestions) and `IFeedbackProvider` (learning)
 3. **IPC Communication Layer** - Named Pipe-based API for state sharing and learning feedback loop
 4. **CompletionCache** - Smart cache with usage tracking and priority scoring
 
@@ -20,7 +20,7 @@ PSCue is a unified PowerShell module that provides intelligent command-line comp
 - Can run standalone OR call into Predictor via IPC
 - Falls back to local logic if Predictor unavailable
 
-**Predictor (PSCue.Predictor.dll)**:
+**CommandPredictor (PSCue.CommandPredictor.dll)**:
 - Long-lived (loaded with PowerShell module)
 - Hosts Named Pipe server for serving completions
 - Maintains cached state (git branches, scoop packages, etc.)
@@ -93,9 +93,9 @@ Code is copied (not linked) to allow PSCue-specific enhancements.
 ```
 src/
 ├── PSCue.ArgumentCompleter/    # NativeAOT exe
-│   ├── IpcClient.cs            # Connect to Predictor via Named Pipe
+│   ├── IpcClient.cs            # Connect to CommandPredictor via Named Pipe
 │   └── Completions/            # Local completion logic (fallback)
-├── PSCue.Predictor/            # Managed DLL
+├── PSCue.CommandPredictor/     # Managed DLL
 │   ├── Init.cs                 # Module initialization
 │   ├── CommandCompleterPredictor.cs  # ICommandPredictor implementation
 │   ├── FeedbackProvider.cs     # IFeedbackProvider - learns from execution
@@ -109,7 +109,7 @@ src/
 ### Namespaces
 
 - `PSCue.ArgumentCompleter.*` - ArgumentCompleter code
-- `PSCue.Predictor.*` - Predictor code
+- `PSCue.CommandPredictor.*` - CommandPredictor code
 - `PSCue.Shared.*` - Shared types and protocol
 
 ### Building
@@ -118,11 +118,11 @@ src/
 # ArgumentCompleter (NativeAOT, per platform)
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
-# Predictor (managed DLL)
-dotnet build src/PSCue.Predictor/ -c Release
+# CommandPredictor (managed DLL)
+dotnet build src/PSCue.CommandPredictor/ -c Release
 
 # Quick compile check (for dd-trace-dotnet habit compatibility)
-dotnet build src/PSCue.Predictor/ -c Release -f net9.0
+dotnet build src/PSCue.CommandPredictor/ -c Release -f net9.0
 ```
 
 ### Testing
@@ -130,7 +130,7 @@ dotnet build src/PSCue.Predictor/ -c Release -f net9.0
 ```bash
 # Unit tests
 dotnet test test/PSCue.ArgumentCompleter.Tests/
-dotnet test test/PSCue.Predictor.Tests/
+dotnet test test/PSCue.CommandPredictor.Tests/
 
 # CLI testing tool
 dotnet run --project src/PSCue.Cli/ -- "git checkout ma"
@@ -194,7 +194,7 @@ Current phase: **Phase 1** (Project Structure Setup)
 - Always implement fallback logic if IPC unavailable
 - Handle IPC connection failures gracefully
 
-### When working on Predictor:
+### When working on CommandPredictor:
 - Can use async/await (long-lived process)
 - Implement proper cache invalidation (time-based, event-based)
 - Handle concurrent IPC requests safely
