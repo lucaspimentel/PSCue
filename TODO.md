@@ -5,7 +5,8 @@
 PSCue is a unified PowerShell module that combines:
 1. **Argument Completer** (from pwsh-argument-completer) - Native argument completion using `Register-ArgumentCompleter`
 2. **Command Predictor** (from pwsh-command-predictor) - ICommandPredictor for inline suggestions
-3. **Future Features** - IFeedbackProvider, ML-based completions, etc.
+3. **Feedback Provider** - IFeedbackProvider for learning from command execution (PowerShell 7.4+)
+4. **Future Features** - ML-based completions, etc.
 
 ---
 
@@ -23,13 +24,13 @@ PSCue/
 │   │   ├── KnownCompletions/            # Copied from pwsh-argument-completer
 │   │   └── ...
 │   │
-│   ├── PSCue.Predictor/                 # DLL for ICommandPredictor (C#)
+│   ├── PSCue.Predictor/                 # DLL for ICommandPredictor + IFeedbackProvider (C#)
 │   │   ├── PSCue.Predictor.csproj
 │   │   ├── Init.cs                      # Module initializer
-│   │   ├── CommandCompleterPredictor.cs # Copied from pwsh-command-predictor
+│   │   ├── CommandCompleterPredictor.cs # ICommandPredictor implementation
+│   │   ├── FeedbackProvider.cs          # IFeedbackProvider - learns from command execution
 │   │   ├── IpcServer.cs                 # Named Pipe server for serving completions
-│   │   ├── CompletionCache.cs           # Cache for git branches, scoop packages, etc.
-│   │   ├── FeedbackProvider.cs          # Future: IFeedbackProvider
+│   │   ├── CompletionCache.cs           # Cache with usage tracking and learning
 │   │   └── ...
 │   │
 │   ├── PSCue.Cli/                       # CLI testing tool (optional)
@@ -454,14 +455,34 @@ git push origin v1.0.0
   - [ ] Cache invalidation (time-based, event-based)
   - [ ] Memory management
 
-### Phase 9: Future Enhancements (Not in initial release)
-- [ ] Implement IFeedbackProvider
+### Phase 9: Feedback Provider (Learning System)
+- [ ] Implement IFeedbackProvider in PSCue.Predictor
+  - [ ] Register as feedback provider on module initialization
+  - [ ] Handle FeedbackTrigger.Success events
+  - [ ] Handle FeedbackTrigger.Error events
+  - [ ] Extract command patterns from execution context
+- [ ] Extend CompletionCache with usage tracking
+  - [ ] Track command frequency (e.g., "git checkout -b" usage count)
+  - [ ] Track flag combinations (e.g., user often uses "git commit -am")
+  - [ ] Track argument patterns (e.g., branch naming preferences)
+  - [ ] Implement priority scoring based on usage
+- [ ] Update IPC protocol for learned suggestions
+  - [ ] Include usage scores in completion responses
+  - [ ] Add cache statistics endpoint
+- [ ] Test feedback learning
+  - [ ] Unit tests for feedback processing
+  - [ ] Integration tests for cache updates
+  - [ ] Verify ArgumentCompleter receives learned suggestions
+- [ ] Document PowerShell 7.4+ requirement for feedback features
+  - [ ] Add experimental feature enablement to docs: Enable-ExperimentalFeature PSFeedbackProvider
+
+### Phase 10: Future Enhancements (Not in initial release)
 - [ ] Add ML-based prediction support
 - [ ] Copy AI model scripts to `ai/` directory
 - [ ] Create Scoop manifest
 - [ ] Publish to PowerShell Gallery
-- [ ] Create GitHub releases with pre-built binaries
 - [ ] Add Homebrew formula (macOS/Linux)
+- [ ] Implement cross-session learning (persist cache to disk)
 
 ---
 
@@ -506,25 +527,30 @@ Since the Predictor is long-lived and ArgumentCompleter is short-lived, we can l
 
 **Architecture**:
 ```
-┌─────────────────────────────────────┐
-│  PowerShell Session                 │
-├─────────────────────────────────────┤
-│                                     │
-│  PSCue.Predictor.dll (Long-lived)  │
-│  ┌──────────────────────────────┐  │
-│  │ - ICommandPredictor          │  │
-│  │ - CompletionCache            │  │
-│  │ - IPC Server (Named Pipes)   │◄─┼──┐
-│  │ - State Manager              │  │  │
-│  │ - Git/Scoop/etc. parsers     │  │  │
-│  └──────────────────────────────┘  │  │
-│                                     │  │
-└─────────────────────────────────────┘  │
-                                         │
-         ┌───────────────────────────────┘
-         │ IPC Request
-         │
-┌────────▼─────────────────────────────┐
+┌─────────────────────────────────────────────────────────┐
+│  PowerShell Session                                     │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│  PSCue.Predictor.dll (Long-lived)                      │
+│  ┌───────────────────────────────────────────────────┐ │
+│  │ - ICommandPredictor (inline suggestions)          │ │
+│  │ - IFeedbackProvider (learns from execution)       │ │
+│  │ - CompletionCache (with usage stats)              │ │
+│  │ - IPC Server (Named Pipes)                        │◄┼─┐
+│  │ - State Manager                                   │ │ │
+│  │ - Git/Scoop/etc. parsers                          │ │ │
+│  └───────────────────────────────────────────────────┘ │ │
+│         ▲                                               │ │
+│         │ Feedback Loop (update cache after execution) │ │
+│         │                                               │ │
+└─────────┼───────────────────────────────────────────────┘ │
+          │                                                 │
+          │ User executes command                           │
+          │                                                 │
+          │         ┌───────────────────────────────────────┘
+          │         │ IPC Request (get completions)
+          │         │
+┌─────────┴─────────▼─────────────────┐
 │  Tab completion request              │
 ├──────────────────────────────────────┤
 │                                      │
@@ -532,6 +558,7 @@ Since the Predictor is long-lived and ArgumentCompleter is short-lived, we can l
 │  ┌──────────────────────────────┐   │
 │  │ 1. Try connect to Predictor  │   │
 │  │ 2. If available, use IPC API │   │
+│  │    (gets learned suggestions)│   │
 │  │ 3. Else, run local logic     │   │
 │  └──────────────────────────────┘   │
 │                                      │
@@ -542,8 +569,25 @@ Since the Predictor is long-lived and ArgumentCompleter is short-lived, we can l
 1. **State Persistence**: Predictor maintains caches for git branches, scoop packages, etc.
 2. **Performance**: Avoid redundant work across multiple completion requests
 3. **Consistency**: Both Tab completion and inline predictions use the same data
-4. **Learning**: IFeedbackProvider can improve suggestions over time
+4. **Learning Loop**: IFeedbackProvider updates cache based on actual command usage
 5. **Resource Efficiency**: Single git/scoop query shared across invocations
+
+**Learning Flow Example**:
+```
+User types "git checkout"
+  → ICommandPredictor suggests branches (from cache)
+  → ArgumentCompleter provides Tab completions (via IPC, gets same data)
+
+User executes "git checkout -b feature-x"
+  → IFeedbackProvider observes: user created a branch with -b flag
+  → Cache updated: Increase priority of "-b" for "git checkout"
+  → Track: User prefers "feature-*" naming pattern
+
+Next time user types "git checkout"
+  → ICommandPredictor suggests "-b" higher in list
+  → ArgumentCompleter shows "-b" earlier in Tab completions
+  → Both benefit from learned behavior
+```
 
 **Implementation Options**:
 1. **Named Pipes** (recommended): Cross-platform, efficient, secure
@@ -684,9 +728,13 @@ Response:
 
 3. Should we support older PowerShell versions (5.1)?
    - **Decision**: No, require PowerShell 7.2+ (Core only)
+   - **Note**: IFeedbackProvider requires 7.4+, but module will work with degraded functionality on 7.2-7.3
 
 4. What about backward compatibility with old module names?
    - **Decision**: No backward compatibility, clean break
+
+5. Should IFeedbackProvider be in the initial release or Phase 9?
+   - **Decision**: Phase 9 (after IPC layer is working), but architecture planned from start
 
 ### Resolved Decisions
 - ✅ Use NativeAOT for ArgumentCompleter (fast startup)
@@ -698,6 +746,8 @@ Response:
 - ✅ IPC Architecture: ArgumentCompleter calls into Predictor via Named Pipes
 - ✅ Predictor hosts completion cache and state for performance optimization
 - ✅ ArgumentCompleter has fallback to local logic if Predictor unavailable
+- ✅ IFeedbackProvider integration: Creates learning loop for smarter completions
+- ✅ Cache tracks usage patterns and updates priority scores based on actual command execution
 
 ---
 
@@ -709,6 +759,7 @@ Response:
 
 ### Documentation References
 - [PowerShell Predictor API](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-cmdlet-predictor)
+- [PowerShell Feedback Provider API](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider)
 - [Register-ArgumentCompleter](https://learn.microsoft.com/powershell/module/microsoft.powershell.core/register-argumentcompleter)
 - [NativeAOT Deployment](https://learn.microsoft.com/dotnet/core/deploying/native-aot/)
 - [PowerShell Module Manifests](https://learn.microsoft.com/powershell/scripting/developer/module/how-to-write-a-powershell-module-manifest)
