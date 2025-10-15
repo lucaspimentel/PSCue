@@ -18,6 +18,7 @@ PSCue/
 │   │   ├── PSCue.ArgumentCompleter.csproj
 │   │   ├── Program.cs
 │   │   ├── CommandCompleter.cs
+│   │   ├── IpcClient.cs                 # Named Pipe client for communicating with Predictor
 │   │   ├── Completions/                 # Copied from pwsh-argument-completer
 │   │   ├── KnownCompletions/            # Copied from pwsh-argument-completer
 │   │   └── ...
@@ -26,6 +27,8 @@ PSCue/
 │   │   ├── PSCue.Predictor.csproj
 │   │   ├── Init.cs                      # Module initializer
 │   │   ├── CommandCompleterPredictor.cs # Copied from pwsh-command-predictor
+│   │   ├── IpcServer.cs                 # Named Pipe server for serving completions
+│   │   ├── CompletionCache.cs           # Cache for git branches, scoop packages, etc.
 │   │   ├── FeedbackProvider.cs          # Future: IFeedbackProvider
 │   │   └── ...
 │   │
@@ -34,7 +37,9 @@ PSCue/
 │   │   └── Program.cs
 │   │
 │   └── PSCue.Shared/                    # Shared code/utilities (if needed)
-│       └── PSCue.Shared.csproj
+│       ├── PSCue.Shared.csproj
+│       ├── IpcProtocol.cs               # Shared IPC protocol definitions
+│       └── CompletionModels.cs          # Shared completion data models
 │
 ├── module/
 │   ├── PSCue.psd1                       # Module manifest
@@ -429,7 +434,27 @@ git push origin v1.0.0
 - [ ] Update to use PSCue namespaces
 - [ ] Test: `dotnet run --project src/PSCue.Cli/ -- "git che"`
 
-### Phase 8: Future Enhancements (Not in initial release)
+### Phase 8: IPC Communication Layer
+- [ ] Design IPC protocol schema (request/response format)
+- [ ] Implement Named Pipe server in PSCue.Predictor
+  - [ ] Start server on module initialization
+  - [ ] Use session-specific pipe name (PSCue-{PID})
+  - [ ] Handle concurrent requests
+  - [ ] Implement completion cache
+  - [ ] Add request handlers for git, scoop, etc.
+- [ ] Implement Named Pipe client in PSCue.ArgumentCompleter
+  - [ ] Connection with timeout (<10ms)
+  - [ ] Fallback to local logic if unavailable
+  - [ ] JSON serialization/deserialization
+- [ ] Test IPC communication
+  - [ ] Unit tests for protocol serialization
+  - [ ] Integration tests for Predictor server
+  - [ ] Performance tests (target <5ms round-trip)
+- [ ] Add caching strategy
+  - [ ] Cache invalidation (time-based, event-based)
+  - [ ] Memory management
+
+### Phase 9: Future Enhancements (Not in initial release)
 - [ ] Implement IFeedbackProvider
 - [ ] Add ML-based prediction support
 - [ ] Copy AI model scripts to `ai/` directory
@@ -474,6 +499,93 @@ git push origin v1.0.0
 3. **Clear separation of concerns**:
    - ArgumentCompleter: Handles `Register-ArgumentCompleter` (Tab completion)
    - Predictor: Handles `ICommandPredictor` (inline suggestions)
+
+### ArgumentCompleter-Predictor Communication (API Architecture)
+
+Since the Predictor is long-lived and ArgumentCompleter is short-lived, we can leverage inter-process communication to share state and optimize performance.
+
+**Architecture**:
+```
+┌─────────────────────────────────────┐
+│  PowerShell Session                 │
+├─────────────────────────────────────┤
+│                                     │
+│  PSCue.Predictor.dll (Long-lived)  │
+│  ┌──────────────────────────────┐  │
+│  │ - ICommandPredictor          │  │
+│  │ - CompletionCache            │  │
+│  │ - IPC Server (Named Pipes)   │◄─┼──┐
+│  │ - State Manager              │  │  │
+│  │ - Git/Scoop/etc. parsers     │  │  │
+│  └──────────────────────────────┘  │  │
+│                                     │  │
+└─────────────────────────────────────┘  │
+                                         │
+         ┌───────────────────────────────┘
+         │ IPC Request
+         │
+┌────────▼─────────────────────────────┐
+│  Tab completion request              │
+├──────────────────────────────────────┤
+│                                      │
+│  pscue-completer.exe (Short-lived)  │
+│  ┌──────────────────────────────┐   │
+│  │ 1. Try connect to Predictor  │   │
+│  │ 2. If available, use IPC API │   │
+│  │ 3. Else, run local logic     │   │
+│  └──────────────────────────────┘   │
+│                                      │
+└──────────────────────────────────────┘
+```
+
+**Benefits**:
+1. **State Persistence**: Predictor maintains caches for git branches, scoop packages, etc.
+2. **Performance**: Avoid redundant work across multiple completion requests
+3. **Consistency**: Both Tab completion and inline predictions use the same data
+4. **Learning**: IFeedbackProvider can improve suggestions over time
+5. **Resource Efficiency**: Single git/scoop query shared across invocations
+
+**Implementation Options**:
+1. **Named Pipes** (recommended): Cross-platform, efficient, secure
+   - Use session-specific pipe name (e.g., `PSCue-{PID}`)
+   - Fast serialization (JSON or MessagePack)
+2. **HTTP localhost**: Simple, but higher overhead
+3. **Unix Domain Sockets**: More efficient on macOS/Linux
+
+**Fallback Strategy**:
+- ArgumentCompleter works standalone if Predictor isn't loaded
+- Check IPC availability with timeout (<10ms)
+- Graceful degradation to local completion logic
+
+**Protocol Design**:
+```json
+{
+  "command": "git",
+  "args": ["checkout"],
+  "wordToComplete": "ma",
+  "requestType": "branches"
+}
+```
+
+Response:
+```json
+{
+  "completions": [
+    {"text": "main", "description": "Default branch"},
+    {"text": "master", "description": "Old default branch"}
+  ],
+  "cached": true
+}
+```
+
+**Security**:
+- Bind to localhost/named pipe only
+- Validate session/process ownership
+- No authentication needed (same user, same session)
+
+**Performance Target**:
+- IPC round-trip: <5ms
+- Total completion time: <50ms (including ArgumentCompleter startup)
 
 ### Project References
 
@@ -583,6 +695,9 @@ git push origin v1.0.0
 - ✅ Copy code strategy (not git submodules/subtrees)
 - ✅ Installation location: ~/.local/pwsh-modules/PSCue/
 - ✅ Executable name: pscue-completer[.exe]
+- ✅ IPC Architecture: ArgumentCompleter calls into Predictor via Named Pipes
+- ✅ Predictor hosts completion cache and state for performance optimization
+- ✅ ArgumentCompleter has fallback to local logic if Predictor unavailable
 
 ---
 
