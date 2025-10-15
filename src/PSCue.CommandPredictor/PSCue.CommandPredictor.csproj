@@ -17,11 +17,22 @@
 
   <ItemGroup>
     <!-- PowerShell SDK for ICommandPredictor and IFeedbackProvider -->
-    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.4.0" />
+    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.0">
+      <ExcludeAssets>contentFiles</ExcludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\PSCue.ArgumentCompleter\PSCue.ArgumentCompleter.csproj" />
     <ProjectReference Include="..\PSCue.Shared\PSCue.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Exclude optional predictor implementations for now -->
+    <Compile Remove="KnownCommandsPredictor.cs" />
+    <Compile Remove="SamplePredictor.cs" />
+    <Compile Remove="AiPredictor.cs" />
   </ItemGroup>
 
 </Project>
