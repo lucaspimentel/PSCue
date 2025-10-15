@@ -365,18 +365,18 @@ git push origin v1.0.0
 - [ ] Verify build: `dotnet build src/PSCue.CommandPredictor/`
 - [ ] Verify tests: `dotnet test test/PSCue.CommandPredictor.Tests/`
 
-### Phase 4: Create Module Files
-- [ ] Create `module/PSCue.psd1` (module manifest)
-  - [ ] Set RootModule to `PSCue.psm1`
-  - [ ] Set ModuleVersion to `1.0.0`
-  - [ ] Set Author, Description, etc.
-  - [ ] Set PowerShellVersion requirement (7.2+)
-  - [ ] Set CompatiblePSEditions to 'Core'
-- [ ] Create `module/PSCue.psm1` (module script)
-  - [ ] Find pscue-completer executable
-  - [ ] Register argument completers for supported commands
-  - [ ] Load PSCue.CommandPredictor.dll (auto-registers predictors)
-- [ ] Test module loading manually
+### Phase 4: Create Module Files ✅
+- [x] Create `module/PSCue.psd1` (module manifest)
+  - [x] Set RootModule to `PSCue.psm1`
+  - [x] Set ModuleVersion to `1.0.0`
+  - [x] Set Author, Description, etc.
+  - [x] Set PowerShellVersion requirement (7.2+)
+  - [x] Set CompatiblePSEditions to 'Core'
+- [x] Create `module/PSCue.psm1` (module script)
+  - [x] Find pscue-completer executable
+  - [x] Register argument completers for supported commands
+  - [x] Load PSCue.CommandPredictor.dll (auto-registers predictors)
+- [x] Test module loading manually
 
 ### Phase 5: Create Installation Scripts
 - [ ] Create `scripts/` directory
