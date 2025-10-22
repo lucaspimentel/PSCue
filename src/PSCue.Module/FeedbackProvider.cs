@@ -1,7 +1,7 @@
 using System.Management.Automation.Subsystem.Feedback;
 using System.Management.Automation.Language;
 
-namespace PSCue.CommandPredictor;
+namespace PSCue.Module;
 
 /// <summary>
 /// Feedback provider that learns from command execution to improve completion suggestions.

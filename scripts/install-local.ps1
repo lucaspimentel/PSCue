@@ -120,15 +120,15 @@ try {
     Pop-Location
 }
 
-# Build CommandPredictor
-Write-Status "Building CommandPredictor..."
-$PredictorProject = Join-Path $RepoRoot "src/PSCue.CommandPredictor/PSCue.CommandPredictor.csproj"
+# Build Module
+Write-Status "Building Module..."
+$PredictorProject = Join-Path $RepoRoot "src/PSCue.Module/PSCue.Module.csproj"
 
 Push-Location $RepoRoot
 try {
     & dotnet build $PredictorProject -c Release
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to build CommandPredictor"
+        Write-Error "Failed to build Module"
         exit 1
     }
 } finally {
@@ -156,9 +156,9 @@ if (Test-Path $CompleterSource) {
     exit 1
 }
 
-# Copy CommandPredictor DLL and dependencies
-$PredictorSource = Join-Path $RepoRoot "src/PSCue.CommandPredictor/bin/Release/net9.0"
-$PredictorDll = "PSCue.CommandPredictor.dll"
+# Copy Module DLL and dependencies
+$PredictorSource = Join-Path $RepoRoot "src/PSCue.Module/bin/Release/net9.0"
+$PredictorDll = "PSCue.Module.dll"
 $PredictorDllSource = Join-Path $PredictorSource $PredictorDll
 $PredictorDllDest = Join-Path $InstallDir $PredictorDll
 
@@ -166,7 +166,7 @@ if (Test-Path $PredictorDllSource) {
     Copy-Item -Path $PredictorDllSource -Destination $PredictorDllDest -Force
     Write-Info "  Installed: $PredictorDll"
 } else {
-    Write-Error "CommandPredictor DLL not found at: $PredictorDllSource"
+    Write-Error "Module DLL not found at: $PredictorDllSource"
     exit 1
 }
 

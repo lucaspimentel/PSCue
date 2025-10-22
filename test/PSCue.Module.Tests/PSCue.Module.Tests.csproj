@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
-    <AssemblyName>PSCue.CommandPredictor.Tests</AssemblyName>
-    <RootNamespace>PSCue.CommandPredictor.Tests</RootNamespace>
+    <AssemblyName>PSCue.Module.Tests</AssemblyName>
+    <RootNamespace>PSCue.Module.Tests</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
@@ -32,7 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\PSCue.CommandPredictor\PSCue.CommandPredictor.csproj" />
+    <ProjectReference Include="..\..\src\PSCue.Module\PSCue.Module.csproj" />
     <ProjectReference Include="..\..\src\PSCue.Shared\PSCue.Shared.csproj" />
   </ItemGroup>
 

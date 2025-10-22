@@ -15,9 +15,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{0C88DD14-F
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PSCue.ArgumentCompleter.Tests", "test\PSCue.ArgumentCompleter.Tests\PSCue.ArgumentCompleter.Tests.csproj", "{758CE8C5-2C63-4F80-A241-25F41BB4EA1E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PSCue.CommandPredictor", "src\PSCue.CommandPredictor\PSCue.CommandPredictor.csproj", "{E3C93EB7-B31B-428A-9F09-E249129DDFA5}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PSCue.Module", "src\PSCue.Module\PSCue.Module.csproj", "{E3C93EB7-B31B-428A-9F09-E249129DDFA5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PSCue.CommandPredictor.Tests", "test\PSCue.CommandPredictor.Tests\PSCue.CommandPredictor.Tests.csproj", "{2E677A2B-914D-47F7-860B-B22D48212E7C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PSCue.Module.Tests", "test\PSCue.Module.Tests\PSCue.Module.Tests.csproj", "{2E677A2B-914D-47F7-860B-B22D48212E7C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

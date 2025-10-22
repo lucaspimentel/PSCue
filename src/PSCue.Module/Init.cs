@@ -3,7 +3,7 @@ using System.Management.Automation.Subsystem;
 using System.Management.Automation.Subsystem.Prediction;
 using System.Management.Automation.Subsystem.Feedback;
 
-namespace PSCue.CommandPredictor;
+namespace PSCue.Module;
 
 // https://adamtheautomator.com/psreadline/
 // https://learn.microsoft.com/en-us/powershell/scripting/learn/shell/using-predictors
@@ -35,9 +35,7 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
         }
 
         RegisterSubsystem(new CommandCompleterPredictor());
-        // RegisterSubsystem(new KnownCommandsPredictor());
-        // RegisterSubsystem(new SamplePredictor());
-        // RegisterSubsystem(new AiPredictor());
+        //RegisterSubsystem(new SamplePredictor());
 
         // Register feedback provider (requires PowerShell 7.4+ with PSFeedbackProvider experimental feature)
         // This will fail gracefully on older PowerShell versions

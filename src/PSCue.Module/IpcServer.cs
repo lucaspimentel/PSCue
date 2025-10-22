@@ -3,7 +3,7 @@ using System.Text;
 using System.Text.Json;
 using PSCue.Shared;
 
-namespace PSCue.CommandPredictor;
+namespace PSCue.Module;
 
 /// <summary>
 /// Named Pipe server that provides completion suggestions to ArgumentCompleter clients.

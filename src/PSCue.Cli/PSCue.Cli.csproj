@@ -22,7 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PSCue.ArgumentCompleter\PSCue.ArgumentCompleter.csproj" />
-    <ProjectReference Include="..\PSCue.CommandPredictor\PSCue.CommandPredictor.csproj" />
+    <ProjectReference Include="..\PSCue.Module\PSCue.Module.csproj" />
     <ProjectReference Include="..\PSCue.Shared\PSCue.Shared.csproj" />
   </ItemGroup>
 

@@ -1,6 +1,6 @@
 ﻿using System.Management.Automation.Subsystem.Prediction;
 
-namespace PSCue.CommandPredictor;
+namespace PSCue.Module;
 
 public class SamplePredictor : ICommandPredictor
 {

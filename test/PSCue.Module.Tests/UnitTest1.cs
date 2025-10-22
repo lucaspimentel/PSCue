@@ -1,4 +1,4 @@
-﻿namespace PSCue.CommandPredictor.Tests;
+﻿namespace PSCue.Module.Tests;
 
 public class UnitTest1
 {

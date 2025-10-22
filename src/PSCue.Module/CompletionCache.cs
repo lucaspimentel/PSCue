@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using PSCue.Shared;
 
-namespace PSCue.CommandPredictor;
+namespace PSCue.Module;
 
 /// <summary>
 /// Thread-safe cache for completion suggestions with usage tracking.

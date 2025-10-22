@@ -1,7 +1,7 @@
 ﻿using System.Management.Automation.Subsystem.Prediction;
 using PSCue.Shared;
 
-namespace PSCue.CommandPredictor;
+namespace PSCue.Module;
 
 public class CommandCompleterPredictor : ICommandPredictor
 {

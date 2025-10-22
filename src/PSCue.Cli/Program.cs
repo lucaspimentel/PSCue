@@ -1,5 +1,5 @@
 using System.Management.Automation.Subsystem.Prediction;
-using PSCue.CommandPredictor;
+using PSCue.Module;
 
 namespace PSCue.Cli;
 
