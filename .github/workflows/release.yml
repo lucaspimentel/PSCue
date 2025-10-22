@@ -52,9 +52,7 @@ jobs:
           Copy-Item module/PSCue.psd1 dist/${{ matrix.rid }}/
           Copy-Item module/PSCue.psm1 dist/${{ matrix.rid }}/
           Copy-Item LICENSE dist/${{ matrix.rid }}/
-          if (Test-Path README.md) {
-            Copy-Item README.md dist/${{ matrix.rid }}/
-          }
+          Copy-Item README.md dist/${{ matrix.rid }}/
 
       - name: Create archive (Windows)
         if: matrix.os == 'windows-latest'
