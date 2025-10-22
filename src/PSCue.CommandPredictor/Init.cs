@@ -1,12 +1,14 @@
 using System.Management.Automation;
 using System.Management.Automation.Subsystem;
 using System.Management.Automation.Subsystem.Prediction;
+using System.Management.Automation.Subsystem.Feedback;
 
 namespace PSCue.CommandPredictor;
 
 // https://adamtheautomator.com/psreadline/
 // https://learn.microsoft.com/en-us/powershell/scripting/learn/shell/using-predictors
 // https://learn.microsoft.com/en-us/powershell/scripting/dev-cross-plat/create-cmdline-predictor
+// https://learn.microsoft.com/en-us/powershell/scripting/dev-cross-plat/create-feedback-provider
 
 /// <summary>
 /// Register the predictor on module loading and unregister it on module un-loading.
@@ -36,6 +38,10 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
         // RegisterSubsystem(new KnownCommandsPredictor());
         // RegisterSubsystem(new SamplePredictor());
         // RegisterSubsystem(new AiPredictor());
+
+        // Register feedback provider (requires PowerShell 7.4+ with PSFeedbackProvider experimental feature)
+        // This will fail gracefully on older PowerShell versions
+        RegisterFeedbackProvider(new CommandCompleterFeedbackProvider(_ipcServer));
     }
 
     private void RegisterSubsystem(ICommandPredictor commandPredictor)
@@ -44,14 +50,46 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
         SubsystemManager.RegisterSubsystem(SubsystemKind.CommandPredictor, commandPredictor);
     }
 
+    private void RegisterFeedbackProvider(IFeedbackProvider feedbackProvider)
+    {
+        try
+        {
+            _identifiers.Add(feedbackProvider.Id);
+            SubsystemManager.RegisterSubsystem(SubsystemKind.FeedbackProvider, feedbackProvider);
+        }
+        catch (Exception ex)
+        {
+            // Feedback providers require PowerShell 7.4+ with PSFeedbackProvider experimental feature
+            // Fail gracefully on older versions or when experimental feature is not enabled
+            Console.Error.WriteLine($"Note: Feedback provider not registered (requires PowerShell 7.4+): {ex.Message}");
+        }
+    }
+
     /// <summary>
     /// Gets called when the binary module is unloaded.
     /// </summary>
     public void OnRemove(PSModuleInfo psModuleInfo)
     {
+        // Unregister all subsystems (predictors and feedback providers)
         foreach (var id in _identifiers)
         {
-            SubsystemManager.UnregisterSubsystem(SubsystemKind.CommandPredictor, id);
+            try
+            {
+                // Try CommandPredictor first
+                SubsystemManager.UnregisterSubsystem(SubsystemKind.CommandPredictor, id);
+            }
+            catch
+            {
+                try
+                {
+                    // Try FeedbackProvider if CommandPredictor fails
+                    SubsystemManager.UnregisterSubsystem(SubsystemKind.FeedbackProvider, id);
+                }
+                catch
+                {
+                    // Ignore unregistration errors
+                }
+            }
         }
 
         // Cleanup IPC server

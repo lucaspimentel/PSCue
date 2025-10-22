@@ -38,6 +38,14 @@ This directory contains PowerShell test scripts for manually testing PSCue funct
 - Tests PSReadLineOption PredictionSource setting
 - Demonstrates inline suggestions as you type
 
+**test-feedback-provider.ps1**
+- Tests FeedbackProvider registration and functionality
+- **Requires PowerShell 7.4+ with PSFeedbackProvider experimental feature enabled**
+- Checks PowerShell version compatibility
+- Verifies experimental feature is enabled
+- Confirms FeedbackProvider is registered
+- Documents learning system behavior
+
 ## Usage
 
 ### Quick IPC Test

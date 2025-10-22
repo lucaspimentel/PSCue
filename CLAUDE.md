@@ -244,7 +244,7 @@ Installs to: `~/.local/pwsh-modules/PSCue/`
 
 See TODO.md for detailed implementation plan and progress tracking.
 
-**Current Status**: IPC communication layer implemented! ArgumentCompleter and CommandPredictor now communicate via Named Pipes with intelligent caching.
+**Current Status**: Learning system (Phase 9) partially implemented! FeedbackProvider observes command execution and updates completion scores.
 
 **Completed phases:**
 - ✅ Phase 1: Project Structure Setup
@@ -261,13 +261,19 @@ See TODO.md for detailed implementation plan and progress tracking.
   - CompletionCache with usage tracking
   - JSON source generation for NativeAOT
   - Graceful fallback when IPC unavailable
+- 🔄 Phase 9: Learning System (IFeedbackProvider)
+  - ✅ Implemented CommandCompleterFeedbackProvider
+  - ✅ Registered in Init with PowerShell 7.4+ detection
+  - ✅ Observes successful command execution
+  - ✅ Updates cache scores via CompletionCache.IncrementUsage()
+  - ✅ Graceful degradation on PowerShell 7.2-7.3
+  - ⏳ Needs real-world testing and refinement
 
-**Next phase** (future enhancements):
-- Phase 9: IFeedbackProvider for learning from command execution
-  - Implement `IFeedbackProvider` interface
-  - Track actual command usage (success/error)
-  - Update cache scores based on usage patterns
-  - Personalize completions based on user behavior
+**Future enhancements**:
+- Enhanced learning algorithms (frequency × recency scoring)
+- Track flag combinations and argument patterns
+- Cross-session persistence (save learned data to disk)
+- ML-based predictions
 
 **Known Issues Fixed:**
 - **Phase 5:**

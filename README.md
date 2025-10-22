@@ -171,11 +171,30 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 ## Requirements
 
 - **PowerShell**: 7.2 or later (Core only, not Windows PowerShell 5.1)
+  - **7.4+ recommended** for learning features (`IFeedbackProvider`)
 - **Operating System**:
   - Windows x64
   - macOS arm64 (Apple Silicon)
   - Linux x64
-- **Optional**: PowerShell 7.4+ for learning features (`IFeedbackProvider`)
+
+### Learning Features (PowerShell 7.4+)
+
+PSCue includes an optional learning system that improves suggestions based on your usage patterns. This requires:
+
+1. **PowerShell 7.4 or higher**
+2. **PSFeedbackProvider experimental feature enabled**:
+   ```powershell
+   Enable-ExperimentalFeature -Name PSFeedbackProvider
+   # Restart PowerShell after enabling
+   ```
+
+The learning system:
+- Observes commands you execute successfully
+- Increases priority scores for frequently-used completions
+- Makes your most-used commands appear first in suggestions
+- Works silently in the background (no visible feedback)
+
+**Note**: PSCue works fine on PowerShell 7.2-7.3 without the learning features. The FeedbackProvider will simply not register on older versions.
 
 ## Comparison with Original Projects
 
