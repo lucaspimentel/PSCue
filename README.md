@@ -64,7 +64,12 @@ Build and install from source (requires .NET 9.0 SDK):
 ```powershell
 git clone https://github.com/lucaspimentel/PSCue.git
 cd PSCue
+
+# PowerShell
 ./scripts/install-local.ps1
+
+# Or from Windows Command Prompt
+scripts\install-local.cmd
 ```
 
 Both methods install to `~/.local/pwsh-modules/PSCue/`

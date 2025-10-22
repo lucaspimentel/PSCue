@@ -140,7 +140,11 @@ dotnet run --project src/PSCue.Cli/ -- "git checkout ma"
 
 **Local (development)**:
 ```powershell
+# PowerShell
 ./scripts/install-local.ps1
+
+# Or from Windows Command Prompt
+scripts\install-local.cmd
 ```
 
 **Remote (end users)**:
