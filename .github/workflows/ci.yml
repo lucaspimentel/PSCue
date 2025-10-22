@@ -42,22 +42,22 @@ jobs:
           path: '**/test-results.trx'
           if-no-files-found: ignore
 
-  lint:
-    name: Code Format Check
-    runs-on: ubuntu-latest
+  # Temporarily disabled - needs .editorconfig setup
+  # lint:
+  #   name: Code Format Check
+  #   runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
+  #     - name: Setup .NET
+  #       uses: actions/setup-dotnet@v4
+  #       with:
+  #         dotnet-version: '9.0.x'
 
-      - name: Restore dependencies
-        run: dotnet restore
+  #     - name: Restore dependencies
+  #       run: dotnet restore
 
-      # Temporarily disabled - needs .editorconfig setup
-      # - name: Check code formatting
-      #   run: dotnet format --verify-no-changes --verbosity diagnostic
+  #     - name: Check code formatting
+  #       run: dotnet format --verify-no-changes --verbosity diagnostic
