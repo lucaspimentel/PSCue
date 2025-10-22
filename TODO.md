@@ -321,7 +321,7 @@ git push origin v1.0.0
 
 ## Implementation Phases
 
-### Phase 1: Project Structure Setup
+### Phase 1: Project Structure Setup ✅
 - [x] Document plan in TODO.md
 - [x] Create directory structure
 - [x] Create .gitignore
@@ -333,37 +333,37 @@ git push origin v1.0.0
   - [x] test/PSCue.ArgumentCompleter.Tests/PSCue.ArgumentCompleter.Tests.csproj
   - [x] test/PSCue.CommandPredictor.Tests/PSCue.CommandPredictor.Tests.csproj
 
-### Phase 2: Copy ArgumentCompleter Code
-- [ ] Copy source files from `../pwsh-argument-completer/src/` to `src/PSCue.ArgumentCompleter/`
-  - [ ] Program.cs
-  - [ ] CommandCompleter.cs
-  - [ ] AssemblyInfo.cs
-  - [ ] Logger.cs
-  - [ ] Helpers.cs
-  - [ ] Completions/ directory (all files)
-  - [ ] KnownCompletions/ directory (all files)
-- [ ] Update namespaces from `PowerShellArgumentCompleter` to `PSCue.ArgumentCompleter`
-- [ ] Update AssemblyName to `pscue-completer` in .csproj
-- [ ] Copy test files from `../pwsh-argument-completer/test/` to `test/PSCue.ArgumentCompleter.Tests/`
-- [ ] Update test namespaces and project references
-- [ ] Verify build: `dotnet build src/PSCue.ArgumentCompleter/`
-- [ ] Verify tests: `dotnet test test/PSCue.ArgumentCompleter.Tests/`
+### Phase 2: Copy ArgumentCompleter Code ✅
+- [x] Copy source files from `../pwsh-argument-completer/src/` to `src/PSCue.ArgumentCompleter/`
+  - [x] Program.cs
+  - [x] CommandCompleter.cs
+  - [x] AssemblyInfo.cs
+  - [x] Logger.cs
+  - [x] Helpers.cs
+  - [x] Completions/ directory (all files)
+  - [x] KnownCompletions/ directory (all files)
+- [x] Update namespaces from `PowerShellArgumentCompleter` to `PSCue.ArgumentCompleter`
+- [x] Update AssemblyName to `pscue-completer` in .csproj
+- [x] Copy test files from `../pwsh-argument-completer/test/` to `test/PSCue.ArgumentCompleter.Tests/`
+- [x] Update test namespaces and project references
+- [x] Verify build: `dotnet build src/PSCue.ArgumentCompleter/`
+- [x] Verify tests: `dotnet test test/PSCue.ArgumentCompleter.Tests/`
 
-### Phase 3: Copy CommandPredictor Code
-- [ ] Copy source files from `../pwsh-command-predictor/src/PowerShellPredictor/` to `src/PSCue.CommandPredictor/`
-  - [ ] Init.cs
-  - [ ] CommandCompleterPredictor.cs
-  - [ ] AssemblyInfo.cs
-  - [ ] (Optional) KnownCommandsPredictor.cs
-  - [ ] (Optional) SamplePredictor.cs
-  - [ ] (Optional) AiPredictor.cs
-- [ ] Update namespaces from `PowerShellPredictor` to `PSCue.CommandPredictor`
-- [ ] Update AssemblyName to `PSCue.CommandPredictor` in .csproj
-- [ ] Update project reference to point to PSCue.ArgumentCompleter
-- [ ] Copy test files from `../pwsh-command-predictor/test/` to `test/PSCue.CommandPredictor.Tests/`
-- [ ] Update test namespaces and project references
-- [ ] Verify build: `dotnet build src/PSCue.CommandPredictor/`
-- [ ] Verify tests: `dotnet test test/PSCue.CommandPredictor.Tests/`
+### Phase 3: Copy CommandPredictor Code ✅
+- [x] Copy source files from `../pwsh-command-predictor/src/PowerShellPredictor/` to `src/PSCue.CommandPredictor/`
+  - [x] Init.cs
+  - [x] CommandCompleterPredictor.cs
+  - [x] AssemblyInfo.cs
+  - [x] (Optional) KnownCommandsPredictor.cs
+  - [x] (Optional) SamplePredictor.cs
+  - [x] (Optional) AiPredictor.cs
+- [x] Update namespaces from `PowerShellPredictor` to `PSCue.CommandPredictor`
+- [x] Update AssemblyName to `PSCue.CommandPredictor` in .csproj
+- [x] Update project reference to point to PSCue.ArgumentCompleter
+- [x] Copy test files from `../pwsh-command-predictor/test/` to `test/PSCue.CommandPredictor.Tests/`
+- [x] Update test namespaces and project references
+- [x] Verify build: `dotnet build src/PSCue.CommandPredictor/`
+- [x] Verify tests: `dotnet test test/PSCue.CommandPredictor.Tests/`
 
 ### Phase 4: Create Module Files ✅
 - [x] Create `module/PSCue.psd1` (module manifest)
@@ -446,7 +446,7 @@ git push origin v1.0.0
 - [ ] Create CONTRIBUTING.md (optional)
 - [ ] Document differences from original projects
 
-### Phase 7: Optional - CLI Testing Tool
+### Phase 7.5: Optional - CLI Testing Tool
 - [ ] Create `src/PSCue.Cli/` for testing
 - [ ] Copy Program.cs from pwsh-command-predictor CLI
 - [ ] Update to use PSCue namespaces
