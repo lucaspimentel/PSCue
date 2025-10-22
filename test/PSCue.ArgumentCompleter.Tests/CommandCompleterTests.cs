@@ -1,12 +1,15 @@
-﻿using FluentAssertions;
+using System.Runtime.InteropServices;
+using FluentAssertions;
 
 namespace PSCue.ArgumentCompleter.Tests;
 
 public class CommandCompleterTests
 {
-    [Fact]
+    [SkippableFact]
     public void Scoop()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "scoop is Windows-only");
+
         CommandCompleter.GetCompletions("scoop")
                         .Should().Contain(x => x.CompletionText == "install")
                         .And.Contain(x => x.CompletionText == "update")
@@ -14,17 +17,21 @@ public class CommandCompleterTests
                         .And.Contain(x => x.CompletionText == "checkup");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Scoop_Install()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "scoop is Windows-only");
+
         CommandCompleter.GetCompletions("scoop in")
                         .Should().Contain(x => x.CompletionText == "install")
                         .And.Contain(x => x.CompletionText == "info");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Scoop_Update()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "scoop is Windows-only");
+
         CommandCompleter.GetCompletions("scoop up")
                         .Should().ContainSingle()
                         .Which.CompletionText.Should().Be("update");
@@ -56,17 +63,21 @@ public class CommandCompleterTests
                         .And.ContainSingle(x => x.CompletionText == "broot");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Scoop_Status()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "scoop is Windows-only");
+
         CommandCompleter.GetCompletions("scoop st")
                         .Should().ContainSingle()
                         .Which.CompletionText.Should().Be("status");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Scoop_Checkup()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "scoop is Windows-only");
+
         CommandCompleter.GetCompletions("scoop ch")
                         .Should().ContainSingle()
                         .Which.CompletionText.Should().Be("checkup");
@@ -369,17 +380,21 @@ public class CommandCompleterTests
             .And.Contain(x => x.CompletionText == "download");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Install()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget ins")
             .Should().ContainSingle()
             .Which.CompletionText.Should().Be("install");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Install_Parameters()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget install")
             .Should().Contain(x => x.CompletionText == "--silent")
             .And.Contain(x => x.CompletionText == "--interactive")
@@ -390,17 +405,21 @@ public class CommandCompleterTests
             .And.Contain(x => x.CompletionText == "--exact");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Install_Scope()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget install --scope")
             .Should().Contain(x => x.CompletionText == "user")
             .And.Contain(x => x.CompletionText == "machine");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Install_Architecture()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget install --architecture")
             .Should().Contain(x => x.CompletionText == "x86")
             .And.Contain(x => x.CompletionText == "x64")
@@ -408,9 +427,11 @@ public class CommandCompleterTests
             .And.Contain(x => x.CompletionText == "arm64");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Install_InstallerType()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget install --installer-type")
             .Should().Contain(x => x.CompletionText == "msix")
             .And.Contain(x => x.CompletionText == "msi")
@@ -418,17 +439,21 @@ public class CommandCompleterTests
             .And.Contain(x => x.CompletionText == "portable");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Upgrade()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget upg")
             .Should().ContainSingle()
             .Which.CompletionText.Should().Be("upgrade");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Upgrade_Parameters()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget upgrade")
             .Should().Contain(x => x.CompletionText == "--all")
             .And.Contain(x => x.CompletionText == "--silent")
@@ -437,17 +462,21 @@ public class CommandCompleterTests
             .And.Contain(x => x.CompletionText == "--include-pinned");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Uninstall()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget uni")
             .Should().ContainSingle()
             .Which.CompletionText.Should().Be("uninstall");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Uninstall_Parameters()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget uninstall")
             .Should().Contain(x => x.CompletionText == "--silent")
             .And.Contain(x => x.CompletionText == "--force")
@@ -455,17 +484,21 @@ public class CommandCompleterTests
             .And.Contain(x => x.CompletionText == "--preserve");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Search()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget sea")
             .Should().ContainSingle()
             .Which.CompletionText.Should().Be("search");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Search_Parameters()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget search")
             .Should().Contain(x => x.CompletionText == "--name")
             .And.Contain(x => x.CompletionText == "--id")
@@ -474,34 +507,42 @@ public class CommandCompleterTests
             .And.Contain(x => x.CompletionText == "--count");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_List()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget li")
             .Should().ContainSingle()
             .Which.CompletionText.Should().Be("list");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_List_Parameters()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget list")
             .Should().Contain(x => x.CompletionText == "--upgrade-available")
             .And.Contain(x => x.CompletionText == "--include-unknown")
             .And.Contain(x => x.CompletionText == "--source");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Show()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget sh")
             .Should().ContainSingle()
             .Which.CompletionText.Should().Be("show");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Show_Parameters()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget show")
             .Should().Contain(x => x.CompletionText == "--name")
             .And.Contain(x => x.CompletionText == "--id")
@@ -509,17 +550,21 @@ public class CommandCompleterTests
             .And.Contain(x => x.CompletionText == "--exact");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Source()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget sou")
             .Should().ContainSingle()
             .Which.CompletionText.Should().Be("source");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Source_Subcommands()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget source")
             .Should().Contain(x => x.CompletionText == "add")
             .And.Contain(x => x.CompletionText == "list")
@@ -529,17 +574,21 @@ public class CommandCompleterTests
             .And.Contain(x => x.CompletionText == "export");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Pin()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget pi")
             .Should().ContainSingle()
             .Which.CompletionText.Should().Be("pin");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Pin_Subcommands()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget pin")
             .Should().Contain(x => x.CompletionText == "add")
             .And.Contain(x => x.CompletionText == "remove")
@@ -547,60 +596,74 @@ public class CommandCompleterTests
             .And.Contain(x => x.CompletionText == "reset");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Export()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget exp")
             .Should().ContainSingle()
             .Which.CompletionText.Should().Be("export");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Export_Parameters()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget export")
             .Should().Contain(x => x.CompletionText == "--output")
             .And.Contain(x => x.CompletionText == "--source")
             .And.Contain(x => x.CompletionText == "--include-versions");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Import()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget imp")
             .Should().ContainSingle()
             .Which.CompletionText.Should().Be("import");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Import_Parameters()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget import")
             .Should().Contain(x => x.CompletionText == "--import-file")
             .And.Contain(x => x.CompletionText == "--ignore-unavailable")
             .And.Contain(x => x.CompletionText == "--ignore-versions");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Download()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget dow")
             .Should().ContainSingle()
             .Which.CompletionText.Should().Be("download");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_Download_Parameters()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget download")
             .Should().Contain(x => x.CompletionText == "--download-directory")
             .And.Contain(x => x.CompletionText == "--id")
             .And.Contain(x => x.CompletionText == "--version");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget_MultipleParameters()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget install --silent --")
             .Should().Contain(x => x.CompletionText == "--scope")
             .And.Contain(x => x.CompletionText == "--architecture")
