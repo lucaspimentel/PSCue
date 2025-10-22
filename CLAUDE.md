@@ -59,7 +59,8 @@ Next completion request gets smarter suggestions
 - **Personalization**: Learns user preferences (e.g., "git commit -am" vs "git commit -m")
 
 **Protocol**: JSON-based request/response over Named Pipes
-- Request: `{command, args, wordToComplete, requestType}`
+- Request: `{command, args, wordToComplete, requestType, includeDynamicArguments}`
+  - `includeDynamicArguments`: Controls whether to include slow operations (git branches, scoop packages)
 - Response: `{completions: [{text, description, score}], cached: bool}`
   - `score`: Usage-based priority (higher = more frequently used by this user)
 
@@ -222,6 +223,12 @@ Installs to: `~/.local/pwsh-modules/PSCue/`
     - Tracks command frequency, flag combinations, argument patterns
     - Updates cache priority scores based on actual usage
     - Both Tab completion and inline suggestions benefit from learned behavior
+11. **Dynamic Argument Performance Optimization** ✅ **IMPLEMENTED**: Separate performance profiles for Tab vs inline predictions
+    - `includeDynamicArguments` parameter controls expensive operations (git branches, scoop packages, etc.)
+    - **ICommandPredictor**: `includeDynamicArguments: false` for fast inline suggestions (<10ms response)
+    - **ArgumentCompleter**: `includeDynamicArguments: true` for complete Tab completions (user expects delay)
+    - **IPC Protocol**: Supports flag to let client control behavior
+    - Result: Predictor responds instantly with flags/subcommands, Tab completion still gets full lists
 
 ## Performance Targets
 

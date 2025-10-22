@@ -9,5 +9,5 @@ public interface ICompletion
 
 public interface ICompletionWithChildren : ICompletion
 {
-    List<ICompletion> GetCompletions(ReadOnlySpan<char> wordToComplete);
+    List<ICompletion> GetCompletions(ReadOnlySpan<char> wordToComplete, bool includeDynamicArguments);
 }

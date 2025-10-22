@@ -1,4 +1,4 @@
-﻿using System.Management.Automation.Subsystem.Prediction;
+using System.Management.Automation.Subsystem.Prediction;
 using PSCue.Shared;
 
 namespace PSCue.Module;
@@ -29,7 +29,8 @@ public class CommandCompleterPredictor : ICommandPredictor
             return default;
         }
 
-        var completions = CommandCompleter.GetCompletions(input).ToList();
+        // Skip dynamic arguments (git branches, scoop packages, etc.) for fast predictor responses
+        var completions = CommandCompleter.GetCompletions(input, default, includeDynamicArguments: false).ToList();
 
         if (completions.Count == 0)
         {

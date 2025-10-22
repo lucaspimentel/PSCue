@@ -185,9 +185,11 @@ public class IpcServer : IDisposable
         try
         {
             // Use the existing CommandCompleter logic from PSCue.Shared
+            // Pass includeDynamicArguments from the request (ArgumentCompleter wants all, Predictor wants fast)
             var completions = CommandCompleter.GetCompletions(
                 request.CommandLine.AsSpan(),
-                request.WordToComplete.AsSpan());
+                request.WordToComplete.AsSpan(),
+                request.IncludeDynamicArguments);
 
             return completions
                 .Select(c => new CompletionItem

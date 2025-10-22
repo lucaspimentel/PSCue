@@ -28,13 +28,14 @@ public sealed class CommandParameter(string completionText, string? tooltip = nu
         return completion;
     }
 
-    public List<ICompletion> GetCompletions(ReadOnlySpan<char> wordToComplete)
+    public List<ICompletion> GetCompletions(ReadOnlySpan<char> wordToComplete, bool includeDynamicArguments)
     {
         var results = new List<ICompletion>();
 
         Helpers.AddWhereStartsWith(StaticArguments, results, wordToComplete);
 
-        if (DynamicArguments?.Invoke() is { } arguments)
+        // Only include dynamic arguments if requested
+        if (includeDynamicArguments && DynamicArguments?.Invoke() is { } arguments)
         {
             Helpers.AddWhereStartsWith(arguments, results, wordToComplete);
         }

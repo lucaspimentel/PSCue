@@ -1,4 +1,4 @@
-﻿namespace PSCue.Shared.Completions;
+namespace PSCue.Shared.Completions;
 
 public delegate IEnumerable<DynamicArgument> DynamicArgumentsFactory();
 
@@ -25,7 +25,7 @@ public sealed class Command(string completionText, string? tooltip = null)
         return completion;
     }
 
-    public List<ICompletion> GetCompletions(ReadOnlySpan<char> wordToComplete)
+    public List<ICompletion> GetCompletions(ReadOnlySpan<char> wordToComplete, bool includeDynamicArguments)
     {
         var results = new List<ICompletion>();
 
@@ -46,7 +46,8 @@ public sealed class Command(string completionText, string? tooltip = null)
             }
         }
 
-        if (DynamicArguments?.Invoke() is { } arguments)
+        // Only include dynamic arguments (git branches, scoop packages, etc.) if requested
+        if (includeDynamicArguments && DynamicArguments?.Invoke() is { } arguments)
         {
             Helpers.AddWhereStartsWith(arguments, results, wordToComplete);
         }

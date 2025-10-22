@@ -529,6 +529,10 @@ git push origin v1.0.0
 - ✅ CompletionCache with usage tracking (`IncrementUsage()` method ready)
 - ✅ IPC protocol includes score field in CompletionItem
 - ✅ Cache statistics endpoint implemented
+- ✅ **Performance Optimization** (2025-01-22): `includeDynamicArguments` parameter added
+  - ICommandPredictor skips slow operations (git branches, scoop packages) for fast responses
+  - ArgumentCompleter includes all completions for comprehensive Tab suggestions
+  - IPC protocol updated to support the flag
 
 **Remaining work:**
 - [ ] Implement IFeedbackProvider in PSCue.Module

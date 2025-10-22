@@ -1,4 +1,4 @@
-﻿using PSCue.Shared.Completions;
+using PSCue.Shared.Completions;
 using PSCue.Shared.KnownCompletions;
 using PSCue.Shared.KnownCompletions.Azure;
 
@@ -7,9 +7,12 @@ namespace PSCue.Shared;
 public static class CommandCompleter
 {
     public static IEnumerable<ICompletion> GetCompletions(ReadOnlySpan<char> commandLine) =>
-        GetCompletions(commandLine, default);
+        GetCompletions(commandLine, default, includeDynamicArguments: true);
 
-    public static IEnumerable<ICompletion> GetCompletions(ReadOnlySpan<char> commandLine, ReadOnlySpan<char> wordToComplete)
+    public static IEnumerable<ICompletion> GetCompletions(ReadOnlySpan<char> commandLine, ReadOnlySpan<char> wordToComplete) =>
+        GetCompletions(commandLine, wordToComplete, includeDynamicArguments: true);
+
+    public static IEnumerable<ICompletion> GetCompletions(ReadOnlySpan<char> commandLine, ReadOnlySpan<char> wordToComplete, bool includeDynamicArguments)
     {
         var length = GetCommandLength(commandLine);
 
@@ -93,7 +96,7 @@ public static class CommandCompleter
 
         return currentCompletion switch
         {
-            ICompletionWithChildren cwc => cwc.GetCompletions(searchTerm).OrderBy(c => c.CompletionText),
+            ICompletionWithChildren cwc => cwc.GetCompletions(searchTerm, includeDynamicArguments).OrderBy(c => c.CompletionText),
             not null => [currentCompletion],
             null => []
         };
