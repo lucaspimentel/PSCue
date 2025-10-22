@@ -17,30 +17,44 @@ PSCue/
 ├── src/
 │   ├── PSCue.ArgumentCompleter/         # Native executable (C#, NativeAOT)
 │   │   ├── PSCue.ArgumentCompleter.csproj
-│   │   ├── Program.cs
-│   │   ├── CommandCompleter.cs
-│   │   ├── IpcClient.cs                 # Named Pipe client for communicating with Predictor
-│   │   ├── Completions/                 # Copied from pwsh-argument-completer
-│   │   ├── KnownCompletions/            # Copied from pwsh-argument-completer
-│   │   └── ...
+│   │   ├── Program.cs                   # Entry point for Tab completion
+│   │   ├── Logger.cs                    # Debug logging
+│   │   ├── AssemblyInfo.cs              # NativeAOT trim settings
+│   │   └── IpcClient.cs                 # (future) Named Pipe client for communicating with Predictor
 │   │
 │   ├── PSCue.CommandPredictor/          # DLL for ICommandPredictor + IFeedbackProvider (C#)
 │   │   ├── PSCue.CommandPredictor.csproj
-│   │   ├── Init.cs                      # Module initializer
-│   │   ├── CommandCompleterPredictor.cs # ICommandPredictor implementation
-│   │   ├── FeedbackProvider.cs          # IFeedbackProvider - learns from command execution
-│   │   ├── IpcServer.cs                 # Named Pipe server for serving completions
-│   │   ├── CompletionCache.cs           # Cache with usage tracking and learning
-│   │   └── ...
+│   │   ├── Init.cs                      # IModuleAssemblyInitializer - auto-registers predictor ✅
+│   │   ├── CommandCompleterPredictor.cs # ICommandPredictor implementation ✅
+│   │   ├── FeedbackProvider.cs          # (future) IFeedbackProvider - learns from command execution
+│   │   ├── IpcServer.cs                 # (future) Named Pipe server for serving completions
+│   │   └── CompletionCache.cs           # (future) Cache with usage tracking and learning
 │   │
-│   ├── PSCue.Cli/                       # CLI testing tool (optional)
-│   │   ├── PSCue.Cli.csproj
-│   │   └── Program.cs
+│   ├── PSCue.Shared/                    # Shared completion logic ✅
+│   │   ├── PSCue.Shared.csproj
+│   │   ├── CommandCompleter.cs          # Main completion orchestrator
+│   │   ├── Logger.cs                    # Debug logging
+│   │   ├── Helpers.cs                   # Utility functions
+│   │   ├── Completions/                 # Completion framework
+│   │   │   ├── ICompletion.cs
+│   │   │   ├── Command.cs
+│   │   │   ├── CommandParameter.cs
+│   │   │   ├── StaticArgument.cs
+│   │   │   └── DynamicArgument.cs
+│   │   ├── KnownCompletions/            # Command-specific completions
+│   │   │   ├── GitCommand.cs
+│   │   │   ├── GhCommand.cs
+│   │   │   ├── ScoopCommand.cs
+│   │   │   ├── WingetCommand.cs
+│   │   │   └── Azure/
+│   │   │       ├── AzCommand.cs
+│   │   │       ├── AzdCommand.cs
+│   │   │       └── FuncCommand.cs
+│   │   └── IpcProtocol.cs               # (future) IPC protocol definitions
 │   │
-│   └── PSCue.Shared/                    # Shared code/utilities (if needed)
-│       ├── PSCue.Shared.csproj
-│       ├── IpcProtocol.cs               # Shared IPC protocol definitions
-│       └── CompletionModels.cs          # Shared completion data models
+│   └── PSCue.Cli/                       # CLI testing tool ✅
+│       ├── PSCue.Cli.csproj
+│       └── Program.cs
 │
 ├── module/
 │   ├── PSCue.psd1                       # Module manifest

@@ -115,20 +115,9 @@ gh pr create            # Suggests: --title "..." --body "..."
 
 Press `→` (right arrow) to accept the suggestion.
 
-### Learning System (PowerShell 7.4+)
+### Learning System (Coming Soon - PowerShell 7.4+)
 
-PSCue learns from your command execution patterns:
-
-```powershell
-# You frequently use: git commit -am "message"
-# PSCue learns this pattern and prioritizes -am flag in future suggestions
-```
-
-**Note**: Learning features require PowerShell 7.4+ and the `PSFeedbackProvider` experimental feature:
-
-```powershell
-Enable-ExperimentalFeature PSFeedbackProvider
-```
+**Note**: Advanced learning features are planned for a future release and will require PowerShell 7.4+ with the `IFeedbackProvider` API.
 
 ## Architecture
 
@@ -144,7 +133,13 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 - **Binary**: `PSCue.CommandPredictor.dll` (Managed)
 - **Purpose**: Provides inline suggestions via `ICommandPredictor`
 - **Lifetime**: Loaded once with PowerShell module
-- **Features**: Maintains cache, learns patterns, shares state
+- **Features**: Uses shared completion logic from PSCue.Shared.dll
+
+### Shared Completion Logic
+- **Binary**: `PSCue.Shared.dll` (Managed)
+- **Purpose**: Contains all command completion logic
+- **Used by**: Both ArgumentCompleter (via NativeAOT compilation) and CommandPredictor
+- **Benefits**: Consistent suggestions, easier maintenance, avoids NativeAOT reference issues
 
 ```
 ┌─────────────────────────────────────┐
@@ -152,7 +147,8 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 ├─────────────────────────────────────┤
 │  PSCue.CommandPredictor.dll        │
 │  - ICommandPredictor (suggestions)  │
-│  - IFeedbackProvider (learning)     │
+│  - Uses PSCue.Shared.dll            │
+│  - Future: IFeedbackProvider        │
 │  - Future: IPC Server               │
 └─────────────────────────────────────┘
            ↕ (Future IPC)
@@ -161,7 +157,7 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 ├─────────────────────────────────────┤
 │  pscue-completer.exe                │
 │  - Fast startup (<10ms)             │
-│  - Local completion logic           │
+│  - Uses PSCue.Shared.dll (compiled) │
 │  - Future: IPC Client               │
 └─────────────────────────────────────┘
 ```
@@ -254,11 +250,13 @@ TabExpansion2 'git checkout ma' 15
 
 ## Roadmap
 
-### Current Phase: Documentation ✅
+### Current Status ✅
 
-- [x] Comprehensive README
-- [ ] LICENSE file
-- [ ] CONTRIBUTING.md (optional)
+- [x] Tab completion working (ArgumentCompleter)
+- [x] Inline predictions working (CommandPredictor)
+- [x] Shared completion logic (PSCue.Shared)
+- [x] Multi-platform CI/CD
+- [x] Comprehensive documentation
 
 ### Future Phases
 
@@ -268,7 +266,7 @@ TabExpansion2 'git checkout ma' 15
   - <5ms IPC round-trip target
 
 - **Phase 9**: Feedback Provider (Learning System)
-  - Full `IFeedbackProvider` implementation
+  - Full `IFeedbackProvider` implementation (PowerShell 7.4+)
   - Usage tracking and priority scoring
   - Personalized completions based on command history
 
@@ -293,12 +291,13 @@ Contributions are welcome! Please feel free to:
 
 To add completions for a new command:
 
-1. Create a new file in `src/PSCue.ArgumentCompleter/KnownCompletions/YourCommand.cs`
+1. Create a new file in `src/PSCue.Shared/KnownCompletions/YourCommand.cs`
 2. Implement the `ICompletion` interface
-3. Add tests in `test/PSCue.ArgumentCompleter.Tests/`
-4. Register the completer in `module/PSCue.psm1`
+3. Add the command to `CommandCompleter.cs` switch statement
+4. Add tests in `test/PSCue.ArgumentCompleter.Tests/`
+5. Register the completer in `module/PSCue.psm1`
 
-See existing completions like `GitCommand.cs` or `ScoopCommand.cs` for examples.
+See existing completions like `GitCommand.cs` or `ScoopCommand.cs` for examples in `src/PSCue.Shared/KnownCompletions/`.
 
 ## Troubleshooting
 
@@ -316,7 +315,12 @@ See existing completions like `GitCommand.cs` or `ScoopCommand.cs` for examples.
    ```
 2. Check predictor is registered:
    ```powershell
-   Get-PSSubsystem -Kind CommandPredictor
+   Get-PSSubsystem -Kind CommandPredictor | Select-Object -ExpandProperty Implementations
+   # Should show: PSCue (01a1e2c5-fbc1-4cf3-8178-ac2e55232434)
+   ```
+3. Test predictor manually:
+   ```powershell
+   pwsh -NoProfile -File test-inline-predictions.ps1  # If running from source
    ```
 
 ### Platform-specific issues
