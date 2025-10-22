@@ -52,21 +52,39 @@ public static class ScoopCommand
                 new("cache", "Show or clear the download cache"),
                 new("cat", "Show content of specified manifest."),
                 new("checkup", "Check for potential problems"),
-                new("cleanup", "Cleanup apps by removing old versions"),
+                new("cleanup", "Cleanup apps by removing old versions")
+                {
+                    DynamicArguments = GetInstalledPackages
+                },
                 new("config", "Get or set configuration values"),
                 new("create", "Create a custom app manifest"),
                 new("depends", "List dependencies for an app, in the order they'll be installed"),
                 new("download", "Download apps in the cache folder and verify hashes"),
                 new("export", "Exports installed apps, buckets (and optionally configs) in JSON format"),
                 new("help", "Show help for a command"),
-                new("hold", "Hold an app to disable updates"),
-                new("home", "Opens the app homepage"),
+                new("hold", "Hold an app to disable updates")
+                {
+                    DynamicArguments = GetInstalledPackages
+                },
+                new("home", "Opens the app homepage")
+                {
+                    DynamicArguments = GetInstalledPackages
+                },
                 new("import", "Imports apps, buckets and configs from a Scoopfile in JSON format"),
-                new("info", "Display information about an app"),
+                new("info", "Display information about an app")
+                {
+                    DynamicArguments = GetInstalledPackages
+                },
                 new("install", "Install apps"),
                 new("list", "List installed apps"),
-                new("prefix", "Returns the path to the specified app"),
-                new("reset", "Reset an app to resolve conflicts"),
+                new("prefix", "Returns the path to the specified app")
+                {
+                    DynamicArguments = GetInstalledPackages
+                },
+                new("reset", "Reset an app to resolve conflicts")
+                {
+                    DynamicArguments = GetInstalledPackages
+                },
                 new("search", "Search available apps"),
                 new("shim", "Manipulate Scoop shims"),
                 new("status", "Show status and check for new app versions")
@@ -76,8 +94,14 @@ public static class ScoopCommand
                         new("--local", "Checks the status for only the locally installed apps, and disables remote fetching/checking for Scoop and buckets (-l)") { Alias = "-l" }
                     ]
                 },
-                new("unhold", "Unhold an app to enable updates"),
-                new("uninstall", "Uninstall an app"),
+                new("unhold", "Unhold an app to enable updates")
+                {
+                    DynamicArguments = GetInstalledPackages
+                },
+                new("uninstall", "Uninstall an app")
+                {
+                    DynamicArguments = GetInstalledPackages
+                },
                 new("update", "Update apps, or Scoop itself")
                 {
                     Parameters = [new("*", "Update all apps")],
