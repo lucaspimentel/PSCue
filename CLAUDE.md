@@ -205,8 +205,42 @@ Current phase: **Phase 7** (Documentation)
 - Created Release workflow for automated binary releases
 - Skipped macOS x64 (Intel) support - focusing on Apple Silicon (osx-arm64)
 - Added minimal README.md with installation instructions
+- Fixed platform-specific tests using Xunit.SkippableFact
+- CI now passing on all platforms (Windows, macOS, Linux)
 
 ## Troubleshooting Guide
+
+### Platform-Specific Tests in CI
+
+When tests fail on Linux/macOS but pass on Windows:
+
+1. **Identify Windows-only tools**: Commands like `winget` and `scoop` only exist on Windows
+2. **Use SkippableFact instead of Fact**:
+   ```csharp
+   using System.Runtime.InteropServices;
+   using Xunit;
+
+   [SkippableFact]
+   public void Winget_Install()
+   {
+       Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
+       // Test code...
+   }
+   ```
+3. **Add Xunit.SkippableFact package**: Add to test project csproj:
+   ```xml
+   <PackageReference Include="Xunit.SkippableFact" Version="1.4.13" />
+   ```
+4. **Pattern for bulk updates**: When updating many tests at once, create a PowerShell script that:
+   - Finds `[Fact]` followed by specific test name patterns
+   - Replaces with `[SkippableFact]`
+   - Adds `Skip.IfNot()` check as first line in method body
+
+**Common Windows-only commands to watch for:**
+- `winget` - Windows Package Manager
+- `scoop` - Windows package manager
+- PowerShell 5.1 specific features
 
 ### Testing Installation Scripts
 
