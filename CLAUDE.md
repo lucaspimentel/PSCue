@@ -201,10 +201,14 @@ Current phase: **Phase 8** (IPC Communication Layer) - Ready to start
 - ✅ Phase 7: Documentation
 - ✅ Phase 7.5: CLI Testing Tool
 
-**Known Issues Fixed in Phase 5:**
-- Fixed `$IsWindows` read-only variable conflict in install-local.ps1
-- Fixed PSCue.psm1 completer invocation to pass 3 required arguments (wordToComplete, line, cursorPosition)
-- Updated output parsing from JSON format to pipe-delimited format (completionText|tooltip)
+**Known Issues Fixed:**
+- **Phase 5:**
+  - Fixed `$IsWindows` read-only variable conflict in install-local.ps1
+  - Fixed PSCue.psm1 completer invocation to pass 3 required arguments (wordToComplete, line, cursorPosition)
+  - Updated output parsing from JSON format to pipe-delimited format (completionText|tooltip)
+- **Post-Phase 7.5:**
+  - Fixed install-local.ps1 warning about missing PSCue.ArgumentCompleter.dll (ArgumentCompleter is a NativeAOT exe, not a DLL)
+  - Fixed scoop command completions: added installed package suggestions for uninstall, cleanup, hold, unhold, home, info, prefix, and reset commands
 
 **Phase 6 Highlights:**
 - Created CI workflow for multi-platform builds and tests
