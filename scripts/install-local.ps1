@@ -173,7 +173,6 @@ if (Test-Path $PredictorDllSource) {
 # Copy required dependencies
 $Dependencies = @(
     "PSCue.Shared.dll"
-    "PSCue.ArgumentCompleter.dll"
 )
 
 foreach ($dep in $Dependencies) {
