@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using PSCue.ArgumentCompleter.Completions;
+using PSCue.Shared.Completions;
 
-namespace PSCue.ArgumentCompleter;
+namespace PSCue.Shared;
 
 public static class Helpers
 {

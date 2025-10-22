@@ -128,9 +128,9 @@
 //                          (VMSS).
 //     webapp              : Manage web apps.
 
-using PSCue.ArgumentCompleter.Completions;
+using PSCue.Shared.Completions;
 
-namespace PSCue.ArgumentCompleter.KnownCompletions.Azure;
+namespace PSCue.Shared.KnownCompletions.Azure;
 
 public static class AzCommand
 {

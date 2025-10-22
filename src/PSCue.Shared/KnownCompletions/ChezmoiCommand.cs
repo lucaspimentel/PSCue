@@ -76,9 +76,9 @@
 //
 // Use "chezmoi [command] --help" for more information about a command.
 
-using PSCue.ArgumentCompleter.Completions;
+using PSCue.Shared.Completions;
 
-namespace PSCue.ArgumentCompleter.KnownCompletions;
+namespace PSCue.Shared.KnownCompletions;
 
 public static class ChezmoiCommand
 {

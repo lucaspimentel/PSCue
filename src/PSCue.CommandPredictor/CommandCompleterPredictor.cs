@@ -1,5 +1,5 @@
 ﻿using System.Management.Automation.Subsystem.Prediction;
-using PSCue.ArgumentCompleter;
+using PSCue.Shared;
 
 namespace PSCue.CommandPredictor;
 

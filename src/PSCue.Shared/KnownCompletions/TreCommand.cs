@@ -14,9 +14,9 @@
 //     -p, --portable              Generate portable (absolute) paths for editor aliases
 //     -V, --version               Print version information
 
-using PSCue.ArgumentCompleter.Completions;
+using PSCue.Shared.Completions;
 
-namespace PSCue.ArgumentCompleter.KnownCompletions;
+namespace PSCue.Shared.KnownCompletions;
 
 public static class TreCommand
 {

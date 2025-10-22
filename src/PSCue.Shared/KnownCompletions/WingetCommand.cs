@@ -40,9 +40,9 @@
 //
 // More help can be found at: https://aka.ms/winget-command-help
 
-using PSCue.ArgumentCompleter.Completions;
+using PSCue.Shared.Completions;
 
-namespace PSCue.ArgumentCompleter.KnownCompletions;
+namespace PSCue.Shared.KnownCompletions;
 
 public static class WingetCommand
 {

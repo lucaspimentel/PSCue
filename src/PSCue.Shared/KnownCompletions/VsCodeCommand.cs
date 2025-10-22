@@ -107,9 +107,9 @@
 //                machines through a secure tunnel
 //   serve-web    Run a server that displays the editor UI in browsers.
 
-using PSCue.ArgumentCompleter.Completions;
+using PSCue.Shared.Completions;
 
-namespace PSCue.ArgumentCompleter.KnownCompletions;
+namespace PSCue.Shared.KnownCompletions;
 
 public static class VsCodeCommand
 {

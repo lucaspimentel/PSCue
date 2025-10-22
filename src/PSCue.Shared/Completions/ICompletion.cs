@@ -1,4 +1,4 @@
-namespace PSCue.ArgumentCompleter.Completions;
+namespace PSCue.Shared.Completions;
 
 public interface ICompletion
 {

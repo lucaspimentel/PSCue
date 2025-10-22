@@ -31,9 +31,9 @@
 //    status        Print information about relevant issues, pull requests, and notifications
 //    variable      Manage GitHub Actions variables
 
-using PSCue.ArgumentCompleter.Completions;
+using PSCue.Shared.Completions;
 
-namespace PSCue.ArgumentCompleter.KnownCompletions;
+namespace PSCue.Shared.KnownCompletions;
 
 public static class GhCommand
 {

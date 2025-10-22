@@ -35,9 +35,9 @@
 // virustotal Look for app's hash or url on virustotal.com
 // which      Locate a shim/executable (similar to 'which' on Linux)
 
-using PSCue.ArgumentCompleter.Completions;
+using PSCue.Shared.Completions;
 
-namespace PSCue.ArgumentCompleter.KnownCompletions;
+namespace PSCue.Shared.KnownCompletions;
 
 public static class ScoopCommand
 {

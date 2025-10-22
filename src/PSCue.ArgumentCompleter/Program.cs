@@ -1,4 +1,6 @@
-﻿namespace PSCue.ArgumentCompleter;
+using PSCue.Shared;
+
+namespace PSCue.ArgumentCompleter;
 
 // https://learn.microsoft.com/en-us/powershell/scripting/learn/shell/tab-completion
 // https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/register-argumentcompleter

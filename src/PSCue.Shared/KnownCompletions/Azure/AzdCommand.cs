@@ -94,9 +94,9 @@
 //     -h, --help          : Gets help for init.
 //         --no-prompt     : Accepts the default value instead of prompting, or it fails if there is no default.
 
-using PSCue.ArgumentCompleter.Completions;
+using PSCue.Shared.Completions;
 
-namespace PSCue.ArgumentCompleter.KnownCompletions.Azure;
+namespace PSCue.Shared.KnownCompletions.Azure;
 
 public static class AzdCommand
 {

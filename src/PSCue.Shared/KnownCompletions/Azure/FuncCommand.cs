@@ -61,9 +61,9 @@
 //     --platform Hosting platform for the function app. Valid options: kubernetes
 //     --name     Function name
 
-using PSCue.ArgumentCompleter.Completions;
+using PSCue.Shared.Completions;
 
-namespace PSCue.ArgumentCompleter.KnownCompletions.Azure;
+namespace PSCue.Shared.KnownCompletions.Azure;
 
 public static class FuncCommand
 {

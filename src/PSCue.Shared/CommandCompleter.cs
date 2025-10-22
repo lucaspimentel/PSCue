@@ -1,8 +1,8 @@
-﻿using PSCue.ArgumentCompleter.Completions;
-using PSCue.ArgumentCompleter.KnownCompletions;
-using PSCue.ArgumentCompleter.KnownCompletions.Azure;
+﻿using PSCue.Shared.Completions;
+using PSCue.Shared.KnownCompletions;
+using PSCue.Shared.KnownCompletions.Azure;
 
-namespace PSCue.ArgumentCompleter;
+namespace PSCue.Shared;
 
 public static class CommandCompleter
 {

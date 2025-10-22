@@ -1,4 +1,4 @@
-namespace PSCue.ArgumentCompleter.KnownCompletions;
+namespace PSCue.Shared.KnownCompletions;
 
 using Completions;
 

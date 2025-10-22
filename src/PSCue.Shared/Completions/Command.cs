@@ -1,4 +1,4 @@
-﻿namespace PSCue.ArgumentCompleter.Completions;
+﻿namespace PSCue.Shared.Completions;
 
 public delegate IEnumerable<DynamicArgument> DynamicArgumentsFactory();
 

@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace PSCue.ArgumentCompleter.Completions;
+namespace PSCue.Shared.Completions;
 
 [DebuggerDisplay("{CompletionText,nq}")]
 public sealed class DynamicArgument(string completionText, string? tooltip = null)

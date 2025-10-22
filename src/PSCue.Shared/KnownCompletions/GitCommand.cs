@@ -33,9 +33,9 @@
 //    tag        Create, list, delete or verify a tag object signed with GPG
 //    worktree   Manage multiple working trees
 
-using PSCue.ArgumentCompleter.Completions;
+using PSCue.Shared.Completions;
 
-namespace PSCue.ArgumentCompleter.KnownCompletions;
+namespace PSCue.Shared.KnownCompletions;
 
 public static class GitCommand
 {
