@@ -363,9 +363,11 @@ public class CommandCompleterTests
             .And.Contain(x => x.CompletionText == "m");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Winget()
     {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
+
         CommandCompleter.GetCompletions("winget")
             .Should().Contain(x => x.CompletionText == "install")
             .And.Contain(x => x.CompletionText == "search")
