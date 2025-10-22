@@ -14,6 +14,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- PowerShell SDK for PredictionContext and PredictionClient -->
+    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.0">
+      <ExcludeAssets>contentFiles</ExcludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\PSCue.ArgumentCompleter\PSCue.ArgumentCompleter.csproj" />
     <ProjectReference Include="..\PSCue.CommandPredictor\PSCue.CommandPredictor.csproj" />
     <ProjectReference Include="..\PSCue.Shared\PSCue.Shared.csproj" />

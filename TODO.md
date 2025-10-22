@@ -446,11 +446,13 @@ git push origin v1.0.0
 - [x] Document differences from original projects in README
 - [ ] Create CONTRIBUTING.md (optional - deferred)
 
-### Phase 7.5: Optional - CLI Testing Tool
-- [ ] Create `src/PSCue.Cli/` for testing
-- [ ] Copy Program.cs from pwsh-command-predictor CLI
-- [ ] Update to use PSCue namespaces
-- [ ] Test: `dotnet run --project src/PSCue.Cli/ -- "git che"`
+### Phase 7.5: Optional - CLI Testing Tool ✅
+- [x] Create `src/PSCue.Cli/` for testing
+- [x] Copy Program.cs from pwsh-command-predictor CLI
+- [x] Update to use PSCue namespaces
+- [x] Add PowerShell SDK package reference
+- [x] Test: `dotnet run --project src/PSCue.Cli/ -- "git commit"`
+- [x] Verified CLI tool works for git, scoop, and other commands
 
 ### Phase 8: IPC Communication Layer
 - [ ] Design IPC protocol schema (request/response format)
