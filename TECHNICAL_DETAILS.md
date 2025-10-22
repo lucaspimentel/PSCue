@@ -302,8 +302,7 @@ cherry-pick     Apply the changes introduced by some existing commits
 - `src/PSCue.ArgumentCompleter/Program.cs` - Entry point (tries IPC, falls back to local)
 
 **Testing:**
-- `test-ipc.ps1` - IPC connectivity and functionality test
-- `test-ipc-simple.ps1` - Simplified IPC test
+- `test-scripts/` - Manual test scripts for IPC, predictors, and inline predictions
 - `test/PSCue.ArgumentCompleter.Tests/` - Unit tests for completion logic
 - `test/PSCue.CommandPredictor.Tests/` - Unit tests for predictor logic
 
