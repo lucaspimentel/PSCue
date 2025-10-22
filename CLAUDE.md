@@ -93,17 +93,36 @@ Code is copied (not linked) to allow PSCue-specific enhancements.
 ```
 src/
 ├── PSCue.ArgumentCompleter/    # NativeAOT exe
-│   ├── IpcClient.cs            # Connect to CommandPredictor via Named Pipe
-│   └── Completions/            # Local completion logic (fallback)
+│   ├── Program.cs              # Entry point for Tab completion
+│   ├── Logger.cs               # Debug logging
+│   └── AssemblyInfo.cs         # NativeAOT trim settings
 ├── PSCue.CommandPredictor/     # Managed DLL
-│   ├── Init.cs                 # Module initialization
+│   ├── Init.cs                 # IModuleAssemblyInitializer - auto-registers predictor
 │   ├── CommandCompleterPredictor.cs  # ICommandPredictor implementation
-│   ├── FeedbackProvider.cs     # IFeedbackProvider - learns from execution
-│   ├── IpcServer.cs            # Named Pipe server
-│   └── CompletionCache.cs      # Cache with usage tracking and scoring
-└── PSCue.Shared/               # Shared protocol/models
-    ├── IpcProtocol.cs          # Request/response definitions
-    └── CompletionModels.cs     # Completion data structures (includes scores)
+│   ├── FeedbackProvider.cs     # IFeedbackProvider - learns from execution (future)
+│   ├── IpcServer.cs            # Named Pipe server (future)
+│   └── CompletionCache.cs      # Cache with usage tracking and scoring (future)
+└── PSCue.Shared/               # Shared completion logic
+    ├── CommandCompleter.cs     # Main completion orchestrator
+    ├── Logger.cs               # Debug logging
+    ├── Helpers.cs              # Utility functions
+    ├── Completions/            # Completion framework
+    │   ├── ICompletion.cs      # Base completion interface
+    │   ├── Command.cs          # Command node
+    │   ├── CommandParameter.cs # Parameter/flag node
+    │   ├── StaticArgument.cs   # Static argument values
+    │   └── DynamicArgument.cs  # Dynamic argument provider
+    ├── KnownCompletions/       # Command-specific completions
+    │   ├── GitCommand.cs       # git completions
+    │   ├── GhCommand.cs        # GitHub CLI
+    │   ├── ScoopCommand.cs     # Scoop package manager
+    │   ├── WingetCommand.cs    # Windows Package Manager
+    │   ├── VsCodeCommand.cs    # VS Code CLI
+    │   └── Azure/              # Azure tools
+    │       ├── AzCommand.cs    # Azure CLI
+    │       ├── AzdCommand.cs   # Azure Developer CLI
+    │       └── FuncCommand.cs  # Azure Functions Core Tools
+    └── IpcProtocol.cs          # IPC definitions (future)
 ```
 
 ### Namespaces
@@ -132,8 +151,29 @@ dotnet build src/PSCue.CommandPredictor/ -c Release -f net9.0
 dotnet test test/PSCue.ArgumentCompleter.Tests/
 dotnet test test/PSCue.CommandPredictor.Tests/
 
-# CLI testing tool
+# CLI testing tool (tests CommandPredictor GetSuggestion)
 dotnet run --project src/PSCue.Cli/ -- "git checkout ma"
+
+# Test predictor registration and GetSuggestion
+pwsh -NoProfile -File test-inline-predictions.ps1
+
+# Test manual IModuleAssemblyInitializer.OnImport()
+pwsh -NoProfile -File test-manual-init.ps1
+
+# Test predictor subsystem registration
+pwsh -NoProfile -File test-predictor.ps1
+```
+
+**Testing inline predictions interactively**:
+```powershell
+# Load the module
+Import-Module ~/.local/pwsh-modules/PSCue/PSCue.psd1
+
+# Enable inline predictions
+Set-PSReadLineOption -PredictionSource HistoryAndPlugin
+
+# Type a command and wait - suggestions appear in gray text
+git checkout ma<wait for suggestion>
 ```
 
 ## Installation
@@ -158,12 +198,19 @@ Installs to: `~/.local/pwsh-modules/PSCue/`
 
 1. **NativeAOT for ArgumentCompleter**: Fast startup critical for Tab completion responsiveness
 2. **Managed DLL for Predictor**: Needs PowerShell SDK, doesn't need fast startup
-3. **Named Pipes for IPC**: Cross-platform, secure, efficient (<5ms round-trip target)
-4. **PowerShell Core only**: No PowerShell 5.1 support, requires 7.2+ minimum
+3. **Shared completion logic in PSCue.Shared**: Avoids NativeAOT assembly reference issues
+   - ArgumentCompleter (NativeAOT exe) cannot be referenced by CommandPredictor at runtime
+   - Solution: Move all completion logic to PSCue.Shared (managed DLL)
+   - Both projects reference PSCue.Shared for consistent behavior
+4. **NestedModules in manifest**: Required for IModuleAssemblyInitializer to trigger
+   - CommandPredictor.dll must be listed in PSCue.psd1 NestedModules
+   - Loading via Import-Module in .psm1 does NOT trigger IModuleAssemblyInitializer
+5. **Named Pipes for IPC** (future): Cross-platform, secure, efficient (<5ms round-trip target)
+6. **PowerShell Core only**: No PowerShell 5.1 support, requires 7.2+ minimum
    - **IFeedbackProvider requires 7.4+**: Module works on 7.2-7.3 but without learning features
-5. **No git submodules**: Clean copy from source projects allows independent evolution
-6. **Session-specific pipe names**: Use `PSCue-{PID}` to avoid conflicts between PowerShell sessions
-7. **Learning via IFeedbackProvider**: Creates true personalized completion system
+7. **No git submodules**: Clean copy from source projects allows independent evolution
+8. **Session-specific pipe names** (future): Use `PSCue-{PID}` to avoid conflicts between PowerShell sessions
+9. **Learning via IFeedbackProvider** (future): Creates true personalized completion system
    - Tracks command frequency, flag combinations, argument patterns
    - Updates cache priority scores based on actual usage
    - Both Tab completion and inline suggestions benefit from learned behavior
@@ -189,7 +236,7 @@ Installs to: `~/.local/pwsh-modules/PSCue/`
 
 See TODO.md for detailed implementation plan and progress tracking.
 
-Current phase: **Phase 8** (IPC Communication Layer) - Ready to start
+**Current Status**: Basic inline predictions working! Both Tab completion (ArgumentCompleter) and inline suggestions (CommandPredictor) are functional.
 
 **Completed phases:**
 - ✅ Phase 1: Project Structure Setup
@@ -200,6 +247,12 @@ Current phase: **Phase 8** (IPC Communication Layer) - Ready to start
 - ✅ Phase 6: GitHub Actions & CI/CD
 - ✅ Phase 7: Documentation
 - ✅ Phase 7.5: CLI Testing Tool
+- ✅ **CommandPredictor Registration**: Fixed IModuleAssemblyInitializer and NativeAOT issues
+
+**Next phases** (future enhancements):
+- Phase 8: IPC Communication Layer (ArgumentCompleter ↔ CommandPredictor)
+- Phase 9: CompletionCache with usage tracking
+- Phase 10: IFeedbackProvider for learning from command execution
 
 **Known Issues Fixed:**
 - **Phase 5:**
@@ -209,6 +262,11 @@ Current phase: **Phase 8** (IPC Communication Layer) - Ready to start
 - **Post-Phase 7.5:**
   - Fixed install-local.ps1 warning about missing PSCue.ArgumentCompleter.dll (ArgumentCompleter is a NativeAOT exe, not a DLL)
   - Fixed scoop command completions: added installed package suggestions for uninstall, cleanup, hold, unhold, home, info, prefix, and reset commands
+- **CommandPredictor Registration (2025-01-22):**
+  - Fixed IModuleAssemblyInitializer not being called: Added CommandPredictor.dll to NestedModules in PSCue.psd1
+  - Fixed NativeAOT assembly reference error: Moved completion logic from ArgumentCompleter to PSCue.Shared
+  - CommandPredictor now successfully registers and provides inline suggestions
+  - Test files added: test-predictor.ps1, test-manual-init.ps1, test-inline-predictions.ps1
 
 **Phase 6 Highlights:**
 - Created CI workflow for multi-platform builds and tests
