@@ -50,12 +50,43 @@ internal static class Program
                 commandAst.AsSpan(0, cursorPosition) :
                 commandAst.AsSpan();
 
-            var completions = CommandCompleter.GetCompletions(truncatedCommandAst, wordToComplete);
+            // Extract the main command for IPC request
+            var commandLine = truncatedCommandAst.ToString();
+            var firstSpaceIndex = commandLine.IndexOf(' ');
+            var mainCommand = firstSpaceIndex > 0 ? commandLine[..firstSpaceIndex] : commandLine;
 
-            foreach (var completion in completions)
+            // Try IPC first (fast path if CommandPredictor is loaded)
+            var ipcResponse = IpcClient.TryGetCompletions(mainCommand, commandLine, wordToComplete, cursorPosition);
+
+            if (ipcResponse != null && ipcResponse.Completions.Length > 0)
             {
-                // completionText|toolTip
-                Output($"{completion.CompletionText}|{completion.Tooltip ?? completion.CompletionText}");
+                // Use IPC results
+                if (Debug)
+                {
+                    Logger.Write($"Using IPC completions (cached: {ipcResponse.Cached})");
+                }
+
+                foreach (var completion in ipcResponse.Completions)
+                {
+                    // completionText|toolTip
+                    Output($"{completion.Text}|{completion.Description ?? completion.Text}");
+                }
+            }
+            else
+            {
+                // Fallback to local completion logic
+                if (Debug)
+                {
+                    Logger.Write("Using local completions (IPC unavailable)");
+                }
+
+                var completions = CommandCompleter.GetCompletions(truncatedCommandAst, wordToComplete);
+
+                foreach (var completion in completions)
+                {
+                    // completionText|toolTip
+                    Output($"{completion.CompletionText}|{completion.Tooltip ?? completion.CompletionText}");
+                }
             }
         }
         catch (Exception ex)

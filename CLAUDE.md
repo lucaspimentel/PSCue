@@ -7,8 +7,8 @@ PSCue is a unified PowerShell module that provides intelligent command-line comp
 **Key Components**:
 1. **PSCue.ArgumentCompleter** - NativeAOT executable for fast Tab completion via `Register-ArgumentCompleter`
 2. **PSCue.CommandPredictor** - Managed DLL implementing `ICommandPredictor` (inline suggestions) and `IFeedbackProvider` (learning)
-3. **IPC Communication Layer** - Named Pipe-based API for state sharing and learning feedback loop
-4. **CompletionCache** - Smart cache with usage tracking and priority scoring
+3. **IPC Communication Layer** - Named Pipe-based API for state sharing and learning feedback loop ✅ **IMPLEMENTED**
+4. **CompletionCache** - Smart cache with usage tracking and priority scoring ✅ **IMPLEMENTED**
 
 ## Architecture Philosophy
 
@@ -94,16 +94,19 @@ Code is copied (not linked) to allow PSCue-specific enhancements.
 src/
 ├── PSCue.ArgumentCompleter/    # NativeAOT exe
 │   ├── Program.cs              # Entry point for Tab completion
+│   ├── IpcClient.cs            # Named Pipe client ✅
 │   ├── Logger.cs               # Debug logging
 │   └── AssemblyInfo.cs         # NativeAOT trim settings
 ├── PSCue.CommandPredictor/     # Managed DLL
-│   ├── Init.cs                 # IModuleAssemblyInitializer - auto-registers predictor
+│   ├── Init.cs                 # IModuleAssemblyInitializer - auto-registers predictor & starts IPC server ✅
 │   ├── CommandCompleterPredictor.cs  # ICommandPredictor implementation
-│   ├── FeedbackProvider.cs     # IFeedbackProvider - learns from execution (future)
-│   ├── IpcServer.cs            # Named Pipe server (future)
-│   └── CompletionCache.cs      # Cache with usage tracking and scoring (future)
+│   ├── IpcServer.cs            # Named Pipe server ✅
+│   ├── CompletionCache.cs      # Cache with usage tracking and scoring ✅
+│   └── FeedbackProvider.cs     # IFeedbackProvider - learns from execution (Phase 9)
 └── PSCue.Shared/               # Shared completion logic
     ├── CommandCompleter.cs     # Main completion orchestrator
+    ├── IpcProtocol.cs          # IPC request/response definitions ✅
+    ├── IpcJsonContext.cs       # JSON source generation for NativeAOT ✅
     ├── Logger.cs               # Debug logging
     ├── Helpers.cs              # Utility functions
     ├── Completions/            # Completion framework
@@ -122,7 +125,6 @@ src/
     │       ├── AzCommand.cs    # Azure CLI
     │       ├── AzdCommand.cs   # Azure Developer CLI
     │       └── FuncCommand.cs  # Azure Functions Core Tools
-    └── IpcProtocol.cs          # IPC definitions (future)
 ```
 
 ### Namespaces
@@ -205,15 +207,21 @@ Installs to: `~/.local/pwsh-modules/PSCue/`
 4. **NestedModules in manifest**: Required for IModuleAssemblyInitializer to trigger
    - CommandPredictor.dll must be listed in PSCue.psd1 NestedModules
    - Loading via Import-Module in .psm1 does NOT trigger IModuleAssemblyInitializer
-5. **Named Pipes for IPC** (future): Cross-platform, secure, efficient (<5ms round-trip target)
+5. **Named Pipes for IPC** ✅ **IMPLEMENTED**: Cross-platform, secure, efficient (<5ms round-trip target)
+   - Uses `System.IO.Pipes.NamedPipeServerStream` and `NamedPipeClientStream`
+   - Works on Windows (Named Pipes) and Linux/macOS (Unix Domain Sockets) transparently
+   - JSON-based protocol with source generation for NativeAOT compatibility
 6. **PowerShell Core only**: No PowerShell 5.1 support, requires 7.2+ minimum
    - **IFeedbackProvider requires 7.4+**: Module works on 7.2-7.3 but without learning features
 7. **No git submodules**: Clean copy from source projects allows independent evolution
-8. **Session-specific pipe names** (future): Use `PSCue-{PID}` to avoid conflicts between PowerShell sessions
-9. **Learning via IFeedbackProvider** (future): Creates true personalized completion system
-   - Tracks command frequency, flag combinations, argument patterns
-   - Updates cache priority scores based on actual usage
-   - Both Tab completion and inline suggestions benefit from learned behavior
+8. **Session-specific pipe names** ✅ **IMPLEMENTED**: `PSCue-{PID}` avoids conflicts between PowerShell sessions
+9. **JSON Source Generation** ✅ **IMPLEMENTED**: `IpcJsonContext` for NativeAOT-compatible serialization
+   - Eliminates trimming warnings for ArgumentCompleter
+   - Better performance than reflection-based JSON serialization
+10. **Learning via IFeedbackProvider** (Phase 9): Creates true personalized completion system
+    - Tracks command frequency, flag combinations, argument patterns
+    - Updates cache priority scores based on actual usage
+    - Both Tab completion and inline suggestions benefit from learned behavior
 
 ## Performance Targets
 
@@ -236,7 +244,7 @@ Installs to: `~/.local/pwsh-modules/PSCue/`
 
 See TODO.md for detailed implementation plan and progress tracking.
 
-**Current Status**: Basic inline predictions working! Both Tab completion (ArgumentCompleter) and inline suggestions (CommandPredictor) are functional.
+**Current Status**: IPC communication layer implemented! ArgumentCompleter and CommandPredictor now communicate via Named Pipes with intelligent caching.
 
 **Completed phases:**
 - ✅ Phase 1: Project Structure Setup
@@ -247,12 +255,19 @@ See TODO.md for detailed implementation plan and progress tracking.
 - ✅ Phase 6: GitHub Actions & CI/CD
 - ✅ Phase 7: Documentation
 - ✅ Phase 7.5: CLI Testing Tool
-- ✅ **CommandPredictor Registration**: Fixed IModuleAssemblyInitializer and NativeAOT issues
+- ✅ Phase 8: IPC Communication Layer
+  - Named Pipe server in CommandPredictor
+  - Named Pipe client in ArgumentCompleter
+  - CompletionCache with usage tracking
+  - JSON source generation for NativeAOT
+  - Graceful fallback when IPC unavailable
 
-**Next phases** (future enhancements):
-- Phase 8: IPC Communication Layer (ArgumentCompleter ↔ CommandPredictor)
-- Phase 9: CompletionCache with usage tracking
-- Phase 10: IFeedbackProvider for learning from command execution
+**Next phase** (future enhancements):
+- Phase 9: IFeedbackProvider for learning from command execution
+  - Implement `IFeedbackProvider` interface
+  - Track actual command usage (success/error)
+  - Update cache scores based on usage patterns
+  - Personalize completions based on user behavior
 
 **Known Issues Fixed:**
 - **Phase 5:**

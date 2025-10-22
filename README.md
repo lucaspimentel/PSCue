@@ -8,7 +8,8 @@
 
 - **🚀 Fast Tab Completion**: Native AOT executable for <10ms startup time
 - **💡 Inline Predictions**: Smart command suggestions as you type using `ICommandPredictor`
-- **🧠 Learning System**: Adapts to your command patterns over time (PowerShell 7.4+ with `IFeedbackProvider`)
+- **⚡ IPC Communication**: ArgumentCompleter and CommandPredictor share state via Named Pipes for intelligent caching
+- **🧠 Learning System**: Adapts to your command patterns over time (PowerShell 7.4+ with `IFeedbackProvider` - future)
 - **🔌 Cross-platform**: Windows, macOS (Apple Silicon), and Linux support
 - **📦 Zero Configuration**: Works out of the box after installation
 
@@ -21,9 +22,11 @@ PSCue uses a dual-architecture approach for optimal performance:
 
 This architecture enables:
 - Sub-10ms Tab completion response time
-- Persistent state and caching across completions
+- IPC-based communication for state sharing and intelligent caching
+- Persistent cache across Tab completion requests
 - Consistent suggestions between Tab completion and inline predictions
-- Future IPC-based learning feedback loop (planned)
+- Graceful fallback to local logic when IPC unavailable
+- Future learning feedback loop via `IFeedbackProvider` (Phase 9)
 
 ## Supported Commands
 
@@ -121,19 +124,21 @@ Press `→` (right arrow) to accept the suggestion.
 
 ## Architecture
 
-PSCue uses a two-component architecture optimized for both speed and intelligence:
+PSCue uses a two-component architecture optimized for both speed and intelligence.
+
+> **For detailed technical information**, including IPC protocol details, caching strategy, and implementation notes, see [TECHNICAL_DETAILS.md](TECHNICAL_DETAILS.md).
 
 ### ArgumentCompleter (Short-lived)
 - **Binary**: `pscue-completer.exe` (NativeAOT)
 - **Purpose**: Handles Tab completion via `Register-ArgumentCompleter`
 - **Lifetime**: Launches on each Tab press (~10ms startup)
-- **Features**: Fast, standalone, can optionally communicate with Predictor via IPC (future)
+- **Features**: Fast, standalone, communicates with Predictor via Named Pipes for caching
 
 ### CommandPredictor (Long-lived)
 - **Binary**: `PSCue.CommandPredictor.dll` (Managed)
 - **Purpose**: Provides inline suggestions via `ICommandPredictor`
 - **Lifetime**: Loaded once with PowerShell module
-- **Features**: Uses shared completion logic from PSCue.Shared.dll
+- **Features**: IPC server, intelligent cache, shared completion logic
 
 ### Shared Completion Logic
 - **Binary**: `PSCue.Shared.dll` (Managed)
@@ -147,18 +152,19 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 ├─────────────────────────────────────┤
 │  PSCue.CommandPredictor.dll        │
 │  - ICommandPredictor (suggestions)  │
+│  - IPC Server (Named Pipes)         │
+│  - CompletionCache (5-min TTL)      │
 │  - Uses PSCue.Shared.dll            │
 │  - Future: IFeedbackProvider        │
-│  - Future: IPC Server               │
 └─────────────────────────────────────┘
-           ↕ (Future IPC)
+           ↕ IPC (Named Pipes)
 ┌─────────────────────────────────────┐
 │  Tab Completion                     │
 ├─────────────────────────────────────┤
 │  pscue-completer.exe                │
 │  - Fast startup (<10ms)             │
+│  - IPC Client (with fallback)       │
 │  - Uses PSCue.Shared.dll (compiled) │
-│  - Future: IPC Client               │
 └─────────────────────────────────────┘
 ```
 

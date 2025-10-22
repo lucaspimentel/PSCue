@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using FluentAssertions;
+using PSCue.Shared;
 
 namespace PSCue.ArgumentCompleter.Tests;
 
