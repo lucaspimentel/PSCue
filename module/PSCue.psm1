@@ -79,29 +79,14 @@ foreach ($command in $SupportedCommands) {
     Register-ArgumentCompleter -CommandName $command -ScriptBlock $CompleterScriptBlock
 }
 
-# Load the CommandPredictor DLL (ICommandPredictor auto-registers via IModuleAssemblyInitializer)
-$PredictorDll = Join-Path $ModuleRoot "PSCue.CommandPredictor.dll"
+# CommandPredictor is loaded as a nested module from the PSD1
+# It auto-registers via IModuleAssemblyInitializer.OnImport()
 
-if (Test-Path $PredictorDll) {
-    try {
-        # Import the predictor assembly
-        Import-Module $PredictorDll -ErrorAction Stop
-
-        Write-Verbose "PSCue: Loaded CommandPredictor from: $PredictorDll"
-
-        # Suggest enabling predictions if not already enabled
-        $predictionSource = (Get-PSReadLineOption).PredictionSource
-        if ($predictionSource -eq 'None' -or $predictionSource -eq 'History') {
-            Write-Host "PSCue: To enable inline predictions, run:" -ForegroundColor Cyan
-            Write-Host "  Set-PSReadLineOption -PredictionSource HistoryAndPlugin" -ForegroundColor Yellow
-        }
-    }
-    catch {
-        Write-Warning "PSCue: Failed to load CommandPredictor: $_"
-    }
-} else {
-    Write-Warning "PSCue: CommandPredictor DLL not found at: $PredictorDll"
-    Write-Warning "PSCue: Inline predictions will not be available."
+# Suggest enabling predictions if not already enabled
+$predictionSource = (Get-PSReadLineOption).PredictionSource
+if ($predictionSource -eq 'None' -or $predictionSource -eq 'History') {
+    Write-Host "PSCue: To enable inline predictions, run:" -ForegroundColor Cyan
+    Write-Host "  Set-PSReadLineOption -PredictionSource HistoryAndPlugin" -ForegroundColor Yellow
 }
 
 # Export nothing (we only register completers and load the predictor)

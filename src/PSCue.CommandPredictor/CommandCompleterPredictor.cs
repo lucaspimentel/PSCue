@@ -13,7 +13,7 @@ public class CommandCompleterPredictor : ICommandPredictor
     /// <summary>
     /// Gets the name of a subsystem implementation.
     /// </summary>
-    public string Name => "Arg Completer";
+    public string Name => "PSCue";
 
     /// <summary>
     /// Gets the description of a subsystem implementation.
