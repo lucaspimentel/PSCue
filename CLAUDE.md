@@ -183,13 +183,65 @@ Installs to: `~/.local/pwsh-modules/PSCue/`
 
 See TODO.md for detailed implementation plan and progress tracking.
 
-Current phase: **Phase 5** (Create Installation Scripts)
+Current phase: **Phase 6** (GitHub Actions & CI/CD)
 
 **Completed phases:**
 - ✅ Phase 1: Project Structure Setup
 - ✅ Phase 2: Copy ArgumentCompleter Code
 - ✅ Phase 3: Copy CommandPredictor Code
 - ✅ Phase 4: Create Module Files
+- ✅ Phase 5: Create Installation Scripts
+
+**Known Issues Fixed in Phase 5:**
+- Fixed `$IsWindows` read-only variable conflict in install-local.ps1
+- Fixed PSCue.psm1 completer invocation to pass 3 required arguments (wordToComplete, line, cursorPosition)
+- Updated output parsing from JSON format to pipe-delimited format (completionText|tooltip)
+
+## Troubleshooting Guide
+
+### Testing Installation Scripts
+
+When testing PowerShell installation scripts:
+1. **Always test with `-Force` flag first** to avoid interactive prompts during automated testing
+2. **Check for read-only automatic variables**: `$IsWindows`, `$IsMacOS`, `$IsLinux` cannot be reassigned
+   - Solution: Use different variable names like `$IsWindowsPlatform`
+3. **Verify file paths after installation**: Use `Get-ChildItem` to confirm all expected files were copied
+4. **Test module loading with `-Verbose`**: Helps identify issues with module initialization
+
+### Testing ArgumentCompleter Integration
+
+When the completer returns no output:
+1. **Check the argument count**: The Program.cs expects exactly 3 arguments (line 38-41 in src/PSCue.ArgumentCompleter/Program.cs)
+   - `wordToComplete`, `commandAst`, `cursorPosition`
+2. **Test the executable directly** with correct arguments:
+   ```powershell
+   & 'path/to/pscue-completer.exe' 'che' 'git che' 7
+   ```
+3. **Check output format**: Program.cs outputs pipe-delimited format `completionText|tooltip`, not JSON
+4. **Verify the module script matches the executable's API**:
+   - PSCue.psm1 must pass all 3 arguments to the completer
+   - Output parsing must match the actual format (pipe-delimited, not JSON)
+
+### Testing Tab Completions
+
+Use `TabExpansion2` to test completions programmatically:
+```powershell
+Import-Module ~/.local/pwsh-modules/PSCue/PSCue.psd1
+$result = TabExpansion2 'git che' 7
+$result.CompletionMatches | Select-Object CompletionText, ToolTip
+```
+
+**Common issues**:
+- Cursor position must be valid (≥0 and ≤ command length)
+- For testing, use `$commandLine.Length` as cursor position for end-of-line completions
+
+### Debugging Module Loading
+
+If the CommandPredictor doesn't register:
+1. Check module imports with: `Get-Module PSCue | Format-List NestedModules`
+2. Verify DLL is loaded: The output should show `PSCue.CommandPredictor` in NestedModules
+3. Check for assembly loading errors in verbose output: `Import-Module -Verbose`
+4. Verify IModuleAssemblyInitializer.OnImport() is being called (should register subsystem automatically)
 
 ## Common Tasks for AI Assistants
 

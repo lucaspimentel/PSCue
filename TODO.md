@@ -378,25 +378,33 @@ git push origin v1.0.0
   - [x] Load PSCue.CommandPredictor.dll (auto-registers predictors)
 - [x] Test module loading manually
 
-### Phase 5: Create Installation Scripts
-- [ ] Create `scripts/` directory
-- [ ] Create `scripts/install-local.ps1` (build from source)
-  - [ ] Detect platform (Windows/macOS/Linux, x64/arm64)
-  - [ ] Build ArgumentCompleter with NativeAOT
-  - [ ] Build CommandPredictor
-  - [ ] Create installation directory
-  - [ ] Copy all necessary files
-  - [ ] Display instructions
-- [ ] Create `scripts/install-remote.ps1` (download from GitHub)
-  - [ ] Accept optional $version variable from caller
-  - [ ] Detect platform and map to release asset name
-  - [ ] Query GitHub API for latest release or use specific version
-  - [ ] Download and extract release archive
-  - [ ] Install to ~/.local/pwsh-modules/PSCue/
-  - [ ] Clean up temp files
-  - [ ] Display instructions
-- [ ] Test local installation script on current platform
-- [ ] Verify module works after installation
+### Phase 5: Create Installation Scripts ✅
+- [x] Create `scripts/` directory
+- [x] Create `scripts/install-local.ps1` (build from source)
+  - [x] Detect platform (Windows/macOS/Linux, x64/arm64)
+  - [x] Build ArgumentCompleter with NativeAOT
+  - [x] Build CommandPredictor
+  - [x] Create installation directory
+  - [x] Copy all necessary files
+  - [x] Display instructions
+  - [x] Fixed `$IsWindows` variable conflict (used `$IsWindowsPlatform` instead)
+- [x] Create `scripts/install-remote.ps1` (download from GitHub)
+  - [x] Accept optional $version variable from caller
+  - [x] Detect platform and map to release asset name
+  - [x] Query GitHub API for latest release or use specific version
+  - [x] Download and extract release archive
+  - [x] Install to ~/.local/pwsh-modules/PSCue/
+  - [x] Clean up temp files
+  - [x] Display instructions
+- [x] Test local installation script on current platform
+- [x] Verify module works after installation
+- [x] Fixed PSCue.psm1 completer invocation
+  - [x] Updated to pass 3 required arguments: wordToComplete, line, cursorPosition
+  - [x] Updated output parsing from JSON to pipe-delimited format (completionText|tooltip)
+- [x] Tested completions work correctly:
+  - [x] Git commands (checkout, cherry-pick)
+  - [x] Git flags (commit --all, --amend, --message, etc.)
+  - [x] Scoop commands (import, info, install)
 
 ### Phase 6: GitHub Actions & CI/CD
 - [ ] Create `.github/workflows/` directory
@@ -697,12 +705,12 @@ Response:
 
 ### Phase 1-5 (MVP)
 - [x] Plan documented
-- [ ] Solution builds successfully
+- [x] Solution builds successfully
 - [ ] All tests pass
-- [ ] Module installs correctly
-- [ ] Tab completion works for all supported commands
-- [ ] Inline predictions work with PSReadLine
-- [ ] Works on Windows (minimum)
+- [x] Module installs correctly
+- [x] Tab completion works for all supported commands
+- [ ] Inline predictions work with PSReadLine (needs testing)
+- [x] Works on Windows (minimum)
 
 ### Phase 6 (Documentation)
 - [ ] README is comprehensive

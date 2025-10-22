@@ -26,21 +26,24 @@ $CompleterScriptBlock = if ($CompleterExe) {
     {
         param($wordToComplete, $commandAst, $cursorPosition)
 
-        # Extract the command line up to the cursor position
+        # Extract the command line
         $line = $commandAst.ToString()
 
-        # Call the pscue-completer executable
-        $completions = & $CompleterExe $line
+        # Call the pscue-completer executable with the 3 required arguments
+        $completions = & $CompleterExe $wordToComplete $line $cursorPosition
 
         # Return completion results
         foreach ($completion in $completions) {
-            # The completer returns JSON, parse it
-            $completionObj = $completion | ConvertFrom-Json
+            # The completer returns "completionText|tooltip" format
+            $parts = $completion -split '\|', 2
+            $completionText = $parts[0]
+            $tooltip = if ($parts.Length -gt 1) { $parts[1] } else { $completionText }
+
             [System.Management.Automation.CompletionResult]::new(
-                $completionObj.CompletionText,
-                $completionObj.ListItemText,
-                $completionObj.ResultType,
-                $completionObj.ToolTip
+                $completionText,
+                $completionText,
+                [System.Management.Automation.CompletionResultType]::ParameterValue,
+                $tooltip
             )
         }
     }
