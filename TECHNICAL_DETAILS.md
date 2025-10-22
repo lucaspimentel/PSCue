@@ -78,7 +78,7 @@ public partial class IpcJsonContext : JsonSerializerContext { }
 
 ## Completion Cache
 
-### Implementation (`PSCue.CommandPredictor/CompletionCache.cs`)
+### Implementation (`PSCue.Module/CompletionCache.cs`)
 
 Thread-safe, intelligent caching system:
 
@@ -96,7 +96,7 @@ Thread-safe, intelligent caching system:
 - Expiration: 5 minutes since last write
 - Memory: Automatic cleanup via `RemoveExpired()`
 
-### IPC Server (`PSCue.CommandPredictor/IpcServer.cs`)
+### IPC Server (`PSCue.Module/IpcServer.cs`)
 
 Asynchronous Named Pipe server running in CommandPredictor:
 
@@ -155,7 +155,7 @@ Else: Fall back to CommandCompleter.GetCompletions() (local)
 - NativeAOT-compatible (uses source-generated JSON)
 - Minimal allocations for performance
 
-### Module Integration (`PSCue.CommandPredictor/Init.cs`)
+### Module Integration (`PSCue.Module/Init.cs`)
 
 Module initialization starts the IPC server automatically:
 
@@ -192,7 +192,7 @@ public void OnRemove(PSModuleInfo psModuleInfo)
 │ PowerShell Session (PID: 12345)                              │
 ├──────────────────────────────────────────────────────────────┤
 │                                                              │
-│  PSCue.CommandPredictor.dll (Long-lived)                    │
+│  PSCue.Module.dll (Long-lived)                    │
 │  ┌────────────────────────────────────────────────────────┐ │
 │  │ IpcServer                                              │ │
 │  │ - Named Pipe: PSCue-12345                             │ │
@@ -291,20 +291,20 @@ cherry-pick     Apply the changes introduced by some existing commits
 **IPC Layer:**
 - `src/PSCue.Shared/IpcProtocol.cs` - Protocol definitions (request/response types)
 - `src/PSCue.Shared/IpcJsonContext.cs` - JSON source generation for NativeAOT
-- `src/PSCue.CommandPredictor/IpcServer.cs` - Named Pipe server
+- `src/PSCue.Module/IpcServer.cs` - Named Pipe server
 - `src/PSCue.ArgumentCompleter/IpcClient.cs` - Named Pipe client
 
 **Caching:**
-- `src/PSCue.CommandPredictor/CompletionCache.cs` - Intelligent cache with usage tracking
+- `src/PSCue.Module/CompletionCache.cs` - Intelligent cache with usage tracking
 
 **Module Integration:**
-- `src/PSCue.CommandPredictor/Init.cs` - Module initialization (starts IPC server)
+- `src/PSCue.Module/Init.cs` - Module initialization (starts IPC server)
 - `src/PSCue.ArgumentCompleter/Program.cs` - Entry point (tries IPC, falls back to local)
 
 **Testing:**
 - `test-scripts/` - Manual test scripts for IPC, predictors, and inline predictions
 - `test/PSCue.ArgumentCompleter.Tests/` - Unit tests for completion logic
-- `test/PSCue.CommandPredictor.Tests/` - Unit tests for predictor logic
+- `test/PSCue.Module.Tests/` - Unit tests for predictor logic
 
 ## Cross-Platform Compatibility
 

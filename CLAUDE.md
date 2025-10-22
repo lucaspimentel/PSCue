@@ -6,7 +6,7 @@ PSCue is a unified PowerShell module that provides intelligent command-line comp
 
 **Key Components**:
 1. **PSCue.ArgumentCompleter** - NativeAOT executable for fast Tab completion via `Register-ArgumentCompleter`
-2. **PSCue.CommandPredictor** - Managed DLL implementing `ICommandPredictor` (inline suggestions) and `IFeedbackProvider` (learning)
+2. **PSCue.Module** - Managed DLL implementing `ICommandPredictor` (inline suggestions) and `IFeedbackProvider` (learning)
 3. **IPC Communication Layer** - Named Pipe-based API for state sharing and learning feedback loop ✅ **IMPLEMENTED**
 4. **CompletionCache** - Smart cache with usage tracking and priority scoring ✅ **IMPLEMENTED**
 
@@ -20,7 +20,7 @@ PSCue is a unified PowerShell module that provides intelligent command-line comp
 - Can run standalone OR call into Predictor via IPC
 - Falls back to local logic if Predictor unavailable
 
-**CommandPredictor (PSCue.CommandPredictor.dll)**:
+**CommandPredictor (PSCue.Module.dll)**:
 - Long-lived (loaded with PowerShell module)
 - Hosts Named Pipe server for serving completions
 - Maintains cached state (git branches, scoop packages, etc.)
@@ -97,7 +97,7 @@ src/
 │   ├── IpcClient.cs            # Named Pipe client ✅
 │   ├── Logger.cs               # Debug logging
 │   └── AssemblyInfo.cs         # NativeAOT trim settings
-├── PSCue.CommandPredictor/     # Managed DLL
+├── PSCue.Module/     # Managed DLL
 │   ├── Init.cs                 # IModuleAssemblyInitializer - auto-registers predictor & starts IPC server ✅
 │   ├── CommandCompleterPredictor.cs  # ICommandPredictor implementation
 │   ├── IpcServer.cs            # Named Pipe server ✅
@@ -130,7 +130,7 @@ src/
 ### Namespaces
 
 - `PSCue.ArgumentCompleter.*` - ArgumentCompleter code
-- `PSCue.CommandPredictor.*` - CommandPredictor code
+- `PSCue.Module.*` - CommandPredictor code
 - `PSCue.Shared.*` - Shared types and protocol
 
 ### Building
@@ -140,10 +140,10 @@ src/
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
 # CommandPredictor (managed DLL)
-dotnet build src/PSCue.CommandPredictor/ -c Release
+dotnet build src/PSCue.Module/ -c Release
 
 # Quick compile check (for dd-trace-dotnet habit compatibility)
-dotnet build src/PSCue.CommandPredictor/ -c Release -f net9.0
+dotnet build src/PSCue.Module/ -c Release -f net9.0
 ```
 
 ### Testing
@@ -151,7 +151,7 @@ dotnet build src/PSCue.CommandPredictor/ -c Release -f net9.0
 ```bash
 # Unit tests
 dotnet test test/PSCue.ArgumentCompleter.Tests/
-dotnet test test/PSCue.CommandPredictor.Tests/
+dotnet test test/PSCue.Module.Tests/
 
 # CLI testing tool (tests CommandPredictor GetSuggestion)
 dotnet run --project src/PSCue.Cli/ -- "git checkout ma"
@@ -205,7 +205,7 @@ Installs to: `~/.local/pwsh-modules/PSCue/`
    - Solution: Move all completion logic to PSCue.Shared (managed DLL)
    - Both projects reference PSCue.Shared for consistent behavior
 4. **NestedModules in manifest**: Required for IModuleAssemblyInitializer to trigger
-   - CommandPredictor.dll must be listed in PSCue.psd1 NestedModules
+   - Module.dll must be listed in PSCue.psd1 NestedModules
    - Loading via Import-Module in .psm1 does NOT trigger IModuleAssemblyInitializer
 5. **Named Pipes for IPC** ✅ **IMPLEMENTED**: Cross-platform, secure, efficient (<5ms round-trip target)
    - Uses `System.IO.Pipes.NamedPipeServerStream` and `NamedPipeClientStream`
@@ -284,7 +284,7 @@ See TODO.md for detailed implementation plan and progress tracking.
   - Fixed install-local.ps1 warning about missing PSCue.ArgumentCompleter.dll (ArgumentCompleter is a NativeAOT exe, not a DLL)
   - Fixed scoop command completions: added installed package suggestions for uninstall, cleanup, hold, unhold, home, info, prefix, and reset commands
 - **CommandPredictor Registration (2025-01-22):**
-  - Fixed IModuleAssemblyInitializer not being called: Added CommandPredictor.dll to NestedModules in PSCue.psd1
+  - Fixed IModuleAssemblyInitializer not being called: Added Module.dll to NestedModules in PSCue.psd1
   - Fixed NativeAOT assembly reference error: Moved completion logic from ArgumentCompleter to PSCue.Shared
   - CommandPredictor now successfully registers and provides inline suggestions
   - Test files added: test-predictor.ps1, test-manual-init.ps1, test-inline-predictions.ps1
@@ -371,7 +371,7 @@ $result.CompletionMatches | Select-Object CompletionText, ToolTip
 
 If the CommandPredictor doesn't register:
 1. Check module imports with: `Get-Module PSCue | Format-List NestedModules`
-2. Verify DLL is loaded: The output should show `PSCue.CommandPredictor` in NestedModules
+2. Verify DLL is loaded: The output should show `PSCue.Module` in NestedModules
 3. Check for assembly loading errors in verbose output: `Import-Module -Verbose`
 4. Verify IModuleAssemblyInitializer.OnImport() is being called (should register subsystem automatically)
 

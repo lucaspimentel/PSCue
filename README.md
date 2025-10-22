@@ -18,7 +18,7 @@
 PSCue uses a dual-architecture approach for optimal performance:
 
 1. **ArgumentCompleter** (`pscue-completer.exe`) - NativeAOT executable for instant Tab completion
-2. **CommandPredictor** (`PSCue.CommandPredictor.dll`) - Long-lived managed DLL for inline suggestions
+2. **CommandPredictor** (`PSCue.Module.dll`) - Long-lived managed DLL for inline suggestions
 
 This architecture enables:
 - Sub-10ms Tab completion response time
@@ -135,7 +135,7 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 - **Features**: Fast, standalone, communicates with Predictor via Named Pipes for caching
 
 ### CommandPredictor (Long-lived)
-- **Binary**: `PSCue.CommandPredictor.dll` (Managed)
+- **Binary**: `PSCue.Module.dll` (Managed)
 - **Purpose**: Provides inline suggestions via `ICommandPredictor`
 - **Lifetime**: Loaded once with PowerShell module
 - **Features**: IPC server, intelligent cache, shared completion logic
@@ -150,7 +150,7 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 ┌─────────────────────────────────────┐
 │  PowerShell Session                 │
 ├─────────────────────────────────────┤
-│  PSCue.CommandPredictor.dll        │
+│  PSCue.Module.dll        │
 │  - ICommandPredictor (suggestions)  │
 │  - IPC Server (Named Pipes)         │
 │  - CompletionCache (5-min TTL)      │
@@ -238,7 +238,7 @@ dotnet restore
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
 # Build CommandPredictor (Managed DLL)
-dotnet build src/PSCue.CommandPredictor/ -c Release
+dotnet build src/PSCue.Module/ -c Release
 
 # Run tests
 dotnet test
@@ -252,7 +252,7 @@ dotnet test
 
 # Specific project
 dotnet test test/PSCue.ArgumentCompleter.Tests/
-dotnet test test/PSCue.CommandPredictor.Tests/
+dotnet test test/PSCue.Module.Tests/
 
 # With verbose output
 dotnet test --logger "console;verbosity=detailed"

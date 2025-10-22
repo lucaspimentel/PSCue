@@ -22,8 +22,8 @@ PSCue/
 │   │   ├── AssemblyInfo.cs              # NativeAOT trim settings
 │   │   └── IpcClient.cs                 # (future) Named Pipe client for communicating with Predictor
 │   │
-│   ├── PSCue.CommandPredictor/          # DLL for ICommandPredictor + IFeedbackProvider (C#)
-│   │   ├── PSCue.CommandPredictor.csproj
+│   ├── PSCue.Module/          # DLL for ICommandPredictor + IFeedbackProvider (C#)
+│   │   ├── PSCue.Module.csproj
 │   │   ├── Init.cs                      # IModuleAssemblyInitializer - auto-registers predictor ✅
 │   │   ├── CommandCompleterPredictor.cs # ICommandPredictor implementation ✅
 │   │   ├── FeedbackProvider.cs          # (future) IFeedbackProvider - learns from command execution
@@ -63,8 +63,8 @@ PSCue/
 ├── test/
 │   ├── PSCue.ArgumentCompleter.Tests/
 │   │   └── PSCue.ArgumentCompleter.Tests.csproj
-│   └── PSCue.CommandPredictor.Tests/
-│       └── PSCue.CommandPredictor.Tests.csproj
+│   └── PSCue.Module.Tests/
+│       └── PSCue.Module.Tests.csproj
 │
 ├── ai/                                   # AI model setup scripts (future)
 │   ├── setup-ai-model.ps1
@@ -92,7 +92,7 @@ PSCue/
 ### PSCue.psd1 (Module Manifest)
 - RootModule: `PSCue.psm1`
 - ModuleVersion: `1.0.0`
-- RequiredAssemblies: `PSCue.CommandPredictor.dll`
+- RequiredAssemblies: `PSCue.Module.dll`
 - FunctionsToExport: `@()` (initially)
 - Author: Lucas Pimentel
 - Description: Unified PowerShell completion and prediction module
@@ -120,9 +120,9 @@ PSCue/
      - OptimizationPreference: Speed
      - InvariantGlobalization: true
 
-2. **Build PSCue.CommandPredictor** (Managed DLL):
+2. **Build PSCue.Module** (Managed DLL):
    - Build as Release for net9.0
-   - Output: `PSCue.CommandPredictor.dll`
+   - Output: `PSCue.Module.dll`
    - References PSCue.ArgumentCompleter as a project reference (for shared code)
    - Includes PowerShell SDK dependency
 
@@ -156,11 +156,11 @@ cd PSCue
 2. Build ArgumentCompleter with NativeAOT for the detected platform
    - `dotnet publish src/PSCue.ArgumentCompleter/PSCue.ArgumentCompleter.csproj -c Release -r <rid> -o src/PSCue.ArgumentCompleter/publish`
 3. Build CommandPredictor as managed DLL
-   - `dotnet build src/PSCue.CommandPredictor/PSCue.CommandPredictor.csproj -c Release`
+   - `dotnet build src/PSCue.Module/PSCue.Module.csproj -c Release`
 4. Create installation directory: `~/.local/pwsh-modules/PSCue/`
 5. Copy files to installation directory:
    - Native executable: `pscue-completer[.exe]`
-   - CommandPredictor DLL: `PSCue.CommandPredictor.dll`
+   - CommandPredictor DLL: `PSCue.Module.dll`
    - Module files: `PSCue.psd1`, `PSCue.psm1`
 6. Display instructions for adding to `$PROFILE`
 
@@ -195,7 +195,7 @@ $version = "1.0.0"; irm https://raw.githubusercontent.com/lucaspimentel/PSCue/ma
 7. Create installation directory: `~/.local/pwsh-modules/PSCue/`
 8. Copy files from extracted archive:
    - Native executable: `pscue-completer[.exe]`
-   - CommandPredictor DLL: `PSCue.CommandPredictor.dll`
+   - CommandPredictor DLL: `PSCue.Module.dll`
    - Module files: `PSCue.psd1`, `PSCue.psm1`
 9. Clean up temp files
 10. Display instructions for adding to `$PROFILE`
@@ -269,7 +269,7 @@ Set-PSReadLineOption -PredictionSource HistoryAndPlugin
        - `dotnet publish src/PSCue.ArgumentCompleter/PSCue.ArgumentCompleter.csproj -c Release -r osx-arm64 -o dist/osx-arm64`
        - `dotnet publish src/PSCue.ArgumentCompleter/PSCue.ArgumentCompleter.csproj -c Release -r linux-x64 -o dist/linux-x64`
      - Build CommandPredictor DLL:
-       - `dotnet build src/PSCue.CommandPredictor/PSCue.CommandPredictor.csproj -c Release -o dist/common`
+       - `dotnet build src/PSCue.Module/PSCue.Module.csproj -c Release -o dist/common`
      - Copy module files (PSCue.psd1, PSCue.psm1) to each platform dist folder
      - Create platform-specific archives:
        - Windows: Zip file `PSCue-win-x64.zip`
@@ -303,7 +303,7 @@ checksums.txt
 **Each archive contains**:
 ```
 pscue-completer[.exe]      # Native executable
-PSCue.CommandPredictor.dll # CommandPredictor assembly
+PSCue.Module.dll # CommandPredictor assembly
 PSCue.psd1                 # Module manifest
 PSCue.psm1                 # Module script
 LICENSE                    # License file
@@ -342,10 +342,10 @@ git push origin v1.0.0
 - [x] Create PSCue.sln solution file
 - [x] Create empty project files:
   - [x] src/PSCue.ArgumentCompleter/PSCue.ArgumentCompleter.csproj
-  - [x] src/PSCue.CommandPredictor/PSCue.CommandPredictor.csproj
+  - [x] src/PSCue.Module/PSCue.Module.csproj
   - [x] src/PSCue.Cli/PSCue.Cli.csproj (optional)
   - [x] test/PSCue.ArgumentCompleter.Tests/PSCue.ArgumentCompleter.Tests.csproj
-  - [x] test/PSCue.CommandPredictor.Tests/PSCue.CommandPredictor.Tests.csproj
+  - [x] test/PSCue.Module.Tests/PSCue.Module.Tests.csproj
 
 ### Phase 2: Copy ArgumentCompleter Code ✅
 - [x] Copy source files from `../pwsh-argument-completer/src/` to `src/PSCue.ArgumentCompleter/`
@@ -364,20 +364,20 @@ git push origin v1.0.0
 - [x] Verify tests: `dotnet test test/PSCue.ArgumentCompleter.Tests/`
 
 ### Phase 3: Copy CommandPredictor Code ✅
-- [x] Copy source files from `../pwsh-command-predictor/src/PowerShellPredictor/` to `src/PSCue.CommandPredictor/`
+- [x] Copy source files from `../pwsh-command-predictor/src/PowerShellPredictor/` to `src/PSCue.Module/`
   - [x] Init.cs
   - [x] CommandCompleterPredictor.cs
   - [x] AssemblyInfo.cs
   - [x] (Optional) KnownCommandsPredictor.cs
   - [x] (Optional) SamplePredictor.cs
   - [x] (Optional) AiPredictor.cs
-- [x] Update namespaces from `PowerShellPredictor` to `PSCue.CommandPredictor`
-- [x] Update AssemblyName to `PSCue.CommandPredictor` in .csproj
+- [x] Update namespaces from `PowerShellPredictor` to `PSCue.Module`
+- [x] Update AssemblyName to `PSCue.Module` in .csproj
 - [x] Update project reference to point to PSCue.ArgumentCompleter
-- [x] Copy test files from `../pwsh-command-predictor/test/` to `test/PSCue.CommandPredictor.Tests/`
+- [x] Copy test files from `../pwsh-command-predictor/test/` to `test/PSCue.Module.Tests/`
 - [x] Update test namespaces and project references
-- [x] Verify build: `dotnet build src/PSCue.CommandPredictor/`
-- [x] Verify tests: `dotnet test test/PSCue.CommandPredictor.Tests/`
+- [x] Verify build: `dotnet build src/PSCue.Module/`
+- [x] Verify tests: `dotnet test test/PSCue.Module.Tests/`
 
 ### Phase 4: Create Module Files ✅
 - [x] Create `module/PSCue.psd1` (module manifest)
@@ -389,7 +389,7 @@ git push origin v1.0.0
 - [x] Create `module/PSCue.psm1` (module script)
   - [x] Find pscue-completer executable
   - [x] Register argument completers for supported commands
-  - [x] Load PSCue.CommandPredictor.dll (auto-registers predictors)
+  - [x] Load PSCue.Module.dll (auto-registers predictors)
 - [x] Test module loading manually
 
 ### Phase 5: Create Installation Scripts ✅
@@ -481,7 +481,7 @@ git push origin v1.0.0
   - [x] Updated IpcClient to use source-generated serializers
   - [x] Updated IpcServer to use source-generated serializers
   - [x] Eliminated all NativeAOT trimming warnings
-- [x] Implement Named Pipe server in PSCue.CommandPredictor
+- [x] Implement Named Pipe server in PSCue.Module
   - [x] Created `IpcServer.cs` with async server loop
   - [x] Start server on module initialization in `Init.OnImport()`
   - [x] Use session-specific pipe name (PSCue-{PID})
@@ -531,7 +531,7 @@ git push origin v1.0.0
 - ✅ Cache statistics endpoint implemented
 
 **Remaining work:**
-- [ ] Implement IFeedbackProvider in PSCue.CommandPredictor
+- [ ] Implement IFeedbackProvider in PSCue.Module
   - [ ] Create `FeedbackProvider.cs` implementing `IFeedbackProvider`
   - [ ] Register as feedback provider in `Init.OnImport()`
   - [ ] Handle `FeedbackTrigger.Success` events
@@ -568,12 +568,12 @@ git push origin v1.0.0
 - `pscue-completer` / `pscue-completer.exe` (ArgumentCompleter native executable)
 
 ### Assemblies
-- `PSCue.CommandPredictor.dll` (CommandPredictor module)
+- `PSCue.Module.dll` (CommandPredictor module)
 - `PSCue.Shared.dll` (optional shared library, future)
 
 ### Namespaces
 - `PSCue.ArgumentCompleter.*`
-- `PSCue.CommandPredictor.*`
+- `PSCue.Module.*`
 - `PSCue.Shared.*` (future)
 
 ### Module Name
@@ -607,7 +607,7 @@ Since the Predictor is long-lived and ArgumentCompleter is short-lived, we can l
 │  PowerShell Session                                     │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
-│  PSCue.CommandPredictor.dll (Long-lived)               │
+│  PSCue.Module.dll (Long-lived)               │
 │  ┌───────────────────────────────────────────────────┐ │
 │  │ - ICommandPredictor (inline suggestions)          │ │
 │  │ - IFeedbackProvider (learns from execution)       │ │

@@ -81,4 +81,4 @@ Import-Module ~/.local/pwsh-modules/PSCue/PSCue.psd1
 
 For automated unit and integration tests, see:
 - `test/PSCue.ArgumentCompleter.Tests/`
-- `test/PSCue.CommandPredictor.Tests/`
+- `test/PSCue.Module.Tests/`
