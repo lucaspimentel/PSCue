@@ -406,23 +406,25 @@ git push origin v1.0.0
   - [x] Git flags (commit --all, --amend, --message, etc.)
   - [x] Scoop commands (import, info, install)
 
-### Phase 6: GitHub Actions & CI/CD
-- [ ] Create `.github/workflows/` directory
-- [ ] Create `.github/workflows/ci.yml` (CI workflow)
-  - [ ] Configure triggers (push to main, PRs)
-  - [ ] Setup build matrix (windows, macos, linux)
-  - [ ] Add build and test steps
-  - [ ] Add code formatting check (dotnet format)
-  - [ ] Upload test results as artifacts
-- [ ] Create `.github/workflows/release.yml` (Release workflow)
-  - [ ] Configure triggers (tags matching v*, workflow_dispatch)
-  - [ ] Build native binaries for all platforms (win-x64, osx-x64, osx-arm64, linux-x64)
-  - [ ] Create platform-specific archives (zip for Windows, tar.gz for others)
-  - [ ] Generate checksums (SHA256)
-  - [ ] Create GitHub release with all artifacts
-  - [ ] Auto-generate release notes
-- [ ] Test CI workflow with a test commit/PR
-- [ ] Document release process in TODO.md or CONTRIBUTING.md
+### Phase 6: GitHub Actions & CI/CD ✅
+- [x] Create `.github/workflows/` directory
+- [x] Create `.github/workflows/ci.yml` (CI workflow)
+  - [x] Configure triggers (push to main, PRs)
+  - [x] Setup build matrix (windows, macos, linux)
+  - [x] Add build and test steps
+  - [x] Add code formatting check (dotnet format)
+  - [x] Upload test results as artifacts
+- [x] Create `.github/workflows/release.yml` (Release workflow)
+  - [x] Configure triggers (tags matching v*, workflow_dispatch)
+  - [x] Build native binaries for supported platforms (win-x64, osx-arm64, linux-x64)
+  - [x] Create platform-specific archives (zip for Windows, tar.gz for others)
+  - [x] Generate checksums (SHA256)
+  - [x] Create GitHub release with all artifacts
+  - [x] Auto-generate release notes
+  - [x] Note: Skipped macOS x64 (Intel) - focusing on Apple Silicon
+- [x] Test CI workflow with a test commit/PR
+- [x] Created minimal README.md for release archives
+- [ ] Document release process in TODO.md or CONTRIBUTING.md (deferred)
 
 ### Phase 7: Documentation
 - [ ] Create comprehensive README.md

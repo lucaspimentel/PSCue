@@ -175,15 +175,17 @@ Installs to: `~/.local/pwsh-modules/PSCue/`
 
 **Tier 1** (full CI/CD support):
 - Windows x64
-- macOS x64 (Intel)
 - macOS arm64 (Apple Silicon)
 - Linux x64
+
+**Not Supported**:
+- macOS x64 (Intel) - skipped in favor of Apple Silicon
 
 ## Implementation Status
 
 See TODO.md for detailed implementation plan and progress tracking.
 
-Current phase: **Phase 6** (GitHub Actions & CI/CD)
+Current phase: **Phase 7** (Documentation)
 
 **Completed phases:**
 - ✅ Phase 1: Project Structure Setup
@@ -191,11 +193,18 @@ Current phase: **Phase 6** (GitHub Actions & CI/CD)
 - ✅ Phase 3: Copy CommandPredictor Code
 - ✅ Phase 4: Create Module Files
 - ✅ Phase 5: Create Installation Scripts
+- ✅ Phase 6: GitHub Actions & CI/CD
 
 **Known Issues Fixed in Phase 5:**
 - Fixed `$IsWindows` read-only variable conflict in install-local.ps1
 - Fixed PSCue.psm1 completer invocation to pass 3 required arguments (wordToComplete, line, cursorPosition)
 - Updated output parsing from JSON format to pipe-delimited format (completionText|tooltip)
+
+**Phase 6 Highlights:**
+- Created CI workflow for multi-platform builds and tests
+- Created Release workflow for automated binary releases
+- Skipped macOS x64 (Intel) support - focusing on Apple Silicon (osx-arm64)
+- Added minimal README.md with installation instructions
 
 ## Troubleshooting Guide
 
