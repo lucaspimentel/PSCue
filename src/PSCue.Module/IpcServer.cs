@@ -37,7 +37,7 @@ public class IpcServer : IDisposable
             while (!_cancellationTokenSource.Token.IsCancellationRequested)
             {
                 // Create a new pipe server for each connection
-                using var pipeServer = new NamedPipeServerStream(
+                await using var pipeServer = new NamedPipeServerStream(
                     _pipeName,
                     PipeDirection.InOut,
                     NamedPipeServerStream.MaxAllowedServerInstances,
@@ -58,7 +58,7 @@ public class IpcServer : IDisposable
         catch (Exception ex)
         {
             // Log error but don't crash the server
-            Console.Error.WriteLine($"IpcServer error: {ex.Message}");
+            await Console.Error.WriteLineAsync($"IpcServer error: {ex.Message}");
         }
     }
 
@@ -110,7 +110,7 @@ public class IpcServer : IDisposable
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error handling client request: {ex.Message}");
+            await Console.Error.WriteLineAsync($"Error handling client request: {ex.Message}");
         }
     }
 
@@ -130,7 +130,7 @@ public class IpcServer : IDisposable
             }
 
             var length = BitConverter.ToInt32(lengthBuffer, 0);
-            if (length <= 0 || length > 1024 * 1024) // Max 1MB
+            if (length is <= 0 or > 1024 * 1024) // Max 1MB
             {
                 return null;
             }
@@ -148,7 +148,7 @@ public class IpcServer : IDisposable
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error reading request: {ex.Message}");
+            await Console.Error.WriteLineAsync($"Error reading request: {ex.Message}");
             return null;
         }
     }
@@ -173,7 +173,7 @@ public class IpcServer : IDisposable
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error writing response: {ex.Message}");
+            await Console.Error.WriteLineAsync($"Error writing response: {ex.Message}");
         }
     }
 
@@ -203,7 +203,7 @@ public class IpcServer : IDisposable
         catch (Exception ex)
         {
             Console.Error.WriteLine($"Error generating completions: {ex.Message}");
-            return Array.Empty<CompletionItem>();
+            return [];
         }
     }
 
@@ -228,6 +228,7 @@ public class IpcServer : IDisposable
 
             _cancellationTokenSource.Dispose();
             _disposed = true;
+            GC.SuppressFinalize(this);
         }
     }
 }

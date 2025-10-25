@@ -48,7 +48,7 @@ internal static class Program
 
             // Convert to string before async operations (can't use ReadOnlySpan across await)
             var commandLine = cursorPosition >= 0 && cursorPosition < commandAst.Length ?
-                commandAst.Substring(0, cursorPosition) :
+                commandAst[..cursorPosition] :
                 commandAst;
 
             // Extract the main command for IPC request
@@ -58,7 +58,7 @@ internal static class Program
             // Try IPC first (fast path if CommandPredictor is loaded)
             var ipcResponse = await IpcClient.TryGetCompletionsAsync(mainCommand, commandLine, wordToComplete, cursorPosition);
 
-            if (ipcResponse != null && ipcResponse.Completions.Length > 0)
+            if (ipcResponse is { Completions.Length: > 0 })
             {
                 // Use IPC results
                 if (Debug)

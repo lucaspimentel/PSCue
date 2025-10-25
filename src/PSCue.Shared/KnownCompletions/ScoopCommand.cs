@@ -118,8 +118,8 @@ public static class ScoopCommand
         foreach (var line in Helpers.ExecuteCommand("scoop", "list"))
         {
             if (!string.IsNullOrWhiteSpace(line) &&
-                !line.StartsWith("Installed apps:") &&
-                !line.StartsWith("\e[32;1m"))
+                !line.StartsWith("Installed apps:", StringComparison.Ordinal) &&
+                !line.StartsWith("\e[32;1m", StringComparison.Ordinal))
             {
                 var index = line.IndexOf(' ');
                 yield return new DynamicArgument(index == -1 ? line : line[..index]);

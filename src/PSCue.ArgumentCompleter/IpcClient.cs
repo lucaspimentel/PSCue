@@ -21,7 +21,7 @@ public static class IpcClient
         {
             var pipeName = IpcProtocol.GetCurrentPipeName();
 
-            using var pipeClient = new NamedPipeClientStream(
+            await using var pipeClient = new NamedPipeClientStream(
                 ".",
                 pipeName,
                 PipeDirection.InOut,
