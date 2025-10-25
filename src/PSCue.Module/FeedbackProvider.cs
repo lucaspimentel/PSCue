@@ -32,9 +32,9 @@ public class CommandCompleterFeedbackProvider : IFeedbackProvider
 
     /// <summary>
     /// Gets the feedback trigger type.
-    /// We respond to successful commands to learn usage patterns.
+    /// We respond to both successful commands (for learning) and errors (for suggestions).
     /// </summary>
-    public FeedbackTrigger Trigger => FeedbackTrigger.Success;
+    public FeedbackTrigger Trigger => FeedbackTrigger.Success | FeedbackTrigger.Error;
 
     /// <summary>
     /// Initializes a new instance of the CommandCompleterFeedbackProvider class.
@@ -48,22 +48,18 @@ public class CommandCompleterFeedbackProvider : IFeedbackProvider
 
     /// <summary>
     /// Provides feedback based on command execution.
-    /// This method is called after a command executes successfully to learn from usage patterns.
+    /// This method is called after a command executes to learn from usage patterns (success)
+    /// or provide helpful suggestions (error).
     /// </summary>
     /// <param name="context">The feedback context containing command details.</param>
     /// <param name="token">Cancellation token for the operation.</param>
     /// <returns>
     /// FeedbackItem with suggestions for the user, or null if no feedback is needed.
-    /// For learning purposes, we typically return null (no visible feedback to user).
+    /// Returns null for successful commands (silent learning).
+    /// Returns suggestions for failed commands when we can help.
     /// </returns>
     public FeedbackItem? GetFeedback(FeedbackContext context, CancellationToken token)
     {
-        // Only process successful command executions
-        if (context.Trigger != FeedbackTrigger.Success)
-        {
-            return null;
-        }
-
         try
         {
             // Extract command information from the context
@@ -84,16 +80,25 @@ public class CommandCompleterFeedbackProvider : IFeedbackProvider
 
             var mainCommand = commandElements[0];
 
-            // Only learn from commands we provide completions for
+            // Only process commands we provide completions for
             if (!IsSupportedCommand(mainCommand))
             {
                 return null;
             }
 
-            // Update the completion cache with usage information
-            UpdateCacheFromUsage(mainCommand, commandLine, commandElements);
+            // Handle based on trigger type
+            if (context.Trigger == FeedbackTrigger.Success)
+            {
+                // Learn from successful command execution
+                UpdateCacheFromUsage(mainCommand, commandLine, commandElements);
+                return null; // Silent learning
+            }
+            else if (context.Trigger == FeedbackTrigger.Error)
+            {
+                // Provide helpful suggestions for failed commands
+                return GetErrorSuggestions(mainCommand, commandLine, commandElements, context);
+            }
 
-            // Return null - we're learning silently, not providing visible feedback
             return null;
         }
         catch (Exception ex)
@@ -216,6 +221,81 @@ public class CommandCompleterFeedbackProvider : IFeedbackProvider
             {
                 return element;
             }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Provides helpful error suggestions when a command fails.
+    /// </summary>
+    private FeedbackItem? GetErrorSuggestions(string mainCommand, string commandLine, List<string> commandElements, FeedbackContext context)
+    {
+        // Get the error message if available
+        var errorMessage = context.LastError?.ErrorDetails?.Message ?? context.LastError?.Exception?.Message ?? string.Empty;
+
+        // Common error patterns and suggestions for git
+        if (mainCommand.Equals("git", StringComparison.OrdinalIgnoreCase))
+        {
+            return GetGitErrorSuggestions(commandLine, commandElements, errorMessage);
+        }
+
+        // Add more command-specific error handlers here as needed
+        // For now, return null for other commands
+        return null;
+    }
+
+    /// <summary>
+    /// Provides git-specific error suggestions.
+    /// </summary>
+    private FeedbackItem? GetGitErrorSuggestions(string commandLine, List<string> commandElements, string errorMessage)
+    {
+        var suggestions = new List<string>();
+
+        // Check for common git errors
+        if (errorMessage.Contains("not a git repository", StringComparison.OrdinalIgnoreCase))
+        {
+            suggestions.Add("💡 Initialize a git repository: git init");
+            suggestions.Add("💡 Clone an existing repository: git clone <url>");
+        }
+        else if (errorMessage.Contains("pathspec", StringComparison.OrdinalIgnoreCase) &&
+                 errorMessage.Contains("did not match", StringComparison.OrdinalIgnoreCase))
+        {
+            suggestions.Add("💡 Check if the branch/file exists: git branch -a or git status");
+            suggestions.Add("💡 Create a new branch: git checkout -b <branch-name>");
+        }
+        else if (errorMessage.Contains("please commit", StringComparison.OrdinalIgnoreCase) ||
+                 errorMessage.Contains("uncommitted changes", StringComparison.OrdinalIgnoreCase))
+        {
+            suggestions.Add("💡 Commit your changes: git add . && git commit -m \"message\"");
+            suggestions.Add("💡 Stash your changes: git stash");
+            suggestions.Add("💡 Discard changes: git restore .");
+        }
+        else if (errorMessage.Contains("remote", StringComparison.OrdinalIgnoreCase) &&
+                 errorMessage.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
+        {
+            suggestions.Add("💡 List remotes: git remote -v");
+            suggestions.Add("💡 Add a remote: git remote add origin <url>");
+        }
+        else if (errorMessage.Contains("permission denied", StringComparison.OrdinalIgnoreCase))
+        {
+            suggestions.Add("💡 Check your SSH keys: ssh -T git@github.com");
+            suggestions.Add("💡 Use HTTPS instead: git remote set-url origin https://...");
+        }
+        else if (commandElements.Count >= 2 && commandElements[1].Equals("checkout", StringComparison.OrdinalIgnoreCase))
+        {
+            suggestions.Add("💡 List all branches: git branch -a");
+            suggestions.Add("💡 Create and switch to branch: git checkout -b <name>");
+        }
+
+        // If we have suggestions, return them
+        if (suggestions.Count > 0)
+        {
+            return new FeedbackItem(
+                header: "PSCue Git Suggestions",
+                actions: suggestions,
+                layout: FeedbackDisplayLayout.Portrait
+            );
         }
 
         return null;
