@@ -7,8 +7,9 @@ namespace PSCue.Benchmarks;
 
 /// <summary>
 /// Benchmarks for IPC client performance to ensure we meet 10ms startup + IPC target.
+/// Using minimal iterations since we're testing I/O timeout behavior.
 /// </summary>
-[SimpleJob(RuntimeMoniker.Net90)]
+[SimpleJob(RuntimeMoniker.Net90, warmupCount: 3, iterationCount: 5)]
 [MemoryDiagnoser]
 [MarkdownExporter]
 public class IpcClientBenchmarks
@@ -21,7 +22,7 @@ public class IpcClientBenchmarks
     /// <summary>
     /// Benchmark: IPC call when server is NOT available (should timeout quickly and fallback).
     /// This measures the cost of the async IPC attempt + timeout handling.
-    /// Target: less than 10ms (connection timeout)
+    /// Target: less than 5ms (connection timeout)
     /// </summary>
     [Benchmark(Description = "IPC unavailable (async timeout + fallback)")]
     public async Task<int> IpcClientAsync_ServerUnavailable()

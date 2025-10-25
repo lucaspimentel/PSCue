@@ -72,7 +72,7 @@ public static class IpcProtocol
     /// <summary>
     /// Maximum time to wait for IPC connection (milliseconds)
     /// </summary>
-    public const int ConnectionTimeoutMs = 10;
+    public const int ConnectionTimeoutMs = 5;
 
     /// <summary>
     /// Maximum time to wait for IPC response (milliseconds)
