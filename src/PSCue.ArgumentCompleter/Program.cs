@@ -27,7 +27,7 @@ internal static class Program
 {
     public static readonly bool Debug = Environment.GetEnvironmentVariable("DEBUG") == "1";
 
-    public static void Main(string[] args)
+    public static async Task<int> Main(string[] args)
     {
         try
         {
@@ -39,24 +39,24 @@ internal static class Program
 
             if (args.Length != 3)
             {
-                return;
+                return 0;
             }
 
             var wordToComplete = args[0];
             var commandAst = args[1];
             var cursorPosition = int.Parse(args[2]);
 
-            var truncatedCommandAst = cursorPosition >= 0 && cursorPosition < commandAst.Length ?
-                commandAst.AsSpan(0, cursorPosition) :
-                commandAst.AsSpan();
+            // Convert to string before async operations (can't use ReadOnlySpan across await)
+            var commandLine = cursorPosition >= 0 && cursorPosition < commandAst.Length ?
+                commandAst.Substring(0, cursorPosition) :
+                commandAst;
 
             // Extract the main command for IPC request
-            var commandLine = truncatedCommandAst.ToString();
             var firstSpaceIndex = commandLine.IndexOf(' ');
             var mainCommand = firstSpaceIndex > 0 ? commandLine[..firstSpaceIndex] : commandLine;
 
             // Try IPC first (fast path if CommandPredictor is loaded)
-            var ipcResponse = IpcClient.TryGetCompletions(mainCommand, commandLine, wordToComplete, cursorPosition);
+            var ipcResponse = await IpcClient.TryGetCompletionsAsync(mainCommand, commandLine, wordToComplete, cursorPosition);
 
             if (ipcResponse != null && ipcResponse.Completions.Length > 0)
             {
@@ -80,7 +80,7 @@ internal static class Program
                     Logger.Write("Using local completions (IPC unavailable)");
                 }
 
-                var completions = CommandCompleter.GetCompletions(truncatedCommandAst, wordToComplete);
+                var completions = CommandCompleter.GetCompletions(commandLine.AsSpan(), wordToComplete, includeDynamicArguments: true);
 
                 foreach (var completion in completions)
                 {
@@ -88,10 +88,13 @@ internal static class Program
                     Output($"{completion.CompletionText}|{completion.Tooltip ?? completion.CompletionText}");
                 }
             }
+
+            return 0;
         }
         catch (Exception ex)
         {
             Logger.Write($"Error: {ex}");
+            return 1;
         }
     }
 

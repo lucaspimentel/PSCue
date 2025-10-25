@@ -385,11 +385,12 @@ If the CommandPredictor doesn't register:
 ## Common Tasks for AI Assistants
 
 ### When working on ArgumentCompleter:
-- Use `ReadOnlySpan<char>` for string operations (NativeAOT optimization)
+- Use `ReadOnlySpan<char>` for string operations (NativeAOT optimization) - but note they can't cross async boundaries
 - Minimize allocations
 - Keep startup time <10ms
 - Always implement fallback logic if IPC unavailable
 - Handle IPC connection failures gracefully
+- Uses async/await for IPC communication (proper CancellationToken-based timeouts)
 
 ### When working on CommandPredictor:
 - Can use async/await (long-lived process)

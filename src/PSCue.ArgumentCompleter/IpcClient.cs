@@ -15,7 +15,7 @@ public static class IpcClient
     /// Try to get completions from the IPC server.
     /// Returns null if the server is unavailable or times out.
     /// </summary>
-    public static IpcResponse? TryGetCompletions(string command, string commandLine, string wordToComplete, int cursorPosition)
+    public static async Task<IpcResponse?> TryGetCompletionsAsync(string command, string commandLine, string wordToComplete, int cursorPosition)
     {
         try
         {
@@ -25,11 +25,15 @@ public static class IpcClient
                 ".",
                 pipeName,
                 PipeDirection.InOut,
-                PipeOptions.None);
+                PipeOptions.Asynchronous);
 
             // Try to connect with a short timeout
-            var connectTask = pipeClient.ConnectAsync(IpcProtocol.ConnectionTimeoutMs);
-            if (!connectTask.Wait(IpcProtocol.ConnectionTimeoutMs))
+            using var cts = new CancellationTokenSource(IpcProtocol.ConnectionTimeoutMs);
+            try
+            {
+                await pipeClient.ConnectAsync(cts.Token);
+            }
+            catch (OperationCanceledException)
             {
                 // Timeout - server not available
                 return null;
@@ -46,17 +50,19 @@ public static class IpcClient
             };
 
             // Send request
-            WriteRequest(pipeClient, request);
+            await WriteRequestAsync(pipeClient, request);
 
             // Read response with timeout
-            var responseTask = Task.Run(() => ReadResponse(pipeClient));
-            if (!responseTask.Wait(IpcProtocol.ResponseTimeoutMs))
+            using var responseCts = new CancellationTokenSource(IpcProtocol.ResponseTimeoutMs);
+            try
+            {
+                return await ReadResponseAsync(pipeClient, responseCts.Token);
+            }
+            catch (OperationCanceledException)
             {
                 // Timeout waiting for response
                 return null;
             }
-
-            return responseTask.Result;
         }
         catch (Exception ex)
         {
@@ -69,30 +75,30 @@ public static class IpcClient
     /// <summary>
     /// Write an IPC request to the pipe stream.
     /// </summary>
-    private static void WriteRequest(PipeStream pipe, IpcRequest request)
+    private static async Task WriteRequestAsync(PipeStream pipe, IpcRequest request)
     {
         var json = JsonSerializer.Serialize(request, IpcJsonContext.Default.IpcRequest);
         var buffer = Encoding.UTF8.GetBytes(json);
 
         // Write length prefix (4 bytes)
         var lengthBuffer = BitConverter.GetBytes(buffer.Length);
-        pipe.Write(lengthBuffer, 0, 4);
+        await pipe.WriteAsync(lengthBuffer, 0, 4);
 
         // Write JSON payload
-        pipe.Write(buffer, 0, buffer.Length);
-        pipe.Flush();
+        await pipe.WriteAsync(buffer, 0, buffer.Length);
+        await pipe.FlushAsync();
     }
 
     /// <summary>
     /// Read an IPC response from the pipe stream.
     /// </summary>
-    private static IpcResponse? ReadResponse(PipeStream pipe)
+    private static async Task<IpcResponse?> ReadResponseAsync(PipeStream pipe, CancellationToken cancellationToken)
     {
         try
         {
             // Read length prefix (4 bytes)
             var lengthBuffer = new byte[4];
-            var bytesRead = pipe.Read(lengthBuffer, 0, 4);
+            var bytesRead = await pipe.ReadAsync(lengthBuffer, 0, 4, cancellationToken);
             if (bytesRead != 4)
             {
                 return null;
@@ -106,7 +112,7 @@ public static class IpcClient
 
             // Read JSON payload
             var buffer = new byte[length];
-            bytesRead = pipe.Read(buffer, 0, length);
+            bytesRead = await pipe.ReadAsync(buffer, 0, length, cancellationToken);
             if (bytesRead != length)
             {
                 return null;
