@@ -6,7 +6,7 @@ using PSCue.Shared;
 namespace PSCue.Benchmarks;
 
 /// <summary>
-/// Benchmarks for IPC client performance to ensure we meet <10ms startup + IPC target.
+/// Benchmarks for IPC client performance to ensure we meet 10ms startup + IPC target.
 /// </summary>
 [SimpleJob(RuntimeMoniker.Net90)]
 [MemoryDiagnoser]
@@ -21,7 +21,7 @@ public class IpcClientBenchmarks
     /// <summary>
     /// Benchmark: IPC call when server is NOT available (should timeout quickly and fallback).
     /// This measures the cost of the async IPC attempt + timeout handling.
-    /// Target: <10ms (connection timeout)
+    /// Target: less than 10ms (connection timeout)
     /// </summary>
     [Benchmark(Description = "IPC unavailable (async timeout + fallback)")]
     public async Task<int> IpcClientAsync_ServerUnavailable()
@@ -40,7 +40,7 @@ public class IpcClientBenchmarks
     /// <summary>
     /// Benchmark: Local completion logic (fallback path).
     /// This is what runs when IPC is unavailable.
-    /// Target: <50ms total (including IPC timeout)
+    /// Target: less than 50ms total (including IPC timeout)
     /// </summary>
     [Benchmark(Description = "Local completions (fallback logic)")]
     public int LocalCompletions_GitCheckout()
@@ -57,7 +57,7 @@ public class IpcClientBenchmarks
     /// <summary>
     /// Benchmark: Full end-to-end ArgumentCompleter scenario (IPC unavailable).
     /// Simulates what happens on each Tab press when server is not running.
-    /// Target: <50ms total
+    /// Target: less than 50ms total
     /// </summary>
     [Benchmark(Description = "Full Tab completion (IPC unavailable)")]
     public async Task<int> FullCompletion_IpcUnavailable()
@@ -69,7 +69,7 @@ public class IpcClientBenchmarks
             TestWordToComplete,
             TestCursorPosition);
 
-        if (ipcResponse != null && ipcResponse.Completions.Length > 0)
+        if (ipcResponse is { Completions.Length: > 0 })
         {
             return ipcResponse.Completions.Length;
         }

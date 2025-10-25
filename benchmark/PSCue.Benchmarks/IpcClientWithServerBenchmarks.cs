@@ -1,9 +1,7 @@
-using System.Diagnostics.CodeAnalysis;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
 using PSCue.ArgumentCompleter;
 using PSCue.Module;
-using PSCue.Shared;
 
 namespace PSCue.Benchmarks;
 
@@ -14,7 +12,6 @@ namespace PSCue.Benchmarks;
 [SimpleJob(RuntimeMoniker.Net90)]
 [MemoryDiagnoser]
 [MarkdownExporter]
-[ExcludeFromCodeCoverage] // Suppress preview feature warnings for benchmarks
 public class IpcClientWithServerBenchmarks
 {
     private const string TestCommand = "git";
@@ -49,7 +46,7 @@ public class IpcClientWithServerBenchmarks
     /// <summary>
     /// Benchmark: IPC call when server IS available (happy path).
     /// This measures the actual async round-trip time.
-    /// Target: <5ms (should be fast since server is local)
+    /// Target: less than 5ms (should be fast since server is local)
     /// </summary>
     [Benchmark(Description = "IPC available (async round-trip)")]
     public async Task<int> IpcClientAsync_ServerAvailable()
@@ -67,7 +64,7 @@ public class IpcClientWithServerBenchmarks
 
     /// <summary>
     /// Benchmark: Multiple sequential IPC calls (simulates rapid Tab presses).
-    /// Target: <5ms per call
+    /// Target: less than 5ms per call
     /// </summary>
     [Benchmark(Description = "IPC multiple sequential calls")]
     public async Task<int> IpcClientAsync_MultipleCallsSequential()
@@ -90,7 +87,7 @@ public class IpcClientWithServerBenchmarks
 
     /// <summary>
     /// Benchmark: IPC with cached result (second call should be faster).
-    /// Target: <2ms (cache hit)
+    /// Target: less than 2ms (cache hit)
     /// </summary>
     [Benchmark(Description = "IPC with cache hit")]
     public async Task<int> IpcClientAsync_CacheHit()
