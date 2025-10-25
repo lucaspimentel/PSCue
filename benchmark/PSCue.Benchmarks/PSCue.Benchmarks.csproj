@@ -5,6 +5,7 @@
     <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <EnablePreviewFeatures>true</EnablePreviewFeatures>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,6 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\PSCue.ArgumentCompleter\PSCue.ArgumentCompleter.csproj" />
+    <ProjectReference Include="..\..\src\PSCue.Module\PSCue.Module.csproj" />
     <ProjectReference Include="..\..\src\PSCue.Shared\PSCue.Shared.csproj" />
   </ItemGroup>
 
