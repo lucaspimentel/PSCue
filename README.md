@@ -9,7 +9,8 @@
 - **🚀 Fast Tab Completion**: Native AOT executable for <10ms startup time
 - **💡 Inline Predictions**: Smart command suggestions as you type using `ICommandPredictor`
 - **⚡ IPC Communication**: ArgumentCompleter and CommandPredictor share state via Named Pipes for intelligent caching
-- **🧠 Learning System**: Adapts to your command patterns over time (PowerShell 7.4+ with `IFeedbackProvider` - future)
+- **🧠 Learning System**: Adapts to your command patterns over time (PowerShell 7.4+ with `IFeedbackProvider`)
+- **🆘 Error Suggestions**: Provides helpful recovery suggestions when commands fail (e.g., git errors)
 - **🔌 Cross-platform**: Windows, macOS (Apple Silicon), and Linux support
 - **📦 Zero Configuration**: Works out of the box after installation
 
@@ -26,7 +27,8 @@ This architecture enables:
 - Persistent cache across Tab completion requests
 - Consistent suggestions between Tab completion and inline predictions
 - Graceful fallback to local logic when IPC unavailable
-- Future learning feedback loop via `IFeedbackProvider` (Phase 9)
+- Learning feedback loop via `IFeedbackProvider` (PowerShell 7.4+)
+- Error recovery suggestions when commands fail
 
 ## Supported Commands
 
@@ -118,9 +120,21 @@ gh pr create            # Suggests: --title "..." --body "..."
 
 Press `→` (right arrow) to accept the suggestion.
 
-### Learning System (Coming Soon - PowerShell 7.4+)
+### Learning System & Error Suggestions (PowerShell 7.4+)
 
-**Note**: Advanced learning features are planned for a future release and will require PowerShell 7.4+ with the `IFeedbackProvider` API.
+PSCue learns from your command usage and provides helpful suggestions when commands fail:
+
+**Silent Learning**: When you successfully execute commands, PSCue automatically increases priority scores for the flags and options you use most frequently.
+
+**Error Recovery**: When commands fail, PSCue provides contextual suggestions. For example, if a git command fails:
+```powershell
+git checkout nonexistent-branch
+# PSCue suggests:
+# 💡 List all branches: git branch -a
+# 💡 Create and switch to branch: git checkout -b <name>
+```
+
+**Requirements**: PowerShell 7.4+ with `PSFeedbackProvider` experimental feature enabled (see setup instructions below).
 
 ## Architecture
 
@@ -152,10 +166,10 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 ├─────────────────────────────────────┤
 │  PSCue.Module.dll        │
 │  - ICommandPredictor (suggestions)  │
+│  - IFeedbackProvider (learning)     │
 │  - IPC Server (Named Pipes)         │
 │  - CompletionCache (5-min TTL)      │
 │  - Uses PSCue.Shared.dll            │
-│  - Future: IFeedbackProvider        │
 └─────────────────────────────────────┘
            ↕ IPC (Named Pipes)
 ┌─────────────────────────────────────┐
@@ -188,11 +202,18 @@ PSCue includes an optional learning system that improves suggestions based on yo
    # Restart PowerShell after enabling
    ```
 
-The learning system:
-- Observes commands you execute successfully
-- Increases priority scores for frequently-used completions
-- Makes your most-used commands appear first in suggestions
-- Works silently in the background (no visible feedback)
+The learning system features:
+- **Silent Learning**: Observes commands you execute successfully
+- **Usage Tracking**: Increases priority scores for frequently-used completions
+- **Personalization**: Makes your most-used options appear first in suggestions
+- **Error Recovery**: Provides helpful suggestions when commands fail (e.g., git errors)
+
+**Common error suggestions include**:
+- "not a git repository" → suggests `git init` or `git clone`
+- "pathspec did not match" → suggests checking branches or creating new ones
+- "uncommitted changes" → suggests commit, stash, or restore options
+- "remote does not exist" → suggests listing or adding remotes
+- "permission denied" → suggests SSH key check or HTTPS alternative
 
 **Note**: PSCue works fine on PowerShell 7.2-7.3 without the learning features. The FeedbackProvider will simply not register on older versions.
 
@@ -282,24 +303,25 @@ TabExpansion2 'git checkout ma' 15
 - [x] Shared completion logic (PSCue.Shared)
 - [x] Multi-platform CI/CD
 - [x] Comprehensive documentation
-
-### Future Phases
-
-- **Phase 8**: IPC Communication Layer
+- [x] **Phase 8**: IPC Communication Layer
   - Named Pipe server/client for ArgumentCompleter ↔ Predictor communication
   - Shared completion cache for consistency and performance
-  - <5ms IPC round-trip target
-
-- **Phase 9**: Feedback Provider (Learning System)
+  - <5ms IPC connection timeout achieved
+- [x] **Phase 9**: Learning System & Error Suggestions
   - Full `IFeedbackProvider` implementation (PowerShell 7.4+)
   - Usage tracking and priority scoring
   - Personalized completions based on command history
+  - Error recovery suggestions for git commands
 
-- **Phase 10**: Future Enhancements
+### Future Phases
+
+- **Phase 10**: Enhanced Learning & Distribution
+  - Enhanced learning algorithms (frequency × recency scoring)
+  - Error suggestions for more commands (gh, az, scoop)
+  - Cross-session learning (persistent cache)
   - ML-based prediction support
   - PowerShell Gallery publishing
   - Scoop/Homebrew package managers
-  - Cross-session learning (persistent cache)
 
 See [TODO.md](TODO.md) for detailed implementation plan.
 

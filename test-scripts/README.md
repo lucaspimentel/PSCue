@@ -39,12 +39,15 @@ This directory contains PowerShell test scripts for manually testing PSCue funct
 - Demonstrates inline suggestions as you type
 
 **test-feedback-provider.ps1**
-- Tests FeedbackProvider registration and functionality
+- Tests IFeedbackProvider registration and functionality
 - **Requires PowerShell 7.4+ with PSFeedbackProvider experimental feature enabled**
 - Checks PowerShell version compatibility
 - Verifies experimental feature is enabled
-- Confirms FeedbackProvider is registered
-- Documents learning system behavior
+- Confirms FeedbackProvider is registered as `PSCue.CommandCompleterFeedbackProvider`
+- Tests both learning system (success events) and error suggestions (error events)
+- Documents feedback provider behavior:
+  - **Success events**: Silent learning, updates cache scores
+  - **Error events**: Provides recovery suggestions (e.g., git errors)
 
 ## Usage
 
@@ -69,6 +72,20 @@ Import-Module ~/.local/pwsh-modules/PSCue/PSCue.psd1
 # Then run the test script
 . test-scripts/test-inline-predictions.ps1
 ```
+
+### Feedback Provider Test (PowerShell 7.4+)
+```powershell
+# Test the learning system and error suggestions
+pwsh -NoProfile -File test-scripts/test-feedback-provider.ps1
+
+# Or with full path on Windows
+& "C:\Program Files\PowerShell\7\pwsh.exe" -NoProfile -File test-scripts/test-feedback-provider.ps1
+```
+
+**Note**: This test requires:
+- PowerShell 7.4 or higher
+- PSFeedbackProvider experimental feature enabled (script will prompt if not enabled)
+- PSCue module installed to `~/.local/pwsh-modules/PSCue/`
 
 ## Notes
 
