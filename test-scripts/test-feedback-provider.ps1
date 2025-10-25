@@ -53,12 +53,13 @@ else {
 
 Write-Host ""
 
-# Load the module
+# Load the module from installed location
 Write-Host "Loading PSCue module..." -ForegroundColor Yellow
-$modulePath = Join-Path $PSScriptRoot "../module/PSCue.psd1"
+$modulePath = "~/.local/pwsh-modules/PSCue/PSCue.psd1"
+$resolvedPath = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($HOME, ".local", "pwsh-modules", "PSCue", "PSCue.psd1"))
 
-if (-not (Test-Path $modulePath)) {
-    Write-Host "ERROR: Module not found at $modulePath" -ForegroundColor Red
+if (-not (Test-Path $resolvedPath)) {
+    Write-Host "ERROR: Module not found at $resolvedPath" -ForegroundColor Red
     Write-Host "Run install-local.ps1 first" -ForegroundColor Yellow
     exit 1
 }
@@ -68,7 +69,7 @@ if (Get-Module PSCue) {
     Remove-Module PSCue -Force
 }
 
-Import-Module $modulePath -Force -Verbose:$Verbose
+Import-Module $resolvedPath -Force -Verbose:$Verbose
 
 if (Get-Module PSCue) {
     Write-Host "Module loaded successfully ✓" -ForegroundColor Green
@@ -82,24 +83,27 @@ Write-Host ""
 
 # Check if feedback provider is registered
 Write-Host "Checking registered feedback providers..." -ForegroundColor Yellow
-$feedbackProviders = Get-PSSubsystem -Kind FeedbackProvider -ErrorAction SilentlyContinue
+$feedbackSubsystem = Get-PSSubsystem -Kind FeedbackProvider -ErrorAction SilentlyContinue
 
-if ($null -eq $feedbackProviders) {
-    Write-Host "WARNING: No feedback providers found" -ForegroundColor Yellow
+if ($null -eq $feedbackSubsystem) {
+    Write-Host "WARNING: No feedback provider subsystem found" -ForegroundColor Yellow
     Write-Host "This may indicate the subsystem is not available" -ForegroundColor Yellow
 }
 else {
-    $pscueFeedback = $feedbackProviders | Where-Object { $_.Name -like "*PSCue*" }
+    # Check if PSCue provider is in the Implementations list
+    $implementations = $feedbackSubsystem.Implementations
+    $pscueProvider = $implementations | Where-Object { $_.Name -like "*PSCue*" }
 
-    if ($pscueFeedback) {
+    if ($pscueProvider) {
         Write-Host "PSCue feedback provider registered ✓" -ForegroundColor Green
-        Write-Host "  Name: $($pscueFeedback.Name)" -ForegroundColor Gray
-        Write-Host "  Kind: $($pscueFeedback.Kind)" -ForegroundColor Gray
+        Write-Host "  Name: $($pscueProvider.Name)" -ForegroundColor Gray
+        Write-Host "  Description: $($pscueProvider.Description)" -ForegroundColor Gray
+        Write-Host "  ID: $($pscueProvider.Id)" -ForegroundColor Gray
     }
     else {
         Write-Host "WARNING: PSCue feedback provider not found" -ForegroundColor Yellow
-        Write-Host "Available providers:" -ForegroundColor Gray
-        $feedbackProviders | ForEach-Object { Write-Host "  - $($_.Name)" -ForegroundColor Gray }
+        Write-Host "Available implementations:" -ForegroundColor Gray
+        $implementations | ForEach-Object { Write-Host "  - $($_.Name)" -ForegroundColor Gray }
     }
 }
 
