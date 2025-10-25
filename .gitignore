@@ -42,6 +42,9 @@ packages/
 *.coverage
 *.coveragexml
 
+# BenchmarkDotNet
+BenchmarkDotNet.Artifacts/
+
 # .NET Core
 project.lock.json
 project.fragment.lock.json
