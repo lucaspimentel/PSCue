@@ -156,10 +156,11 @@ dotnet test test/PSCue.ArgumentCompleter.Tests/
 dotnet test test/PSCue.Module.Tests/
 
 # PSCue.Debug tool - inspect cache, test IPC, and verify predictions
-dotnet run --project src/PSCue.Debug/ -- query "git checkout ma"  # Test GetSuggestion
-dotnet run --project src/PSCue.Debug/ -- ping                     # Test IPC connectivity
-dotnet run --project src/PSCue.Debug/ -- stats                    # Show cache statistics
-dotnet run --project src/PSCue.Debug/ -- cache --filter git       # Inspect cached completions
+dotnet run --project src/PSCue.Debug/ -- query-local "git checkout ma"  # Test local completion logic
+dotnet run --project src/PSCue.Debug/ -- query-ipc "git checkout ma"    # Test IPC completion request
+dotnet run --project src/PSCue.Debug/ -- ping                           # Test IPC connectivity
+dotnet run --project src/PSCue.Debug/ -- stats                          # Show cache statistics
+dotnet run --project src/PSCue.Debug/ -- cache --filter git             # Inspect cached completions
 
 # Test predictor registration and GetSuggestion
 pwsh -NoProfile -File test-inline-predictions.ps1
@@ -172,10 +173,16 @@ pwsh -NoProfile -File test-predictor.ps1
 ```
 
 **PSCue.Debug tool commands**:
-- `query <input>` - Get completion suggestions for input (tests GetSuggestion)
-- `ping` - Test IPC server connectivity (requires PSCue loaded in PowerShell)
+- `query-local <input>` - Get completion suggestions using local logic (no IPC)
+- `query-ipc <input>` - Get completion suggestions via IPC (requires PSCue loaded in PowerShell)
+- `ping` - Test IPC server connectivity and measure round-trip time
 - `stats` - Show cache statistics (entries, hits, age)
 - `cache [--filter <text>]` - Inspect cached completions with optional filter
+
+**Notes**:
+- All commands show timing statistics (e.g., `Time: 11.69ms`)
+- `query-ipc`, `ping`, `stats`, and `cache` automatically discover running PowerShell processes with PSCue loaded
+- Optionally set `$env:PSCUE_PID = $PID` in PowerShell to target a specific session
 
 **Testing inline predictions interactively**:
 ```powershell
@@ -309,6 +316,13 @@ See TODO.md for detailed implementation plan and progress tracking.
   - Fixed NativeAOT assembly reference error: Moved completion logic from ArgumentCompleter to PSCue.Shared
   - CommandPredictor now successfully registers and provides inline suggestions
   - Test files added: test-predictor.ps1, test-manual-init.ps1, test-inline-predictions.ps1
+- **PSCue.Debug & IPC (2025-01-26):**
+  - Fixed CS1998 compiler warning: Removed unnecessary async from HandleQueryCommand
+  - Split query command into `query-local` (local logic) and `query-ipc` (via IPC) for testing both paths
+  - Added timing statistics to all commands (format: `Time: 11.69ms`)
+  - Fixed IPC server race condition: Pipe was being disposed while HandleClientAsync was still using it
+  - Added PowerShell process discovery: Debug commands now automatically find any PSCue-loaded PowerShell session
+  - Commands search all `pwsh` and `powershell` processes to locate IPC server
 
 **Phase 6 Highlights:**
 - Created CI workflow for multi-platform builds and tests

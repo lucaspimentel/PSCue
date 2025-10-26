@@ -1,6 +1,6 @@
 # PSCue Technical Details
 
-**Last Updated**: 2025-01-22
+**Last Updated**: 2025-01-26
 
 This document provides technical details about PSCue's architecture, implementation, and internal workings. For user-facing documentation, see [README.md](README.md). For development guidelines, see [CLAUDE.md](CLAUDE.md).
 
@@ -8,6 +8,7 @@ This document provides technical details about PSCue's architecture, implementat
 
 - [IPC Communication Layer](#ipc-communication-layer)
 - [Completion Cache](#completion-cache)
+- [PSCue.Debug Tool](#pscuedebug-tool)
 - [Architecture Diagram](#architecture-diagram)
 - [Performance Metrics](#performance-metrics)
 - [Cross-Platform Compatibility](#cross-platform-compatibility)
@@ -109,12 +110,19 @@ Start IpcServer()
 Async Server Loop (accepts connections)
     ↓
 For Each Connection:
+  - Create new NamedPipeServerStream
+  - Wait for client connection
+  - Launch HandleClientAsync in background task
+  - Continue loop to accept next connection
+    ↓
+HandleClientAsync (per-connection):
   - Read IpcRequest (length-prefixed JSON)
   - Check CompletionCache
   - If cached: Return cached results
   - If not: Generate via CommandCompleter.GetCompletions()
   - Cache results for future requests
   - Send IpcResponse (length-prefixed JSON)
+  - Dispose pipe when complete
 ```
 
 **Key Features:**
@@ -123,6 +131,10 @@ For Each Connection:
 - Integrates with existing `CommandCompleter.GetCompletions()`
 - Graceful error handling (logs but doesn't crash)
 - Clean disposal on module unload
+- **Fixed race condition** (2025-01-26): Pipe ownership transferred to background task to prevent disposal during request handling
+
+**Race Condition Fix:**
+Previously, the pipe was created with `await using` in the server loop, causing it to be disposed immediately after spawning the background task. This resulted in "Cannot access a closed pipe" errors. The fix moved pipe disposal into the `HandleClientAsync` method using `await using (pipeServer)` to ensure the pipe remains open until request handling completes.
 
 ### IPC Client (`PSCue.ArgumentCompleter/IpcClient.cs`)
 
@@ -243,6 +255,107 @@ private void RegisterCommandPredictor(ICommandPredictor commandPredictor)
 - ❌ Restructuring module manifest - Would break `IModuleAssemblyInitializer` triggering
 - ✅ Catch `InvalidOperationException` and silently ignore - Standard pattern, works reliably
 
+## PSCue.Debug Tool
+
+`PSCue.Debug` is a diagnostic tool for testing and inspecting PSCue's completion system. It provides commands to test both local and IPC-based completion paths, measure performance, and inspect cache state.
+
+### Commands
+
+**`query-local <input>`**
+- Tests completion logic using local `CommandCompleter.GetCompletions()`
+- Does not use IPC (simulates fallback behavior)
+- Useful for comparing local vs. IPC performance
+- Shows timing statistics
+
+**`query-ipc <input>`**
+- Tests completion via IPC request to PSCue server
+- Requires PSCue loaded in a PowerShell session
+- Automatically discovers running PowerShell processes with PSCue
+- Shows cached status and timing statistics
+
+**`ping`**
+- Tests IPC server connectivity
+- Measures round-trip time for debug requests
+- Searches all running `pwsh` and `powershell` processes
+
+**`stats`**
+- Shows cache statistics (entry count, total hits, oldest entry age)
+- Requires IPC connection to PSCue server
+
+**`cache [--filter <text>]`**
+- Inspects cached completions with optional text filter
+- Shows cache keys, hit counts, ages, and top completions
+- Requires IPC connection to PSCue server
+
+### PowerShell Process Discovery
+
+The debug tool automatically finds PSCue-loaded PowerShell sessions by:
+1. Checking `PSCUE_PID` environment variable (if set)
+2. Iterating through all `pwsh` processes
+3. Iterating through all `powershell` processes (Windows)
+4. Attempting to connect to each process's pipe (`PSCue-{PID}`)
+5. Using the first successful connection
+
+**Optional targeting:**
+```powershell
+# In PowerShell session
+$env:PSCUE_PID = $PID
+
+# Then run debug tool - it will prefer this PID
+dotnet run --project src/PSCue.Debug/ -- ping
+```
+
+### Timing Statistics
+
+All commands show timing in milliseconds with 2 decimal places:
+```
+Time: 11.69ms
+```
+
+This format provides precise performance measurement without redundant microsecond display.
+
+### Usage Examples
+
+```powershell
+# Test local completion logic (no IPC)
+dotnet run --project src/PSCue.Debug/ -- query-local "git checkout ma"
+
+# Test IPC completion (requires PSCue loaded)
+dotnet run --project src/PSCue.Debug/ -- query-ipc "git checkout ma"
+# Output: Found 3 suggestions (via IPC, cached: true):
+#   main
+#   master
+#   develop
+# Time: 2.43ms
+
+# Test IPC connectivity
+dotnet run --project src/PSCue.Debug/ -- ping
+# Output: OK: Pong from PSCue (round-trip: 1.52ms)
+
+# Show cache statistics
+dotnet run --project src/PSCue.Debug/ -- stats
+# Output: Cache Statistics:
+#   Entry Count:       12
+#   Total Hits:        45
+#   Oldest Entry Age:  2.3m
+
+# Inspect git-related cache entries
+dotnet run --project src/PSCue.Debug/ -- cache --filter git
+```
+
+### Implementation Details
+
+**Protocol:**
+- Uses separate debug protocol with 'D' marker byte
+- JSON serialization via `IpcJsonContext` (NativeAOT-compatible)
+- 100ms timeout for process discovery
+- Silently skips PowerShell processes without PSCue loaded
+
+**Performance comparison:**
+- `query-local`: Tests pure completion logic speed
+- `query-ipc`: Tests completion + IPC overhead + cache benefits
+- Comparing both reveals cache hit performance gains
+
 ## Architecture Diagram
 
 ```
@@ -337,10 +450,15 @@ cherry-pick     Apply the changes introduced by some existing commits
 |--------|--------|----------|
 | IPC Connection Timeout | <10ms | 10ms ✅ |
 | IPC Response Timeout | <50ms | 50ms ✅ |
+| IPC Round-trip (ping) | <5ms | 1-2ms ✅ |
+| Cached Completion Response | <5ms | 2-3ms ✅ |
+| Local Completion (no IPC) | <20ms | 11-15ms ✅ |
 | Build Time | <5s | 1.3s ✅ |
 | Test Execution | <2s | <1s ✅ |
 | Module Installation | <60s | ~30s ✅ |
 | NativeAOT Warnings | 0 | 0 ✅ |
+
+**Note:** Timing measurements from PSCue.Debug tool showing actual IPC and completion performance.
 
 ## Source Code Organization
 
@@ -358,6 +476,13 @@ cherry-pick     Apply the changes introduced by some existing commits
 **Module Integration:**
 - `src/PSCue.Module/Init.cs` - Module initialization (starts IPC server)
 - `src/PSCue.ArgumentCompleter/Program.cs` - Entry point (tries IPC, falls back to local)
+
+**Debug Tool:**
+- `src/PSCue.Debug/Program.cs` - Diagnostic tool entry point
+  - `query-local` and `query-ipc` commands for testing completions
+  - `ping`, `stats`, `cache` commands for IPC inspection
+  - PowerShell process discovery logic
+  - Timing statistics measurement
 
 **Testing:**
 - `test-scripts/` - Manual test scripts for IPC, predictors, and inline predictions

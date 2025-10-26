@@ -463,15 +463,20 @@ git push origin v1.0.0
 
 ### Phase 7.5: Debug/Testing Tool ✅
 - [x] Create `src/PSCue.Debug/` for testing and debugging
-- [x] Implement `query` command - test GetSuggestion
-- [x] Implement `ping` command - test IPC connectivity
+- [x] Implement `query-local` command - test local completion logic (no IPC)
+- [x] Implement `query-ipc` command - test IPC completion requests
+- [x] Implement `ping` command - test IPC connectivity with timing
 - [x] Implement `stats` command - show cache statistics via IPC
 - [x] Implement `cache` command - inspect cached completions with optional filter
-- [x] Test: `dotnet run --project src/PSCue.Debug/ -- query "git commit"`
+- [x] Add timing statistics to all commands (format: `Time: 11.69ms`)
+- [x] Add PowerShell process discovery (auto-find PSCue-loaded sessions)
+- [x] Test: `dotnet run --project src/PSCue.Debug/ -- query-local "git commit"`
+- [x] Test: `dotnet run --project src/PSCue.Debug/ -- query-ipc "git commit"`
 - [x] Test: `dotnet run --project src/PSCue.Debug/ -- ping`
 - [x] Test: `dotnet run --project src/PSCue.Debug/ -- stats`
 - [x] Test: `dotnet run --project src/PSCue.Debug/ -- cache --filter git`
 - [x] Verified debug tool works with IPC protocol and cache inspection
+- [x] Fixed IPC server race condition (pipe disposal while in use)
 
 ### Phase 8: IPC Communication Layer ✅
 - [x] Design IPC protocol schema (request/response format)
@@ -570,9 +575,16 @@ git push origin v1.0.0
   - [ ] Test cache update integration
 - [ ] Cross-session persistence (save learned data to disk)
 
-### Phase 10: Enhanced Debugging Tool (PSCue.Debug)
+### Phase 10: Enhanced Debugging Tool (PSCue.Debug) ✅ (Mostly Complete)
 
 **Goal**: Transform the CLI testing tool into a comprehensive debugging/diagnostics tool for inspecting the IPC server's learned data and cache state.
+
+**Recent enhancements (2025-01-26)**:
+- ✅ Split `query` into `query-local` (no IPC) and `query-ipc` (via IPC)
+- ✅ Added timing statistics to all commands (format: `Time: 11.69ms`)
+- ✅ Implemented PowerShell process discovery (auto-finds PSCue sessions)
+- ✅ Fixed IPC server race condition (pipe disposal bug)
+- ✅ Supports `PSCUE_PID` environment variable for targeting specific sessions
 
 **Rationale**:
 - Developers need visibility into what the learning system has learned
@@ -586,15 +598,15 @@ git push origin v1.0.0
 
 #### Subtasks
 
-**10.1: Project Rename**
-- [ ] Rename directory: `src/PSCue.Cli/` → `src/PSCue.Debug/`
-- [ ] Rename project file: `PSCue.Cli.csproj` → `PSCue.Debug.csproj`
-- [ ] Update `AssemblyName` to `pscue-debug`
-- [ ] Update `RootNamespace` to `PSCue.Debug`
-- [ ] Update all namespace declarations in source files
-- [ ] Update solution file references
-- [ ] Update CLAUDE.md references to CLI → Debug
-- [ ] Update test scripts that reference the CLI tool
+**10.1: Project Rename** ✅
+- [x] Rename directory: `src/PSCue.Cli/` → `src/PSCue.Debug/` (already named correctly)
+- [x] Rename project file: `PSCue.Cli.csproj` → `PSCue.Debug.csproj` (already correct)
+- [x] Update `AssemblyName` to `pscue-debug`
+- [x] Update `RootNamespace` to `PSCue.Debug`
+- [x] Update all namespace declarations in source files
+- [x] Update solution file references
+- [x] Update CLAUDE.md references to CLI → Debug
+- [x] Update test scripts that reference the CLI tool
 
 **10.2: Add New IPC Request Types**
 - [ ] Extend `IpcProtocol.cs` with new request types:
@@ -636,9 +648,9 @@ git push origin v1.0.0
 - [ ] Add `--json` flag support for machine-readable output
 - [ ] Add `--pid <pid>` flag to connect to specific PowerShell session
 
-**10.5: Implement 'stats' Command**
-- [ ] Send `GetCacheStats` IPC request
-- [ ] Display formatted output:
+**10.5: Implement 'stats' Command** ✅
+- [x] Send `GetCacheStats` IPC request (using `IpcDebugRequest`)
+- [x] Display formatted output:
   ```
   PSCue Cache Statistics
   =====================
@@ -651,10 +663,10 @@ git push origin v1.0.0
   ```
 - [ ] JSON output format (when `--json` flag used)
 
-**10.6: Implement 'cache' Command**
-- [ ] Send `GetCacheContents` IPC request
-- [ ] Support optional `--filter <pattern>` for filtering by command/key
-- [ ] Display formatted output:
+**10.6: Implement 'cache' Command** ✅
+- [x] Send `GetCacheContents` IPC request (using `IpcDebugRequest`)
+- [x] Support optional `--filter <pattern>` for filtering by command/key
+- [x] Display formatted output:
   ```
   PSCue Cache Contents
   ===================
@@ -678,9 +690,9 @@ git push origin v1.0.0
 - [ ] JSON output format for scripting
 - [ ] Handle empty cache gracefully
 
-**10.7: Implement 'ping' Command**
-- [ ] Send `Ping` IPC request
-- [ ] Display server information:
+**10.7: Implement 'ping' Command** ✅
+- [x] Send `Ping` IPC request (using `IpcDebugRequest`)
+- [x] Display server information (shows round-trip time):
   ```
   PSCue IPC Server
   ===============
@@ -703,11 +715,13 @@ git push origin v1.0.0
   ```
 - [ ] Add `--force` flag to skip confirmation prompt
 
-**10.9: Refactor 'query' Command**
-- [ ] Keep existing functionality (test completions)
-- [ ] Enhance output to show whether result was cached
-- [ ] Add timing information
-- [ ] Support `--include-dynamic` flag to control dynamic arguments
+**10.9: Refactor 'query' Command** ✅
+- [x] Keep existing functionality (test completions)
+- [x] Split into `query-local` (no IPC) and `query-ipc` (via IPC) for testing both paths
+- [x] Enhance output to show whether result was cached (query-ipc shows cached status)
+- [x] Add timing information (all commands show `Time: X.XXms`)
+- [x] PowerShell process discovery (automatically finds PSCue-loaded sessions)
+- [ ] Support `--include-dynamic` flag to control dynamic arguments (not yet implemented)
 - [ ] Example output:
   ```
   $ pscue-debug query "git checkout ma"
@@ -740,11 +754,13 @@ git push origin v1.0.0
 - [ ] Test JSON output format
 - [ ] Test filter functionality for cache command
 
-**10.13: Documentation**
-- [ ] Update CLAUDE.md with new tool capabilities
-- [ ] Update README.md with debugging tool section
-- [ ] Add examples of using debug tool for troubleshooting
-- [ ] Document IPC protocol extensions
+**10.13: Documentation** ✅
+- [x] Update CLAUDE.md with new tool capabilities
+- [x] Update README.md with debugging tool section
+- [x] Add examples of using debug tool for troubleshooting
+- [x] Document IPC protocol extensions (TECHNICAL_DETAILS.md updated)
+- [x] Document IPC server race condition fix
+- [x] Document PowerShell process discovery feature
 
 **10.14: Optional Enhancements**
 - [ ] Add `watch` mode for live monitoring (e.g., `pscue-debug stats --watch`)
@@ -754,12 +770,16 @@ git push origin v1.0.0
 - [ ] Add performance benchmark command
 
 #### Success Criteria
-- [ ] All PSCue.Cli references renamed to PSCue.Debug
-- [ ] `pscue-debug` binary builds successfully
-- [ ] All five core commands work: query, stats, cache, ping, clear
-- [ ] JSON output option works for all applicable commands
-- [ ] Tool provides helpful error messages when server unavailable
-- [ ] Documentation updated with debugging tool usage
+- [x] All PSCue.Cli references renamed to PSCue.Debug
+- [x] `pscue-debug` binary builds successfully
+- [x] Four of five core commands work: query-local, query-ipc, stats, cache, ping
+- [ ] Fifth command (clear cache) not yet implemented
+- [ ] JSON output option works for all applicable commands (not yet implemented)
+- [x] Tool provides helpful error messages when server unavailable
+- [x] Documentation updated with debugging tool usage
+- [x] PowerShell process discovery implemented (auto-finds PSCue sessions)
+- [x] Timing statistics on all commands
+- [x] IPC server race condition fixed
 - [ ] Test script validates all commands
 
 #### Implementation Order

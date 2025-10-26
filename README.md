@@ -284,10 +284,13 @@ dotnet test --logger "console;verbosity=detailed"
 Use the PSCue.Debug tool:
 
 ```powershell
-# Test GetSuggestion (inline predictions)
-dotnet run --project src/PSCue.Debug/ -- query "git checkout ma"
+# Test local completion logic (no IPC)
+dotnet run --project src/PSCue.Debug/ -- query-local "git checkout ma"
 
-# Test IPC connectivity
+# Test IPC completion request (requires PSCue loaded in PowerShell)
+dotnet run --project src/PSCue.Debug/ -- query-ipc "git checkout ma"
+
+# Test IPC connectivity and measure round-trip time
 dotnet run --project src/PSCue.Debug/ -- ping
 
 # Show cache statistics
@@ -296,6 +299,8 @@ dotnet run --project src/PSCue.Debug/ -- stats
 # Inspect cached completions (optionally filtered)
 dotnet run --project src/PSCue.Debug/ -- cache --filter git
 ```
+
+**Note**: All commands show timing statistics (e.g., `Time: 11.69ms`). The IPC commands (`query-ipc`, `ping`, `stats`, `cache`) automatically discover running PowerShell processes with PSCue loaded.
 
 Or test in PowerShell directly:
 

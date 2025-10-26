@@ -3,6 +3,7 @@ using System.IO.Pipes;
 using System.Management.Automation.Subsystem.Prediction;
 using System.Text;
 using System.Text.Json;
+using PSCue.ArgumentCompleter;
 using PSCue.Module;
 using PSCue.Shared;
 
@@ -24,12 +25,13 @@ class Program
         {
             return command switch
             {
-                "query" => HandleQueryCommand(args),
+                "query-local" => HandleQueryLocalCommand(args),
+                "query-ipc" => await HandleQueryIpcCommand(args),
                 "stats" => await HandleStatsCommand(),
                 "cache" => await HandleCacheCommand(args),
                 "ping" => await HandlePingCommand(),
                 "help" or "--help" or "-h" => ShowUsage(),
-                _ => HandleQueryCommand(args)
+                _ => HandleUnknownCommand(args[0])
             };
         }
         catch (Exception ex)
@@ -46,46 +48,50 @@ class Program
         Console.WriteLine("Usage: pscue-debug <command> [options]");
         Console.WriteLine();
         Console.WriteLine("Commands:");
-        Console.WriteLine("  query <input>       Get completion suggestions for input (tests GetSuggestion)");
-        Console.WriteLine("  stats               Show cache statistics");
-        Console.WriteLine("  cache [--filter]    Inspect cached completions (optionally filtered)");
-        Console.WriteLine("  ping                Test IPC server connectivity");
-        Console.WriteLine("  help                Show this help message");
+        Console.WriteLine("  query-local <input>   Get completion suggestions using local logic");
+        Console.WriteLine("  query-ipc <input>     Get completion suggestions via IPC");
+        Console.WriteLine("  stats                 Show cache statistics");
+        Console.WriteLine("  cache [--filter]      Inspect cached completions (optionally filtered)");
+        Console.WriteLine("  ping                  Test IPC server connectivity");
+        Console.WriteLine("  help                  Show this help message");
         Console.WriteLine();
         Console.WriteLine("Examples:");
-        Console.WriteLine("  pscue-debug query \"git checkout ma\"");
+        Console.WriteLine("  pscue-debug query-local \"git checkout ma\"");
+        Console.WriteLine("  pscue-debug query-ipc \"git checkout ma\"");
         Console.WriteLine("  pscue-debug stats");
         Console.WriteLine("  pscue-debug cache --filter git");
         Console.WriteLine("  pscue-debug ping");
         return 0;
     }
 
-    /// <summary>
-    /// Handle 'query' command - tests GetSuggestion like the old behavior
-    /// </summary>
-    static int HandleQueryCommand(string[] args)
+    static int HandleUnknownCommand(string command)
     {
-        string input;
-        if (args[0].ToLowerInvariant() == "query")
+        Console.Error.WriteLine($"Error: Unknown command '{command}'");
+        Console.Error.WriteLine();
+        ShowUsage();
+        return 1;
+    }
+
+    /// <summary>
+    /// Handle 'query-local' command - tests GetSuggestion using local logic
+    /// </summary>
+    static int HandleQueryLocalCommand(string[] args)
+    {
+        if (args.Length < 2)
         {
-            if (args.Length < 2)
-            {
-                Console.Error.WriteLine("Error: 'query' command requires an input string");
-                return 1;
-            }
-            input = args[1];
-        }
-        else
-        {
-            // Backward compatibility: if first arg isn't a command, treat it as input
-            input = args[0];
+            Console.Error.WriteLine("Error: 'query-local' command requires an input string");
+            return 1;
         }
 
+        var input = args[1];
         var predictionContext = PredictionContext.Create(input);
         var predictionClient = new PredictionClient("PSCue.Debug", PredictionClientKind.Terminal);
 
         var predictor = new CommandPredictor();
+
+        var stopwatch = Stopwatch.StartNew();
         var suggestionPackage = predictor.GetSuggestion(predictionClient, predictionContext, CancellationToken.None);
+        stopwatch.Stop();
 
         if (suggestionPackage.SuggestionEntries != null && suggestionPackage.SuggestionEntries.Count > 0)
         {
@@ -94,12 +100,151 @@ class Program
             {
                 Console.WriteLine($"  {suggestion.SuggestionText}");
             }
+            Console.WriteLine();
+            Console.WriteLine($"Time: {stopwatch.Elapsed.TotalMilliseconds:F2}ms");
             return 0;
         }
         else
         {
             Console.WriteLine("(no suggestions)");
+            Console.WriteLine($"Time: {stopwatch.Elapsed.TotalMilliseconds:F2}ms");
             return 0;
+        }
+    }
+
+    /// <summary>
+    /// Handle 'query-ipc' command - tests GetSuggestion using IPC
+    /// </summary>
+    static async Task<int> HandleQueryIpcCommand(string[] args)
+    {
+        if (args.Length < 2)
+        {
+            Console.Error.WriteLine("Error: 'query-ipc' command requires an input string");
+            return 1;
+        }
+
+        var input = args[1];
+
+        // Extract command from input (needed for IPC request)
+        var firstSpaceIndex = input.IndexOf(' ');
+        var command = firstSpaceIndex > 0 ? input[..firstSpaceIndex] : input;
+
+        var stopwatch = Stopwatch.StartNew();
+        var ipcResponse = await TryGetCompletionsFromAnyPowerShell(command, input);
+        stopwatch.Stop();
+
+        if (ipcResponse is { Completions.Length: > 0 })
+        {
+            Console.WriteLine($"Found {ipcResponse.Completions.Length} suggestions (via IPC, cached: {ipcResponse.Cached}):");
+            foreach (var completion in ipcResponse.Completions)
+            {
+                Console.WriteLine($"  {completion.Text}");
+            }
+            Console.WriteLine();
+            Console.WriteLine($"Time: {stopwatch.Elapsed.TotalMilliseconds:F2}ms");
+            return 0;
+        }
+        else
+        {
+            Console.WriteLine("IPC request failed or returned no suggestions.");
+            Console.WriteLine("Is PSCue loaded in your PowerShell session?");
+            Console.WriteLine();
+            Console.WriteLine($"Time: {stopwatch.Elapsed.TotalMilliseconds:F2}ms");
+            return 1;
+        }
+    }
+
+    /// <summary>
+    /// Try to get completions from any running PowerShell process with PSCue loaded
+    /// </summary>
+    static async Task<IpcResponse?> TryGetCompletionsFromAnyPowerShell(string command, string input)
+    {
+        // Check if PSCUE_PID environment variable is set
+        var envPid = Environment.GetEnvironmentVariable("PSCUE_PID");
+        if (envPid != null && int.TryParse(envPid, out var specifiedPid))
+        {
+            var response = await TryGetCompletionsFromProcess(specifiedPid, command, input);
+            if (response != null) return response;
+        }
+
+        // Try to find any PSCue pipe by checking running PowerShell processes
+        var pwshProcesses = Process.GetProcessesByName("pwsh");
+        foreach (var proc in pwshProcesses)
+        {
+            var response = await TryGetCompletionsFromProcess(proc.Id, command, input);
+            if (response != null) return response;
+        }
+
+        // Also try powershell.exe on Windows
+        var powershellProcesses = Process.GetProcessesByName("powershell");
+        foreach (var proc in powershellProcesses)
+        {
+            var response = await TryGetCompletionsFromProcess(proc.Id, command, input);
+            if (response != null) return response;
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Try to get completions from a specific PowerShell process
+    /// </summary>
+    static async Task<IpcResponse?> TryGetCompletionsFromProcess(int processId, string command, string input)
+    {
+        try
+        {
+            var pipeName = IpcProtocol.GetPipeName(processId);
+            await using var client = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+
+            using var cts = new CancellationTokenSource(100); // 100ms timeout
+            try
+            {
+                await client.ConnectAsync(cts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                return null;
+            }
+
+            // Send completion request
+            var request = new IpcRequest
+            {
+                Command = command,
+                CommandLine = input,
+                WordToComplete = string.Empty,
+                CursorPosition = input.Length,
+                Args = input.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            };
+
+            var json = JsonSerializer.Serialize(request, IpcJsonContext.Default.IpcRequest);
+            var buffer = Encoding.UTF8.GetBytes(json);
+
+            // Write length prefix
+            var lengthBuffer = BitConverter.GetBytes(buffer.Length);
+            await client.WriteAsync(lengthBuffer.AsMemory(0, 4));
+
+            // Write JSON payload
+            await client.WriteAsync(buffer.AsMemory(0, buffer.Length));
+            await client.FlushAsync();
+
+            // Read response
+            var responseLengthBuffer = new byte[4];
+            var bytesRead = await client.ReadAsync(responseLengthBuffer.AsMemory(0, 4));
+            if (bytesRead != 4) return null;
+
+            var responseLength = BitConverter.ToInt32(responseLengthBuffer, 0);
+            if (responseLength is <= 0 or > 1024 * 1024) return null;
+
+            var responseBuffer = new byte[responseLength];
+            bytesRead = await client.ReadAsync(responseBuffer.AsMemory(0, responseLength));
+            if (bytesRead != responseLength) return null;
+
+            var responseJson = Encoding.UTF8.GetString(responseBuffer);
+            return JsonSerializer.Deserialize(responseJson, IpcJsonContext.Default.IpcResponse);
+        }
+        catch
+        {
+            return null;
         }
     }
 
@@ -222,7 +367,7 @@ class Program
             return 1;
         }
 
-        Console.WriteLine($"OK: {response.Message} (round-trip: {stopwatch.ElapsedMilliseconds}ms)");
+        Console.WriteLine($"OK: {response.Message} (round-trip: {stopwatch.Elapsed.TotalMilliseconds:F2}ms)");
         return 0;
     }
 
@@ -233,16 +378,11 @@ class Program
     {
         try
         {
-            // Find the PowerShell process that has the IPC server
-            // Try current process first, then parent
-            var processIds = new[] { Environment.ProcessId, GetParentProcessId() };
-
-            foreach (var pid in processIds)
+            // Check if PSCUE_PID environment variable is set
+            var envPid = Environment.GetEnvironmentVariable("PSCUE_PID");
+            if (envPid != null && int.TryParse(envPid, out var specifiedPid))
             {
-                if (pid == 0) continue;
-
-                var pipeName = IpcProtocol.GetPipeName(pid);
-
+                var pipeName = IpcProtocol.GetPipeName(specifiedPid);
                 try
                 {
                     var response = await SendDebugRequestToPipe(pipeName, request);
@@ -253,7 +393,58 @@ class Program
                 }
                 catch (TimeoutException)
                 {
-                    // Try next process
+                    // Fall through to try other methods
+                }
+                catch (Exception)
+                {
+                    // Silently try next option
+                }
+            }
+
+            // Try to find any PSCue pipe by checking running PowerShell processes
+            var pwshProcesses = Process.GetProcessesByName("pwsh");
+            foreach (var proc in pwshProcesses)
+            {
+                var pipeName = IpcProtocol.GetPipeName(proc.Id);
+                try
+                {
+                    var response = await SendDebugRequestToPipe(pipeName, request);
+                    if (response != null)
+                    {
+                        return response;
+                    }
+                }
+                catch (TimeoutException)
+                {
+                    continue;
+                }
+                catch (Exception)
+                {
+                    // Silently try next process
+                    continue;
+                }
+            }
+
+            // Also try powershell.exe on Windows
+            var powershellProcesses = Process.GetProcessesByName("powershell");
+            foreach (var proc in powershellProcesses)
+            {
+                var pipeName = IpcProtocol.GetPipeName(proc.Id);
+                try
+                {
+                    var response = await SendDebugRequestToPipe(pipeName, request);
+                    if (response != null)
+                    {
+                        return response;
+                    }
+                }
+                catch (TimeoutException)
+                {
+                    continue;
+                }
+                catch (Exception)
+                {
+                    // Silently try next process
                     continue;
                 }
             }

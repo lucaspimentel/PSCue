@@ -37,7 +37,7 @@ public class IpcServer : IDisposable
             while (!_cancellationTokenSource.Token.IsCancellationRequested)
             {
                 // Create a new pipe server for each connection
-                await using var pipeServer = new NamedPipeServerStream(
+                var pipeServer = new NamedPipeServerStream(
                     _pipeName,
                     PipeDirection.InOut,
                     NamedPipeServerStream.MaxAllowedServerInstances,
@@ -48,6 +48,7 @@ public class IpcServer : IDisposable
                 await pipeServer.WaitForConnectionAsync(_cancellationTokenSource.Token);
 
                 // Handle the request (fire and forget - we'll create a new server for the next connection)
+                // The handler will dispose the pipe when done
                 _ = Task.Run(() => HandleClientAsync(pipeServer), _cancellationTokenSource.Token);
             }
         }
@@ -69,6 +70,8 @@ public class IpcServer : IDisposable
     {
         try
         {
+            await using (pipeServer) // Ensure disposal after handling
+            {
             // Peek at the first byte to determine request type
             var peekBuffer = new byte[1];
             var bytesRead = await pipeServer.ReadAsync(peekBuffer.AsMemory(0, 1));
@@ -116,6 +119,7 @@ public class IpcServer : IDisposable
 
                 await HandleCompletionRequestAsync(pipeServer, request);
             }
+            } // End of await using (pipeServer)
         }
         catch (Exception ex)
         {
