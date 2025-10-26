@@ -73,11 +73,11 @@ try {
 }
 Write-Host ""
 
-# Test with DEBUG=1 to see which path is used
-Write-Host "6. Testing with DEBUG=1 to trace IPC usage..." -ForegroundColor Yellow
-$env:DEBUG = "1"
+# Test with PSCUE_DEBUG=1 to see which path is used
+Write-Host "6. Testing with PSCUE_DEBUG=1 to trace IPC usage..." -ForegroundColor Yellow
+$env:PSCUE_DEBUG = "1"
 $debugResult = & ~/.local/pwsh-modules/PSCue/pscue-completer.exe "che" "git che" 7 2>&1
-$env:DEBUG = ""
+$env:PSCUE_DEBUG = ""
 
 if ($debugResult) {
     Write-Host "   Debug output:" -ForegroundColor Gray

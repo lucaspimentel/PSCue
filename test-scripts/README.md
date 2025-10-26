@@ -20,6 +20,12 @@ This directory contains PowerShell test scripts for manually testing PSCue funct
 - Basic Tab completion test
 - Minimal output for quick validation
 
+**test-ipc-path.ps1**
+- Tests if ArgumentCompleter is using IPC or local fallback
+- Checks IPC connectivity with debug tool
+- Calls completer exe directly to see debug output
+- Verifies PSCUE_DEBUG environment variable enables logging
+
 ### CommandPredictor Tests
 
 **test-predictor.ps1**
@@ -49,6 +55,67 @@ This directory contains PowerShell test scripts for manually testing PSCue funct
   - **Success events**: Silent learning, updates cache scores
   - **Error events**: Provides recovery suggestions (e.g., git errors)
 
+### Cache and Learning Tests
+
+**test-cache-learning.ps1**
+- Demonstrates the complete cache learning flow
+- Shows cache starting empty
+- Triggers Tab completion to populate cache
+- Executes commands to trigger learning via FeedbackProvider
+- Shows cache statistics and entries
+
+**test-cache-debug.ps1**
+- Tests cache with debug logging enabled
+- Checks IPC connectivity
+- Triggers completions via TabExpansion2
+- Tests query-ipc command directly
+- Compares cache state before and after operations
+- Checks for debug log file
+
+**test-with-debug-enabled.ps1**
+- Main debug test with PSCUE_DEBUG=1
+- Clears old log before testing
+- Tests IPC connectivity
+- Triggers TabExpansion2 and checks log output
+- Shows whether IPC or local completions are used
+- Displays cache state after completions
+
+### ArgumentCompleter Registration Tests
+
+**test-completer-registration.ps1**
+- Verifies ArgumentCompleter registration for native commands
+- Checks registered argument completers (requires PowerShell cmdlet)
+- Tests TabExpansion2 directly
+- Calls pscue-completer.exe directly to compare
+- Checks for conflicting modules (e.g., posh-git)
+
+**test-completer-invocation.ps1**
+- Tests if PSCue ArgumentCompleter scriptblock is actually being invoked
+- Creates debug log file to track invocations
+- Manually registers completer with logging
+- Verifies completer is called by TabExpansion2
+- Shows invocation details (args, results)
+
+**test-debug-registration.ps1**
+- Tests ArgumentCompleter registration with debug output
+- Enables PSCUE_DEBUG to see registration process
+- Shows all commands being registered
+- Tests TabExpansion2 with debug enabled
+
+**test-what-completions.ps1**
+- Analyzes what completions TabExpansion2 actually returns
+- Shows detailed completion information (CompletionText, ToolTip, ResultType)
+- Determines if completions are from PSCue or PowerShell defaults
+- Distinguishes between ParameterValue (PSCue) and ProviderItem (file/directory)
+
+### Diagnostic Tests
+
+**test-check-completer-log.ps1**
+- Checks the completer log file location
+- Displays last 30 lines of log
+- Highlights IPC-related and local fallback messages
+- Useful for diagnosing IPC connectivity issues
+
 ## Usage
 
 ### Quick IPC Test
@@ -61,6 +128,30 @@ pwsh -NoProfile -File test-scripts/test-ipc-simple.ps1
 ```powershell
 # Run the full IPC test suite
 pwsh -NoProfile -File test-scripts/test-ipc.ps1
+```
+
+### Cache Learning Test
+```powershell
+# See how the cache populates and learns from usage
+pwsh -NoProfile -File test-scripts/test-cache-learning.ps1
+```
+
+### Debug IPC Issues
+```powershell
+# Enable debug logging to diagnose IPC problems
+pwsh -NoProfile -File test-scripts/test-with-debug-enabled.ps1
+
+# Check the completer log
+pwsh -NoProfile -File test-scripts/test-check-completer-log.ps1
+```
+
+### Verify Completer Registration
+```powershell
+# Check if ArgumentCompleter is properly registered
+pwsh -NoProfile -File test-scripts/test-completer-registration.ps1
+
+# Test if completer is actually being invoked
+pwsh -NoProfile -File test-scripts/test-completer-invocation.ps1
 ```
 
 ### Interactive Inline Predictions Test
@@ -93,6 +184,9 @@ pwsh -NoProfile -File test-scripts/test-feedback-provider.ps1
 - IPC tests require the module to be imported (which starts the IPC server)
 - Some tests may show errors in non-interactive sessions (e.g., PSReadLine features)
 - Run with `-Verbose` for detailed output where supported
+- Debug logging is controlled by the `PSCUE_DEBUG=1` environment variable
+- The completer log file is located at: `$env:LOCALAPPDATA/pwsh-argument-completer/log.txt` (Windows)
+- Set `$env:PSCUE_PID = $PID` in PowerShell to help debug tools find the IPC server
 
 ## Automated Tests
 
