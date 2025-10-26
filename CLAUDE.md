@@ -323,6 +323,15 @@ See TODO.md for detailed implementation plan and progress tracking.
   - Fixed IPC server race condition: Pipe was being disposed while HandleClientAsync was still using it
   - Added PowerShell process discovery: Debug commands now automatically find any PSCue-loaded PowerShell session
   - Commands search all `pwsh` and `powershell` processes to locate IPC server
+- **IPC Cache Population (2025-10-26):**
+  - **CRITICAL FIX**: ArgumentCompleter wasn't using IPC - cache was never populated!
+  - Fixed `IpcProtocol.GetCurrentPipeName()` to check `PSCUE_PID` environment variable (was using completer's own PID instead of PowerShell PID)
+  - Fixed PSCue.psm1 to set `$env:PSCUE_PID = $PID` so ArgumentCompleter can find the IPC server
+  - Added `-Native` flag to `Register-ArgumentCompleter` for native commands (git, gh, az, etc.)
+  - Changed debug environment variable from `DEBUG` to `PSCUE_DEBUG` for consistency
+  - Cache now correctly populates when Tab completion is triggered
+  - Added 9 new diagnostic test scripts to help troubleshoot IPC and cache issues
+  - ArgumentCompleter log shows "Using IPC completions" instead of "Using local completions"
 
 **Phase 6 Highlights:**
 - Created CI workflow for multi-platform builds and tests

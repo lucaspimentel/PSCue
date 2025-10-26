@@ -526,6 +526,15 @@ git push origin v1.0.0
   - [x] Cache invalidation: 5-minute time-based expiration
   - [x] Memory management: ConcurrentDictionary with Remove support
   - [x] Cache-first strategy: check cache before generating completions
+- [x] **CRITICAL BUG FIX (2025-10-26)**: ArgumentCompleter wasn't using IPC!
+  - [x] Fixed `IpcProtocol.GetCurrentPipeName()` to check `PSCUE_PID` environment variable
+  - [x] ArgumentCompleter was using its own PID instead of PowerShell's PID for pipe name
+  - [x] Updated PSCue.psm1 to set `$env:PSCUE_PID = $PID` on module load
+  - [x] Added `-Native` flag to `Register-ArgumentCompleter` for native commands
+  - [x] Changed debug environment variable from `DEBUG` to `PSCUE_DEBUG`
+  - [x] Cache now correctly populates when Tab completions are triggered
+  - [x] Added 9 comprehensive diagnostic test scripts in test-scripts/
+  - [x] Verified: ArgumentCompleter log shows "Using IPC completions" after fix
 
 **Performance achieved:**
 - ✅ Named Pipe connection: <10ms timeout

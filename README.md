@@ -368,6 +368,26 @@ See existing completions like `GitCommand.cs` or `ScoopCommand.cs` for examples 
 1. Verify module is loaded: `Get-Module PSCue`
 2. Check completer registration: `Get-ArgumentCompleter`
 3. Test executable directly: `pscue-completer.exe "ma" "git checkout ma" 15`
+4. **Check if IPC is working** (cache requires IPC):
+   ```powershell
+   # Set PSCUE_PID to help debug tools find your session
+   $env:PSCUE_PID = $PID
+
+   # Test IPC connectivity
+   dotnet run --project src/PSCue.Debug/ -- ping
+
+   # Check cache state
+   dotnet run --project src/PSCue.Debug/ -- cache
+   ```
+5. **Enable debug logging** to diagnose issues:
+   ```powershell
+   $env:PSCUE_DEBUG = "1"
+   # Trigger a completion, then check the log
+   # Log location: $env:LOCALAPPDATA/pwsh-argument-completer/log.txt (Windows)
+   ```
+6. Look for "Using IPC completions" vs "Using local completions" in the log:
+   - **IPC completions** = cache is working ✅
+   - **Local completions** = fallback mode (no caching) ⚠️
 
 ### Inline predictions not appearing
 
