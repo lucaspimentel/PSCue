@@ -1,5 +1,5 @@
 # Check the completer log file
-$logPath = Join-Path $env:LOCALAPPDATA 'pwsh-argument-completer/log.txt'
+$logPath = Join-Path $env:LOCALAPPDATA 'PSCue/log.txt'
 
 Write-Host "Completer log location: $logPath" -ForegroundColor Cyan
 

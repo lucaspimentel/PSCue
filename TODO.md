@@ -18,7 +18,6 @@ PSCue/
 │   ├── PSCue.ArgumentCompleter/         # Native executable (C#, NativeAOT)
 │   │   ├── PSCue.ArgumentCompleter.csproj
 │   │   ├── Program.cs                   # Entry point for Tab completion
-│   │   ├── Logger.cs                    # Debug logging
 │   │   ├── AssemblyInfo.cs              # NativeAOT trim settings
 │   │   └── IpcClient.cs                 # Named Pipe client for communicating with Predictor ✅
 │   │
@@ -33,7 +32,7 @@ PSCue/
 │   ├── PSCue.Shared/                    # Shared completion logic ✅
 │   │   ├── PSCue.Shared.csproj
 │   │   ├── CommandCompleter.cs          # Main completion orchestrator
-│   │   ├── Logger.cs                    # Debug logging
+│   │   ├── Logger.cs                    # Debug logging (shared, concurrent write support) ✅
 │   │   ├── Helpers.cs                   # Utility functions
 │   │   ├── Completions/                 # Completion framework
 │   │   │   ├── ICompletion.cs

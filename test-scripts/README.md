@@ -185,7 +185,7 @@ pwsh -NoProfile -File test-scripts/test-feedback-provider.ps1
 - Some tests may show errors in non-interactive sessions (e.g., PSReadLine features)
 - Run with `-Verbose` for detailed output where supported
 - Debug logging is controlled by the `PSCUE_DEBUG=1` environment variable
-- The completer log file is located at: `$env:LOCALAPPDATA/pwsh-argument-completer/log.txt` (Windows)
+- The completer log file is located at: `$env:LOCALAPPDATA/PSCue/log.txt` (Windows)
 - Set `$env:PSCUE_PID = $PID` in PowerShell to help debug tools find the IPC server
 
 ## Automated Tests

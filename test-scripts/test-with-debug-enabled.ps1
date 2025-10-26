@@ -2,7 +2,7 @@
 $env:PSCUE_DEBUG = "1"  # Enable completer debug logging
 
 # Clear old log
-$logPath = Join-Path $env:LOCALAPPDATA 'pwsh-argument-completer/log.txt'
+$logPath = Join-Path $env:LOCALAPPDATA 'PSCue/log.txt'
 if (Test-Path $logPath) {
     Clear-Content $logPath
     Write-Host "Cleared old log" -ForegroundColor Gray

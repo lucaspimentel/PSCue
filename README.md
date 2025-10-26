@@ -383,7 +383,7 @@ See existing completions like `GitCommand.cs` or `ScoopCommand.cs` for examples 
    ```powershell
    $env:PSCUE_DEBUG = "1"
    # Trigger a completion, then check the log
-   # Log location: $env:LOCALAPPDATA/pwsh-argument-completer/log.txt (Windows)
+   # Log location: $env:LOCALAPPDATA/PSCue/log.txt (Windows)
    ```
 6. Look for "Using IPC completions" vs "Using local completions" in the log:
    - **IPC completions** = cache is working ✅

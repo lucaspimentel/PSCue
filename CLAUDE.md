@@ -97,7 +97,6 @@ src/
 ├── PSCue.ArgumentCompleter/    # NativeAOT exe
 │   ├── Program.cs              # Entry point for Tab completion
 │   ├── IpcClient.cs            # Named Pipe client ✅
-│   ├── Logger.cs               # Debug logging
 │   └── AssemblyInfo.cs         # NativeAOT trim settings
 ├── PSCue.Module/     # Managed DLL
 │   ├── Init.cs                 # IModuleAssemblyInitializer - auto-registers predictor & starts IPC server ✅
@@ -109,7 +108,7 @@ src/
     ├── CommandCompleter.cs     # Main completion orchestrator
     ├── IpcProtocol.cs          # IPC request/response definitions ✅
     ├── IpcJsonContext.cs       # JSON source generation for NativeAOT ✅
-    ├── Logger.cs               # Debug logging
+    ├── Logger.cs               # Debug logging (shared, supports concurrent multi-process writes) ✅
     ├── Helpers.cs              # Utility functions
     ├── Completions/            # Completion framework
     │   ├── ICompletion.cs      # Base completion interface
@@ -246,6 +245,11 @@ Installs to: `~/.local/pwsh-modules/PSCue/`
     - **ArgumentCompleter**: `includeDynamicArguments: true` for complete Tab completions (user expects delay)
     - **IPC Protocol**: Supports flag to let client control behavior
     - Result: Predictor responds instantly with flags/subcommands, Tab completion still gets full lists
+12. **Shared Logger with concurrent write support** ✅ **IMPLEMENTED**: Single Logger in PSCue.Shared for all components
+    - Logger only performs file I/O when `PSCUE_DEBUG=1` environment variable is set
+    - Uses `FileShare.ReadWrite` to allow concurrent writes from multiple processes (ArgumentCompleter + Module)
+    - `AutoFlush = true` ensures immediate writes for debugging multi-process scenarios
+    - Log location: `$env:LOCALAPPDATA/PSCue/log.txt` (Windows) or `~/.local/share/PSCue/log.txt` (Linux/macOS)
 
 ## Performance Targets
 
@@ -332,6 +336,14 @@ See TODO.md for detailed implementation plan and progress tracking.
   - Cache now correctly populates when Tab completion is triggered
   - Added 9 new diagnostic test scripts to help troubleshoot IPC and cache issues
   - ArgumentCompleter log shows "Using IPC completions" instead of "Using local completions"
+- **Logger Consolidation & Concurrent Write Support (2025-10-26):**
+  - Consolidated duplicate Logger classes into single implementation in PSCue.Shared
+  - Fixed concurrent write issue: changed `FileShare.Read` to `FileShare.ReadWrite` to allow both ArgumentCompleter and Module to write simultaneously
+  - Added `AutoFlush = true` to StreamWriter for immediate writes in multi-process scenarios
+  - Logger only performs file I/O when `PSCUE_DEBUG=1` (no filesystem operations in production)
+  - Updated log path from `pwsh-argument-completer` to `PSCue` folder
+  - Added component name to each log entry (e.g., `[ArgumentCompleter]`, `[Module]`) for clarity in multi-process debugging
+  - Log location: `$env:LOCALAPPDATA/PSCue/log.txt` (Windows) or `~/.local/share/PSCue/log.txt` (Linux/macOS)
 
 **Phase 6 Highlights:**
 - Created CI workflow for multi-platform builds and tests
