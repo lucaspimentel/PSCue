@@ -44,8 +44,16 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
 
     private void RegisterCommandPredictor(ICommandPredictor commandPredictor)
     {
-        _identifiers.Add(commandPredictor.Id);
-        SubsystemManager.RegisterSubsystem(SubsystemKind.CommandPredictor, commandPredictor);
+        try
+        {
+            _identifiers.Add(commandPredictor.Id);
+            SubsystemManager.RegisterSubsystem(SubsystemKind.CommandPredictor, commandPredictor);
+        }
+        catch (Exception ex)
+        {
+            // Command predictors should work on PowerShell 7.2+, but fail gracefully if there are issues
+            Console.Error.WriteLine($"Note: Command predictor not registered: {ex.Message}");
+        }
     }
 
     private void RegisterFeedbackProvider(IFeedbackProvider feedbackProvider)
