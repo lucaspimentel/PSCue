@@ -15,7 +15,7 @@ namespace PSCue.Module;
 /// </summary>
 public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
 {
-    private readonly List<Guid> _identifiers = [];
+    private readonly List<(SubsystemKind Kind, Guid Id)> _subsystems = [];
     private static IpcServer? _ipcServer;
 
     /// <summary>
@@ -46,8 +46,8 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
     {
         try
         {
-            _identifiers.Add(commandPredictor.Id);
             SubsystemManager.RegisterSubsystem(SubsystemKind.CommandPredictor, commandPredictor);
+            _subsystems.Add((SubsystemKind.CommandPredictor, commandPredictor.Id));
         }
         catch (Exception ex)
         {
@@ -60,8 +60,8 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
     {
         try
         {
-            _identifiers.Add(feedbackProvider.Id);
             SubsystemManager.RegisterSubsystem(SubsystemKind.FeedbackProvider, feedbackProvider);
+            _subsystems.Add((SubsystemKind.FeedbackProvider, feedbackProvider.Id));
         }
         catch (Exception ex)
         {
@@ -77,24 +77,15 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
     public void OnRemove(PSModuleInfo psModuleInfo)
     {
         // Unregister all subsystems (predictors and feedback providers)
-        foreach (var id in _identifiers)
+        foreach (var (kind, id) in _subsystems)
         {
             try
             {
-                // Try CommandPredictor first
-                SubsystemManager.UnregisterSubsystem(SubsystemKind.CommandPredictor, id);
+                SubsystemManager.UnregisterSubsystem(kind, id);
             }
             catch
             {
-                try
-                {
-                    // Try FeedbackProvider if CommandPredictor fails
-                    SubsystemManager.UnregisterSubsystem(SubsystemKind.FeedbackProvider, id);
-                }
-                catch
-                {
-                    // Ignore unregistration errors
-                }
+                // Ignore unregistration errors
             }
         }
 
