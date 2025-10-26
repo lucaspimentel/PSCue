@@ -34,15 +34,15 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
             Console.Error.WriteLine($"Failed to start IPC server: {ex.Message}");
         }
 
-        RegisterSubsystem(new CommandCompleterPredictor());
-        //RegisterSubsystem(new SamplePredictor());
+        RegisterCommandPredictor(new CommandCompleterPredictor());
+        //RegisterCommandPredictor(new SamplePredictor());
 
         // Register feedback provider (requires PowerShell 7.4+ with PSFeedbackProvider experimental feature)
         // This will fail gracefully on older PowerShell versions
         RegisterFeedbackProvider(new CommandCompleterFeedbackProvider(_ipcServer));
     }
 
-    private void RegisterSubsystem(ICommandPredictor commandPredictor)
+    private void RegisterCommandPredictor(ICommandPredictor commandPredictor)
     {
         _identifiers.Add(commandPredictor.Id);
         SubsystemManager.RegisterSubsystem(SubsystemKind.CommandPredictor, commandPredictor);
