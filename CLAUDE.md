@@ -25,9 +25,8 @@ PSCue is a unified PowerShell module that provides intelligent command-line comp
 - Hosts Named Pipe server for serving completions
 - Maintains cached state (git branches, scoop packages, etc.)
 - Implements `ICommandPredictor` for inline suggestions
-- Implements `IFeedbackProvider` for learning and error suggestions (PowerShell 7.4+)
-  - **Success events**: Silently learns from command usage, updates cache scores
-  - **Error events**: Provides helpful recovery suggestions (e.g., git errors)
+- Implements `IFeedbackProvider` for learning from command usage (PowerShell 7.4+)
+  - **Success events**: Silently learns from command execution, updates cache scores
 - Updates cache with usage patterns to prioritize frequently-used completions
 
 ### IPC Architecture with Learning Loop
@@ -156,8 +155,11 @@ dotnet build src/PSCue.Module/ -c Release -f net9.0
 dotnet test test/PSCue.ArgumentCompleter.Tests/
 dotnet test test/PSCue.Module.Tests/
 
-# CLI testing tool (tests CommandPredictor GetSuggestion)
-dotnet run --project src/PSCue.Cli/ -- "git checkout ma"
+# PSCue.Debug tool - inspect cache, test IPC, and verify predictions
+dotnet run --project src/PSCue.Debug/ -- query "git checkout ma"  # Test GetSuggestion
+dotnet run --project src/PSCue.Debug/ -- ping                     # Test IPC connectivity
+dotnet run --project src/PSCue.Debug/ -- stats                    # Show cache statistics
+dotnet run --project src/PSCue.Debug/ -- cache --filter git       # Inspect cached completions
 
 # Test predictor registration and GetSuggestion
 pwsh -NoProfile -File test-inline-predictions.ps1
@@ -168,6 +170,12 @@ pwsh -NoProfile -File test-manual-init.ps1
 # Test predictor subsystem registration
 pwsh -NoProfile -File test-predictor.ps1
 ```
+
+**PSCue.Debug tool commands**:
+- `query <input>` - Get completion suggestions for input (tests GetSuggestion)
+- `ping` - Test IPC server connectivity (requires PSCue loaded in PowerShell)
+- `stats` - Show cache statistics (entries, hits, age)
+- `cache [--filter <text>]` - Inspect cached completions with optional filter
 
 **Testing inline predictions interactively**:
 ```powershell
@@ -253,7 +261,7 @@ Installs to: `~/.local/pwsh-modules/PSCue/`
 
 See TODO.md for detailed implementation plan and progress tracking.
 
-**Current Status**: Learning system (Phase 9) complete! FeedbackProvider learns from successful commands and provides error suggestions.
+**Current Status**: Learning system (Phase 9) complete! FeedbackProvider learns from successful commands.
 
 **Completed phases:**
 - ✅ Phase 1: Project Structure Setup
@@ -272,12 +280,10 @@ See TODO.md for detailed implementation plan and progress tracking.
   - Graceful fallback when IPC unavailable
   - Async/await with proper timeout handling
   - Performance optimization (0.075ms IPC round-trip when available)
-- ✅ Phase 9: Learning System & Error Suggestions (IFeedbackProvider)
+- ✅ Phase 9: Learning System (IFeedbackProvider)
   - ✅ Implemented CommandCompleterFeedbackProvider
   - ✅ Registered in Init with PowerShell 7.4+ detection
   - ✅ **Success events**: Silently learns from command execution, updates cache scores
-  - ✅ **Error events**: Provides helpful recovery suggestions for git errors
-  - ✅ Git error patterns: not a repo, pathspec errors, uncommitted changes, remotes, permissions, checkout failures
   - ✅ Updates cache scores via CompletionCache.IncrementUsage()
   - ✅ Graceful degradation on PowerShell 7.2-7.3
   - ✅ Test script verifies provider registration (PowerShell 7.4+)
@@ -287,7 +293,7 @@ See TODO.md for detailed implementation plan and progress tracking.
 - Enhanced learning algorithms (frequency × recency scoring)
 - Track flag combinations and argument patterns
 - Cross-session persistence (save learned data to disk)
-- Error suggestions for more commands (gh, az, scoop, etc.)
+- Error suggestions when commands fail (e.g., git errors, gh errors, az errors)
 - ML-based predictions
 
 **Known Issues Fixed:**
@@ -415,11 +421,12 @@ If the CommandPredictor doesn't register:
 - Provide cache statistics endpoint for debugging
 
 ### When working on IFeedbackProvider:
-- Handle both `FeedbackTrigger.Success` and `FeedbackTrigger.Error`
+- Handle `FeedbackTrigger.Success` events (currently implemented)
 - Extract command patterns from `FeedbackContext`
 - Update cache scores based on observed usage
 - Be performant - runs after every command execution
 - Test on PowerShell 7.4+ (requires experimental feature)
+- Error suggestions (`FeedbackTrigger.Error`) planned for future enhancement
 
 ### When working on IPC layer:
 - Keep protocol simple and fast
@@ -463,5 +470,5 @@ The developer (Lucas) works on:
 
 **Key Concepts**:
 - **ICommandPredictor**: Provides suggestions BEFORE command execution (as you type)
-- **IFeedbackProvider**: Learns from command execution AFTER it completes (success or error)
+- **IFeedbackProvider**: Learns from command execution AFTER it completes (currently only success events)
 - **Learning Loop**: IFeedbackProvider updates cache → ICommandPredictor/ArgumentCompleter use updated cache → Better suggestions next time

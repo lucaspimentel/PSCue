@@ -281,10 +281,20 @@ dotnet test --logger "console;verbosity=detailed"
 
 ### Testing Completions Manually
 
-Use the CLI testing tool:
+Use the PSCue.Debug tool:
 
 ```powershell
-dotnet run --project src/PSCue.Cli/ -- "git checkout ma"
+# Test GetSuggestion (inline predictions)
+dotnet run --project src/PSCue.Debug/ -- query "git checkout ma"
+
+# Test IPC connectivity
+dotnet run --project src/PSCue.Debug/ -- ping
+
+# Show cache statistics
+dotnet run --project src/PSCue.Debug/ -- stats
+
+# Inspect cached completions (optionally filtered)
+dotnet run --project src/PSCue.Debug/ -- cache --filter git
 ```
 
 Or test in PowerShell directly:

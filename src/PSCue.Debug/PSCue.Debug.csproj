@@ -3,14 +3,17 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net9.0</TargetFramework>
-    <AssemblyName>pscue-cli</AssemblyName>
-    <RootNamespace>PSCue.Cli</RootNamespace>
+    <AssemblyName>pscue-debug</AssemblyName>
+    <RootNamespace>PSCue.Debug</RootNamespace>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
 
-    <!-- This is a console app for testing, not for production -->
+    <!-- This is a debug/testing tool, not for production -->
     <IsPackable>false</IsPackable>
+
+    <!-- Enable preview features for ICommandPredictor -->
+    <EnablePreviewFeatures>true</EnablePreviewFeatures>
   </PropertyGroup>
 
   <ItemGroup>

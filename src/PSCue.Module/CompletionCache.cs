@@ -110,6 +110,27 @@ public class CompletionCache
     }
 
     /// <summary>
+    /// Get detailed information about cache entries for debugging.
+    /// </summary>
+    public CacheEntryDetail[] GetCacheEntries(string? filter = null)
+    {
+        var entries = _cache
+            .Where(kvp => string.IsNullOrEmpty(filter) || kvp.Key.Contains(filter, StringComparison.OrdinalIgnoreCase))
+            .Select(kvp => new CacheEntryDetail
+            {
+                Key = kvp.Key,
+                Completions = kvp.Value.Completions,
+                HitCount = kvp.Value.HitCount,
+                Age = DateTime.UtcNow - kvp.Value.Timestamp,
+                LastAccessTime = kvp.Value.LastAccessTime
+            })
+            .OrderByDescending(e => e.HitCount)
+            .ToArray();
+
+        return entries;
+    }
+
+    /// <summary>
     /// Generate a cache key from command line context.
     /// </summary>
     public static string GetCacheKey(string command, string commandLine)
@@ -144,4 +165,16 @@ public class CacheStatistics
     public int EntryCount { get; init; }
     public int TotalHits { get; init; }
     public DateTime OldestEntry { get; init; }
+}
+
+/// <summary>
+/// Detailed information about a single cache entry.
+/// </summary>
+public class CacheEntryDetail
+{
+    public required string Key { get; init; }
+    public required CompletionItem[] Completions { get; init; }
+    public required int HitCount { get; init; }
+    public required TimeSpan Age { get; init; }
+    public required DateTime LastAccessTime { get; init; }
 }

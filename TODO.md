@@ -5,7 +5,7 @@
 PSCue is a unified PowerShell module that combines:
 1. **Argument Completer** (from pwsh-argument-completer) - Native argument completion using `Register-ArgumentCompleter`
 2. **Command Predictor** (from pwsh-command-predictor) - ICommandPredictor for inline suggestions
-3. **Feedback Provider** - IFeedbackProvider for learning from command execution (PowerShell 7.4+)
+3. **Feedback Provider** - IFeedbackProvider for learning from successful command execution (PowerShell 7.4+)
 4. **Future Features** - ML-based completions, etc.
 
 ---
@@ -26,7 +26,7 @@ PSCue/
 │   │   ├── PSCue.Module.csproj
 │   │   ├── Init.cs                      # IModuleAssemblyInitializer - auto-registers predictor & feedback provider ✅
 │   │   ├── CommandCompleterPredictor.cs # ICommandPredictor implementation ✅
-│   │   ├── FeedbackProvider.cs          # IFeedbackProvider - learns from command execution & error suggestions ✅
+│   │   ├── FeedbackProvider.cs          # IFeedbackProvider - learns from successful command execution ✅
 │   │   ├── IpcServer.cs                 # Named Pipe server for serving completions ✅
 │   │   └── CompletionCache.cs           # Cache with usage tracking and learning ✅
 │   │
@@ -53,8 +53,8 @@ PSCue/
 │   │   ├── IpcProtocol.cs               # IPC protocol definitions ✅
 │   │   └── IpcJsonContext.cs            # JSON source generation for NativeAOT ✅
 │   │
-│   └── PSCue.Cli/                       # CLI testing tool ✅
-│       ├── PSCue.Cli.csproj
+│   └── PSCue.Debug/                     # Debug/testing tool ✅
+│       ├── PSCue.Debug.csproj
 │       └── Program.cs
 │
 ├── module/
@@ -461,13 +461,17 @@ git push origin v1.0.0
 - [x] Document differences from original projects in README
 - [ ] Create CONTRIBUTING.md (optional - deferred)
 
-### Phase 7.5: Optional - CLI Testing Tool ✅
-- [x] Create `src/PSCue.Cli/` for testing
-- [x] Copy Program.cs from pwsh-command-predictor CLI
-- [x] Update to use PSCue namespaces
-- [x] Add PowerShell SDK package reference
-- [x] Test: `dotnet run --project src/PSCue.Cli/ -- "git commit"`
-- [x] Verified CLI tool works for git, scoop, and other commands
+### Phase 7.5: Debug/Testing Tool ✅
+- [x] Create `src/PSCue.Debug/` for testing and debugging
+- [x] Implement `query` command - test GetSuggestion
+- [x] Implement `ping` command - test IPC connectivity
+- [x] Implement `stats` command - show cache statistics via IPC
+- [x] Implement `cache` command - inspect cached completions with optional filter
+- [x] Test: `dotnet run --project src/PSCue.Debug/ -- query "git commit"`
+- [x] Test: `dotnet run --project src/PSCue.Debug/ -- ping`
+- [x] Test: `dotnet run --project src/PSCue.Debug/ -- stats`
+- [x] Test: `dotnet run --project src/PSCue.Debug/ -- cache --filter git`
+- [x] Verified debug tool works with IPC protocol and cache inspection
 
 ### Phase 8: IPC Communication Layer ✅
 - [x] Design IPC protocol schema (request/response format)
@@ -524,7 +528,7 @@ git push origin v1.0.0
 - ✅ Test execution: <1 second for all tests
 - ✅ Module installation: ~30 seconds (includes NativeAOT compilation)
 
-### Phase 9: Feedback Provider (Learning System & Error Suggestions) ✅
+### Phase 9: Feedback Provider (Learning System) ✅
 
 **Prerequisites completed in Phase 8:**
 - ✅ CompletionCache with usage tracking (`IncrementUsage()` method ready)
@@ -540,19 +544,8 @@ git push origin v1.0.0
   - [x] Create `FeedbackProvider.cs` implementing `IFeedbackProvider`
   - [x] Register as feedback provider in `Init.OnImport()`
   - [x] Handle `FeedbackTrigger.Success` events (silent learning)
-  - [x] Handle `FeedbackTrigger.Error` events (error suggestions)
   - [x] Extract command patterns from `FeedbackContext`
   - [x] Call `CompletionCache.IncrementUsage()` for executed commands
-- [x] Implement error suggestion system
-  - [x] Return `null` for successful commands (silent learning)
-  - [x] Return `FeedbackItem` with suggestions for failed commands
-  - [x] Implement git-specific error patterns and recovery suggestions:
-    - [x] "not a git repository" → suggest `git init` or `git clone`
-    - [x] "pathspec did not match" → suggest checking branches or creating new branch
-    - [x] "uncommitted changes" → suggest commit, stash, or restore
-    - [x] "remote does not exist" → suggest listing or adding remotes
-    - [x] "permission denied" → suggest SSH key check or HTTPS
-    - [x] "git checkout" errors → suggest listing branches or creating new ones
 - [x] Test feedback learning
   - [x] Created test script: `test-scripts/test-feedback-provider.ps1`
   - [x] Verified provider registration on PowerShell 7.4+
@@ -562,30 +555,231 @@ git push origin v1.0.0
   - [x] Updated CLAUDE.md with Phase 9 completion status
   - [x] Documented experimental feature requirement: `Enable-ExperimentalFeature PSFeedbackProvider`
   - [x] Documented graceful degradation on PowerShell 7.2-7.3
-  - [x] Documented error suggestion feature
 
 **Future enhancements** (not blocking initial release):
 - [ ] Enhance CompletionCache learning algorithms
   - [ ] Track flag combinations (e.g., user often uses "git commit -am")
   - [ ] Track argument patterns (e.g., branch naming preferences)
   - [ ] Refine priority scoring algorithm (frequency × recency)
-- [ ] Expand error suggestions to more commands
-  - [ ] GitHub CLI (gh) error patterns
-  - [ ] Azure CLI (az) error patterns
-  - [ ] Scoop error patterns
+- [ ] Add error suggestions feature (handle `FeedbackTrigger.Error`)
+  - [ ] Return `FeedbackItem` with helpful recovery suggestions when commands fail
+  - [ ] Implement git-specific error patterns (not a repo, pathspec errors, uncommitted changes, etc.)
+  - [ ] Expand error suggestions to more commands (gh, az, scoop, etc.)
 - [ ] Add unit tests for feedback provider
   - [ ] Test pattern matching logic
-  - [ ] Test suggestion generation
   - [ ] Test cache update integration
 - [ ] Cross-session persistence (save learned data to disk)
 
-### Phase 10: Future Enhancements (Not in initial release)
+### Phase 10: Enhanced Debugging Tool (PSCue.Debug)
+
+**Goal**: Transform the CLI testing tool into a comprehensive debugging/diagnostics tool for inspecting the IPC server's learned data and cache state.
+
+**Rationale**:
+- Developers need visibility into what the learning system has learned
+- Users need to debug completion issues (why isn't X showing up?)
+- Performance analysis requires cache hit/miss statistics
+- Testing new completion patterns requires query tool
+
+**New name**: Rename `PSCue.Cli` → `PSCue.Debug` (reflects expanded debugging purpose)
+
+**Output binary**: `pscue-debug` (or `pscue-debug.exe` on Windows)
+
+#### Subtasks
+
+**10.1: Project Rename**
+- [ ] Rename directory: `src/PSCue.Cli/` → `src/PSCue.Debug/`
+- [ ] Rename project file: `PSCue.Cli.csproj` → `PSCue.Debug.csproj`
+- [ ] Update `AssemblyName` to `pscue-debug`
+- [ ] Update `RootNamespace` to `PSCue.Debug`
+- [ ] Update all namespace declarations in source files
+- [ ] Update solution file references
+- [ ] Update CLAUDE.md references to CLI → Debug
+- [ ] Update test scripts that reference the CLI tool
+
+**10.2: Add New IPC Request Types**
+- [ ] Extend `IpcProtocol.cs` with new request types:
+  - [ ] Add `IpcRequestType` enum: `GetCompletions`, `GetCacheStats`, `GetCacheContents`, `ClearCache`, `Ping`
+  - [ ] Update `IpcRequest.RequestType` to use enum (currently string)
+  - [ ] Add `CacheFilter` parameter to `IpcRequest` (optional filter for cache contents)
+- [ ] Create response types:
+  - [ ] `CacheStatsResponse` with statistics (entry count, hit counts, memory usage, uptime)
+  - [ ] `CacheContentsResponse` with array of cache entries (key, completions, scores, age, hits)
+  - [ ] `PingResponse` with server info (version, PID, uptime, request count)
+- [ ] Update `IpcJsonContext` with new types for source generation
+- [ ] Document protocol in comments
+
+**10.3: Implement Server-Side Handlers**
+- [ ] Extend `IpcServer.cs` to handle new request types:
+  - [ ] `GetCacheStats`: Call `CompletionCache.GetStatistics()`, return enriched data
+  - [ ] `GetCacheContents`: Return all cache entries (optionally filtered)
+  - [ ] `ClearCache`: Call `CompletionCache.Clear()`
+  - [ ] `Ping`: Return server metadata
+- [ ] Add request counter to IpcServer for statistics
+- [ ] Add server start time for uptime calculation
+- [ ] Handle errors gracefully (unknown request types)
+
+**10.4: Implement CLI Commands Structure**
+- [ ] Design command-line interface:
+  ```
+  pscue-debug <command> [options]
+
+  Commands:
+    query <command>              Test completions (existing functionality)
+    stats [--json]               Show cache statistics
+    cache [--filter <pattern>]   Show cache contents with scores
+          [--json]
+    ping                         Test IPC connectivity & show server info
+    clear                        Clear the completion cache
+    help                         Show help message
+  ```
+- [ ] Create command router in Program.cs
+- [ ] Add `--json` flag support for machine-readable output
+- [ ] Add `--pid <pid>` flag to connect to specific PowerShell session
+
+**10.5: Implement 'stats' Command**
+- [ ] Send `GetCacheStats` IPC request
+- [ ] Display formatted output:
+  ```
+  PSCue Cache Statistics
+  =====================
+  Cache Entries: 42
+  Total Cache Hits: 1,234
+  Oldest Entry: 3m 45s ago
+  Server Uptime: 2h 15m 32s
+  Total Requests: 5,678
+  IPC Round-trip: 0.8ms
+  ```
+- [ ] JSON output format (when `--json` flag used)
+
+**10.6: Implement 'cache' Command**
+- [ ] Send `GetCacheContents` IPC request
+- [ ] Support optional `--filter <pattern>` for filtering by command/key
+- [ ] Display formatted output:
+  ```
+  PSCue Cache Contents
+  ===================
+
+  Key: git|checkout
+  Age: 1m 23s | Hits: 15
+  Completions (5):
+    1. main        (score: 0.9) - Default branch
+    2. develop     (score: 0.7) - Development branch
+    3. feature/foo (score: 0.5) - Feature branch
+    4. -b          (score: 0.4) - Create new branch
+    5. -B          (score: 0.2) - Force create branch
+
+  Key: scoop|install
+  Age: 45s | Hits: 3
+  Completions (10):
+    1. nodejs   (score: 0.8) - Node.js runtime
+    2. python   (score: 0.6) - Python interpreter
+    ...
+  ```
+- [ ] JSON output format for scripting
+- [ ] Handle empty cache gracefully
+
+**10.7: Implement 'ping' Command**
+- [ ] Send `Ping` IPC request
+- [ ] Display server information:
+  ```
+  PSCue IPC Server
+  ===============
+  Status: Connected
+  Server PID: 12345
+  Pipe Name: PSCue-12345
+  Version: 1.0.0
+  Uptime: 2h 15m 32s
+  Total Requests: 5,678
+  Round-trip Time: 0.8ms
+  ```
+- [ ] Handle connection failures with clear error messages
+
+**10.8: Implement 'clear' Command**
+- [ ] Send `ClearCache` IPC request
+- [ ] Display confirmation:
+  ```
+  Cache cleared successfully!
+  Removed 42 entries.
+  ```
+- [ ] Add `--force` flag to skip confirmation prompt
+
+**10.9: Refactor 'query' Command**
+- [ ] Keep existing functionality (test completions)
+- [ ] Enhance output to show whether result was cached
+- [ ] Add timing information
+- [ ] Support `--include-dynamic` flag to control dynamic arguments
+- [ ] Example output:
+  ```
+  $ pscue-debug query "git checkout ma"
+
+  Completions for "git checkout ma":
+  1. main   - Default branch (score: 0.9)
+  2. master - Old default branch (score: 0.3)
+
+  Source: IPC Server (cached)
+  Response Time: 1.2ms
+  ```
+
+**10.10: Add Help System**
+- [ ] Implement `help` command showing all commands
+- [ ] Add `--help` flag to each command for detailed help
+- [ ] Include examples in help text
+- [ ] Show available options and flags
+
+**10.11: Error Handling & UX**
+- [ ] Handle IPC connection failures gracefully
+- [ ] Detect when no PowerShell session is running PSCue
+- [ ] Suggest running `Import-Module PSCue` if server not found
+- [ ] Add colored output support (optional, using ANSI codes)
+- [ ] Add progress indicators for slow operations
+
+**10.12: Testing**
+- [ ] Create test script: `test-scripts/test-debug-tool.ps1`
+- [ ] Test all commands (stats, cache, ping, clear, query)
+- [ ] Test with and without IPC server running
+- [ ] Test JSON output format
+- [ ] Test filter functionality for cache command
+
+**10.13: Documentation**
+- [ ] Update CLAUDE.md with new tool capabilities
+- [ ] Update README.md with debugging tool section
+- [ ] Add examples of using debug tool for troubleshooting
+- [ ] Document IPC protocol extensions
+
+**10.14: Optional Enhancements**
+- [ ] Add `watch` mode for live monitoring (e.g., `pscue-debug stats --watch`)
+- [ ] Add export functionality (export cache to file)
+- [ ] Add import functionality (import learned data from file)
+- [ ] Add cache warmup command (pre-populate common completions)
+- [ ] Add performance benchmark command
+
+#### Success Criteria
+- [ ] All PSCue.Cli references renamed to PSCue.Debug
+- [ ] `pscue-debug` binary builds successfully
+- [ ] All five core commands work: query, stats, cache, ping, clear
+- [ ] JSON output option works for all applicable commands
+- [ ] Tool provides helpful error messages when server unavailable
+- [ ] Documentation updated with debugging tool usage
+- [ ] Test script validates all commands
+
+#### Implementation Order
+1. Start with Phase 10.1 (rename) - low risk, establishes foundation
+2. Phase 10.2-10.3 (protocol & server handlers) - enables all other features
+3. Phase 10.4 (CLI structure) - establishes command routing
+4. Phase 10.5-10.9 (implement commands) - can be done in parallel
+5. Phase 10.10-10.11 (polish) - improves UX
+6. Phase 10.12-10.13 (testing & docs) - validation
+7. Phase 10.14 (optional) - as time permits
+
+### Phase 11: Future Enhancements (Not in initial release)
 - [ ] Add ML-based prediction support
 - [ ] Copy AI model scripts to `ai/` directory
 - [ ] Create Scoop manifest
 - [ ] Publish to PowerShell Gallery
 - [ ] Add Homebrew formula (macOS/Linux)
 - [ ] Implement cross-session learning (persist cache to disk)
+- [ ] Enhanced cache learning algorithms (frequency × recency scoring)
+- [ ] Error suggestions when commands fail (FeedbackTrigger.Error)
 
 ---
 
@@ -822,11 +1016,9 @@ Response:
 - [x] All tests pass, build clean with 0 warnings
 - [x] IpcClient refactored to use proper async/await with CancellationToken-based timeouts
 
-### Phase 9 (Learning System & Error Suggestions) ✅
+### Phase 9 (Learning System) ✅
 - [x] IFeedbackProvider implementation complete
 - [x] Learning system updates cache based on successful command execution
-- [x] Error suggestion system provides helpful recovery suggestions
-- [x] Git error patterns implemented (6 common error scenarios)
 - [x] Cache scores updated based on usage via `IncrementUsage()`
 - [x] Test script verifies provider registration
 - [x] Graceful degradation on PowerShell 7.2-7.3

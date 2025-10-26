@@ -60,6 +60,72 @@ public class CompletionItem
 }
 
 /// <summary>
+/// IPC request for debug/stats operations
+/// </summary>
+public class IpcDebugRequest
+{
+    [JsonPropertyName("requestType")]
+    public string RequestType { get; set; } = string.Empty; // "ping", "stats", "cache"
+
+    [JsonPropertyName("filter")]
+    public string? Filter { get; set; } // Optional filter for cache inspection
+}
+
+/// <summary>
+/// IPC response for debug/stats operations
+/// </summary>
+public class IpcDebugResponse
+{
+    [JsonPropertyName("success")]
+    public bool Success { get; set; }
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+
+    [JsonPropertyName("stats")]
+    public CacheStats? Stats { get; set; }
+
+    [JsonPropertyName("cacheEntries")]
+    public CacheEntryInfo[]? CacheEntries { get; set; }
+}
+
+/// <summary>
+/// Cache statistics for debugging
+/// </summary>
+public class CacheStats
+{
+    [JsonPropertyName("entryCount")]
+    public int EntryCount { get; set; }
+
+    [JsonPropertyName("totalHits")]
+    public int TotalHits { get; set; }
+
+    [JsonPropertyName("oldestEntryAge")]
+    public string OldestEntryAge { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Information about a single cache entry
+/// </summary>
+public class CacheEntryInfo
+{
+    [JsonPropertyName("key")]
+    public string Key { get; set; } = string.Empty;
+
+    [JsonPropertyName("completionCount")]
+    public int CompletionCount { get; set; }
+
+    [JsonPropertyName("hitCount")]
+    public int HitCount { get; set; }
+
+    [JsonPropertyName("age")]
+    public string Age { get; set; } = string.Empty;
+
+    [JsonPropertyName("topCompletions")]
+    public CompletionItem[] TopCompletions { get; set; } = Array.Empty<CompletionItem>();
+}
+
+/// <summary>
 /// IPC protocol constants and utilities.
 /// </summary>
 public static class IpcProtocol
