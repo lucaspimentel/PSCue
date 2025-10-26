@@ -10,20 +10,19 @@ namespace PSCue.Module;
 /// Documentation:
 /// https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider
 /// </summary>
-public class CommandCompleterFeedbackProvider : IFeedbackProvider
+public class FeedbackProvider : IFeedbackProvider
 {
-    private readonly Guid _guid;
     private readonly IpcServer? _ipcServer;
 
     /// <summary>
     /// Gets the unique identifier for this feedback provider.
     /// </summary>
-    public Guid Id => _guid;
+    public Guid Id { get; } = new Guid("e621fe02-3c68-4e1d-9e6f-8b5c4a2d7f90");
 
     /// <summary>
     /// Gets the name of the feedback provider.
     /// </summary>
-    public string Name => "PSCue.CommandCompleterFeedbackProvider";
+    public string Name => "PSCue.FeedbackProvider";
 
     /// <summary>
     /// Gets the description of the feedback provider.
@@ -37,12 +36,11 @@ public class CommandCompleterFeedbackProvider : IFeedbackProvider
     public FeedbackTrigger Trigger => FeedbackTrigger.Success | FeedbackTrigger.Error;
 
     /// <summary>
-    /// Initializes a new instance of the CommandCompleterFeedbackProvider class.
+    /// Initializes a new instance of the FeedbackProvider class.
     /// </summary>
     /// <param name="ipcServer">Optional IPC server instance for accessing the completion cache.</param>
-    public CommandCompleterFeedbackProvider(IpcServer? ipcServer = null)
+    public FeedbackProvider(IpcServer? ipcServer = null)
     {
-        _guid = new Guid("e621fe02-3c68-4e1d-9e6f-8b5c4a2d7f90");
         _ipcServer = ipcServer;
     }
 

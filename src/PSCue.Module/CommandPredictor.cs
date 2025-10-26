@@ -3,7 +3,7 @@ using PSCue.Shared;
 
 namespace PSCue.Module;
 
-public class CommandCompleterPredictor : ICommandPredictor
+public class CommandPredictor : ICommandPredictor
 {
     /// <summary>
     /// Gets the unique identifier for a subsystem implementation.
