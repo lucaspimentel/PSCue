@@ -250,6 +250,23 @@ Installs to: `~/.local/pwsh-modules/PSCue/`
     - Uses `FileShare.ReadWrite` to allow concurrent writes from multiple processes (ArgumentCompleter + Module)
     - `AutoFlush = true` ensures immediate writes for debugging multi-process scenarios
     - Log location: `$env:LOCALAPPDATA/PSCue/log.txt` (Windows) or `~/.local/share/PSCue/log.txt` (Linux/macOS)
+13. **Keep IPC between ArgumentCompleter and ICommandPredictor**: Benefits outweigh complexity
+    - **Why keep IPC**:
+      - Performance: Caching avoids redundant git/scoop queries on every Tab press (50-100ms → <5ms)
+      - UX: Tab completion shows learned usage-based ordering (most-used flags first)
+      - Consistency: Tab and inline suggestions use same cached data
+      - Low overhead: 0.075ms IPC round-trip is negligible
+      - Already implemented and working well
+    - **Scope of IPC**: ArgumentCompleter uses IPC for **known commands only** (git, gh, scoop, etc.)
+      - Gets cached data (git branches, scoop packages, etc.)
+      - Gets usage-based scoring for known completions
+      - Does NOT use generic learning (Tab requires accuracy, not guessing)
+    - **Generic Learning (Phase 11)**: ICommandPredictor-only feature
+      - Inline suggestions work for ANY command (even unsupported ones)
+      - Learn from all command history
+      - Context-aware suggestions
+      - Tab completion stays syntax-driven (explicit knowledge)
+    - **Clear separation**: Tab = explicit + cached + learned scores; Inline = universal + learned + context-aware
 
 ## Performance Targets
 
