@@ -185,6 +185,64 @@ public void OnRemove(PSModuleInfo psModuleInfo)
 }
 ```
 
+#### PowerShell Module Loading and Duplicate OnImport() Calls
+
+**Issue:** PowerShell's module loading mechanism calls `IModuleAssemblyInitializer.OnImport()` **twice** when loading a module that has both a script module (`.psm1`) as `RootModule` and a binary module (`.dll`) in `NestedModules`.
+
+**Root Cause:** During module import, PowerShell analyzes the assembly multiple times:
+1. First call: When processing the nested module (`PSCue.Module.dll`)
+2. Second call: During manifest processing and assembly analysis
+
+This is documented PowerShell behavior, not a bug. It occurs because:
+- The manifest specifies `RootModule = 'PSCue.psm1'` (script module)
+- The manifest specifies `NestedModules = @('PSCue.Module.dll')` (binary module)
+- PowerShell calls `AnalyzeModuleAssemblyWithReflection()` twice during the import process
+
+**Evidence from Stack Traces:**
+Both calls show identical entry points through PowerShell's internal assembly analyzer:
+```
+at PSCue.Module.Init.OnImport()
+at System.Management.Automation.Runspaces.PSSnapInHelpers.ExecuteModuleInitializer(Assembly assembly, ...)
+at System.Management.Automation.Runspaces.PSSnapInHelpers.AnalyzeModuleAssemblyWithReflection(...)
+```
+
+**Solution:** Handle duplicate subsystem registration gracefully:
+
+```csharp
+private void RegisterCommandPredictor(ICommandPredictor commandPredictor)
+{
+    try
+    {
+        SubsystemManager.RegisterSubsystem(SubsystemKind.CommandPredictor, commandPredictor);
+        _subsystems.Add((SubsystemKind.CommandPredictor, commandPredictor.Id));
+    }
+    catch (InvalidOperationException ex) when (ex.Message.Contains("was already registered"))
+    {
+        // Already registered - this can happen if OnImport() is called multiple times
+        // This is expected behavior due to PowerShell's module loading mechanism
+        // Silently ignore duplicate registration
+    }
+    catch (Exception ex)
+    {
+        // Other errors - log for diagnostics
+        Console.Error.WriteLine($"Note: Command predictor not registered: {ex.Message}");
+    }
+}
+```
+
+**Key Points:**
+- The exception type is `System.InvalidOperationException`, not `PSInvalidOperationException`
+- The exception message contains "was already registered for the subsystem"
+- This pattern is necessary for any PowerShell module that uses `IModuleAssemblyInitializer` with nested modules
+- Attempting to prevent the double call (e.g., by reorganizing the module structure) is not practical
+- The defensive code approach (catch and ignore) is the recommended solution
+
+**Alternative Approaches Considered:**
+- ❌ Checking if subsystem is already registered before calling `RegisterSubsystem()` - No public API available
+- ❌ Reordering PSReadLine configuration in profile - Doesn't prevent double initialization
+- ❌ Restructuring module manifest - Would break `IModuleAssemblyInitializer` triggering
+- ✅ Catch `InvalidOperationException` and silently ignore - Standard pattern, works reliably
+
 ## Architecture Diagram
 
 ```

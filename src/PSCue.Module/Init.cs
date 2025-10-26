@@ -49,6 +49,12 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
             SubsystemManager.RegisterSubsystem(SubsystemKind.CommandPredictor, commandPredictor);
             _subsystems.Add((SubsystemKind.CommandPredictor, commandPredictor.Id));
         }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("was already registered"))
+        {
+            // Already registered - this can happen if OnImport() is called multiple times
+            // This is expected behavior due to PowerShell's module loading mechanism
+            // Silently ignore duplicate registration
+        }
         catch (Exception ex)
         {
             // Command predictors should work on PowerShell 7.2+, but fail gracefully if there are issues
@@ -62,6 +68,12 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
         {
             SubsystemManager.RegisterSubsystem(SubsystemKind.FeedbackProvider, feedbackProvider);
             _subsystems.Add((SubsystemKind.FeedbackProvider, feedbackProvider.Id));
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("was already registered"))
+        {
+            // Already registered - this can happen if OnImport() is called multiple times
+            // This is expected behavior due to PowerShell's module loading mechanism
+            // Silently ignore duplicate registration
         }
         catch (Exception ex)
         {
