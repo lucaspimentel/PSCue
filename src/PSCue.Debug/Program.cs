@@ -24,12 +24,12 @@ class Program
         {
             return command switch
             {
-                "query" => await HandleQueryCommand(args),
+                "query" => HandleQueryCommand(args),
                 "stats" => await HandleStatsCommand(),
                 "cache" => await HandleCacheCommand(args),
                 "ping" => await HandlePingCommand(),
                 "help" or "--help" or "-h" => ShowUsage(),
-                _ => HandleQueryCommand(args).GetAwaiter().GetResult()
+                _ => HandleQueryCommand(args)
             };
         }
         catch (Exception ex)
@@ -63,7 +63,7 @@ class Program
     /// <summary>
     /// Handle 'query' command - tests GetSuggestion like the old behavior
     /// </summary>
-    static async Task<int> HandleQueryCommand(string[] args)
+    static int HandleQueryCommand(string[] args)
     {
         string input;
         if (args[0].ToLowerInvariant() == "query")
