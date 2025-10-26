@@ -25,7 +25,7 @@ Register-ArgumentCompleter -Native -CommandName $command -ScriptBlock {
 
 internal static class Program
 {
-    public static readonly bool Debug = Environment.GetEnvironmentVariable("DEBUG") == "1";
+    public static readonly bool Debug = Environment.GetEnvironmentVariable("PSCUE_DEBUG") == "1";
 
     public static async Task<int> Main(string[] args)
     {

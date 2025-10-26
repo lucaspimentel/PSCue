@@ -7,6 +7,9 @@
 # Get the module directory
 $ModuleRoot = $PSScriptRoot
 
+# Set PSCUE_PID environment variable so ArgumentCompleter can find the IPC server
+$env:PSCUE_PID = $PID
+
 # Find the pscue-completer executable
 $CompleterExe = if ($IsWindows) {
     Join-Path $ModuleRoot "pscue-completer.exe"
@@ -75,8 +78,16 @@ $SupportedCommands = @(
     'dust'
 )
 
+# Debug: Log registration
+if ($env:PSCUE_DEBUG) {
+    Write-Host "PSCue: Registering argument completers for $($SupportedCommands.Count) commands" -ForegroundColor Gray
+}
+
 foreach ($command in $SupportedCommands) {
-    Register-ArgumentCompleter -CommandName $command -ScriptBlock $CompleterScriptBlock
+    Register-ArgumentCompleter -Native -CommandName $command -ScriptBlock $CompleterScriptBlock
+    if ($env:PSCUE_DEBUG) {
+        Write-Host "PSCue: Registered completer for '$command'" -ForegroundColor DarkGray
+    }
 }
 
 # CommandPredictor is loaded as a nested module from the PSD1

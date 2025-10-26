@@ -151,7 +151,19 @@ public static class IpcProtocol
     public static string GetPipeName(int processId) => $"{PipeNamePrefix}-{processId}";
 
     /// <summary>
-    /// Get the pipe name for the current PowerShell process
+    /// Get the pipe name for the current PowerShell process.
+    /// First checks PSCUE_PID environment variable, otherwise uses current process ID.
     /// </summary>
-    public static string GetCurrentPipeName() => GetPipeName(Environment.ProcessId);
+    public static string GetCurrentPipeName()
+    {
+        // Check if PSCUE_PID environment variable is set (set by PSCue.psm1)
+        var pscuePid = Environment.GetEnvironmentVariable("PSCUE_PID");
+        if (pscuePid != null && int.TryParse(pscuePid, out var pid))
+        {
+            return GetPipeName(pid);
+        }
+
+        // Fallback to current process ID (for Debug tool or when running in-process)
+        return GetPipeName(Environment.ProcessId);
+    }
 }
