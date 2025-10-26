@@ -799,15 +799,307 @@ git push origin v1.0.0
 6. Phase 10.12-10.13 (testing & docs) - validation
 7. Phase 10.14 (optional) - as time permits
 
-### Phase 11: Future Enhancements (Not in initial release)
+### Phase 11: Generic Command Learning (Universal Predictor)
+
+**Goal**: Transform ICommandPredictor from command-specific (only knows git, gh, scoop, etc.) to a generic system that learns from ALL user commands, even ones PSCue doesn't explicitly support.
+
+**Key Insight**: While ArgumentCompleter needs explicit knowledge of each command's syntax (for Tab completion), ICommandPredictor should be command-agnostic and learn patterns from actual usage.
+
+**Rationale**:
+- Users run hundreds of commands PSCue doesn't explicitly support (kubectl, docker, cargo, npm, etc.)
+- Even for unsupported commands, we can learn which flags/arguments are commonly used
+- Context matters: suggest arguments based on recent command history
+- For supported commands, blend known completions with learned patterns
+- Creates a truly personalized completion experience
+
+#### Architecture Changes
+
+**Current State** (Phase 9):
+- ICommandPredictor calls into CommandCompleter (command-specific logic)
+- Only provides suggestions for explicitly supported commands
+- Learning is limited to scoring known completions
+
+**Target State** (Phase 11):
+- ICommandPredictor has generic learning engine + command-specific augmentation
+- Learns from ALL commands via IFeedbackProvider
+- Builds knowledge graph of command → arguments from actual usage
+- Uses context (recent commands) to provide better suggestions
+- Supplements known commands with learned data
+
+#### Data Structures
+
+**11.1: Command History Store**
+- [ ] Create `CommandHistory.cs` in PSCue.Module
+- [ ] Track recent commands (last N commands, configurable, default 100)
+- [ ] Store: command name, arguments, flags, timestamp, success/failure
+- [ ] Ring buffer implementation for memory efficiency
+- [ ] Thread-safe (concurrent access from predictor & feedback provider)
+- [ ] Example:
+  ```csharp
+  public class CommandHistoryEntry
+  {
+      public string Command { get; set; }          // "git"
+      public string[] Arguments { get; set; }      // ["commit", "-m", "message"]
+      public DateTime Timestamp { get; set; }
+      public bool Success { get; set; }
+  }
+  ```
+
+**11.2: Argument Knowledge Graph**
+- [ ] Create `ArgumentGraph.cs` in PSCue.Module
+- [ ] Track per-command argument patterns:
+  - [ ] Which arguments/flags are used with each command
+  - [ ] Frequency of each argument
+  - [ ] Co-occurrence patterns (which flags appear together)
+  - [ ] Position information (flags vs positional args)
+- [ ] Data structure:
+  ```csharp
+  public class CommandKnowledge
+  {
+      public string Command { get; set; }
+      public Dictionary<string, ArgumentStats> Arguments { get; set; }
+      public Dictionary<string, int> FlagCombinations { get; set; } // e.g., "-la" -> count
+  }
+
+  public class ArgumentStats
+  {
+      public string Argument { get; set; }
+      public int UsageCount { get; set; }
+      public DateTime FirstSeen { get; set; }
+      public DateTime LastUsed { get; set; }
+      public bool IsFlag { get; set; }           // starts with - or --
+      public List<string> CoOccursWith { get; set; } // other args seen together
+  }
+  ```
+- [ ] Efficient lookup by command name
+- [ ] Aging mechanism (decay old patterns)
+- [ ] Maximum size limits (prevent unbounded growth)
+
+**11.3: Context Analyzer**
+- [ ] Create `ContextAnalyzer.cs` in PSCue.Module
+- [ ] Analyze recent command history for patterns:
+  - [ ] Current directory changes (cd commands)
+  - [ ] File operations (ls, cat, vim) → suggest related files
+  - [ ] Git workflows (add → commit → push sequences)
+  - [ ] Docker workflows (build → run sequences)
+- [ ] Detect command sequences and suggest next likely command
+- [ ] Extract relevant context for current prediction
+
+#### Learning System Updates
+
+**11.4: Enhance FeedbackProvider**
+- [ ] Extend `FeedbackProvider.cs` to extract more from `FeedbackContext`:
+  - [ ] Parse command line into: command + arguments + flags
+  - [ ] Identify flag patterns (e.g., `-am` = `-a` + `-m`)
+  - [ ] Detect positional arguments vs named arguments
+  - [ ] Extract command context (working directory, etc.)
+- [ ] Update both CommandHistory and ArgumentGraph:
+  - [ ] Add entry to CommandHistory
+  - [ ] Update ArgumentGraph with new argument patterns
+  - [ ] Increment usage counts
+  - [ ] Update co-occurrence data
+- [ ] Handle both success and error events:
+  - [ ] Success: reinforce pattern (increase weight)
+  - [ ] Error: potentially flag invalid combinations (future)
+- [ ] Performance: must be fast (<5ms), runs after every command
+
+**11.5: Generic Prediction Engine**
+- [ ] Create `GenericPredictor.cs` in PSCue.Module
+- [ ] Implement generic suggestion logic:
+  ```csharp
+  public class GenericPredictor
+  {
+      public List<Suggestion> GetSuggestions(
+          string commandLine,
+          CommandHistory history,
+          ArgumentGraph knowledge,
+          ContextAnalyzer context)
+      {
+          // 1. Parse current command line
+          // 2. Get learned arguments for this command
+          // 3. Score by frequency + recency
+          // 4. Apply context boost (recent patterns)
+          // 5. Filter already-typed arguments
+          // 6. Return top N suggestions
+      }
+  }
+  ```
+- [ ] Scoring algorithm:
+  - [ ] Base score = usage frequency
+  - [ ] Recency boost = used recently → higher score
+  - [ ] Context boost = fits current pattern → higher score
+  - [ ] Co-occurrence boost = commonly used with already-typed flags
+- [ ] Normalization: convert scores to 0.0-1.0 range
+
+**11.6: Hybrid Predictor (Generic + Known Commands)**
+- [ ] Update `CommandCompleterPredictor.cs` to use hybrid approach:
+  ```
+  GetSuggestion(commandLine):
+      1. Check if command is explicitly supported (git, gh, etc.)
+         → If yes, get known completions from CommandCompleter
+      2. Get generic suggestions from GenericPredictor
+      3. Merge both sources:
+         - For known commands: blend known + learned
+         - For unknown commands: use only learned
+      4. Re-score combined suggestions
+      5. Return top suggestions
+  ```
+- [ ] Merging strategy:
+  - [ ] Known completions get base score from CompletionCache
+  - [ ] Learned data can boost scores further
+  - [ ] New arguments from learning appear alongside known ones
+  - [ ] Deduplicate (same argument from both sources)
+- [ ] Configuration option to disable generic learning (default: enabled)
+
+#### Configuration & Persistence
+
+**11.7: Configuration**
+- [ ] Add settings to module configuration:
+  - [ ] `EnableGenericLearning` (bool, default: true)
+  - [ ] `HistorySize` (int, default: 100)
+  - [ ] `MaxKnownCommands` (int, default: 500)
+  - [ ] `MaxArgumentsPerCommand` (int, default: 100)
+  - [ ] `ScoreDecayDays` (int, default: 30) - how fast old patterns fade
+- [ ] Load configuration from profile or environment variable
+- [ ] Apply limits to prevent unbounded memory growth
+
+**11.8: Cross-Session Persistence (Optional)**
+- [ ] Save learned data to disk on module unload
+- [ ] Load learned data on module initialization
+- [ ] File format: JSON or SQLite
+- [ ] Location: `~/.local/share/PSCue/learned-data.json`
+- [ ] Merge strategy: combine disk data + in-memory learning
+- [ ] Periodic saves (every N commands or N minutes)
+- [ ] Handle corruption gracefully (invalid file → start fresh)
+- **Note**: This is optional for Phase 11, can be deferred to Phase 12
+
+#### Privacy & Control
+
+**11.9: Privacy Considerations**
+- [ ] Add opt-out mechanism for sensitive commands
+  - [ ] Check environment variable: `PSCUE_IGNORE_PATTERNS`
+  - [ ] Support glob patterns: `aws *, *secret*, *password*`
+  - [ ] Don't log matching commands to history
+- [ ] Add command to clear learned data: `Clear-PSCueLearning`
+  - [ ] Clears CommandHistory
+  - [ ] Clears ArgumentGraph
+  - [ ] Optionally deletes persisted file
+- [ ] Add command to export learned data: `Export-PSCueLearning -Path file.json`
+  - [ ] For backup or migration
+- [ ] Add command to import learned data: `Import-PSCueLearning -Path file.json`
+- [ ] Documentation on what data is collected and stored
+
+#### Testing & Validation
+
+**11.10: Testing**
+- [ ] Unit tests for ArgumentGraph:
+  - [ ] Test add/update argument patterns
+  - [ ] Test frequency tracking
+  - [ ] Test co-occurrence detection
+  - [ ] Test scoring algorithm
+- [ ] Unit tests for GenericPredictor:
+  - [ ] Test suggestion generation
+  - [ ] Test scoring (frequency + recency + context)
+  - [ ] Test filtering (don't suggest already-typed args)
+- [ ] Integration tests for hybrid predictor:
+  - [ ] Test known command + generic learning blend
+  - [ ] Test unknown command (generic only)
+  - [ ] Test suggestion quality improves over time
+- [ ] Create test script: `test-scripts/test-generic-learning.ps1`
+  - [ ] Simulate command execution sequence
+  - [ ] Verify learning occurs
+  - [ ] Verify suggestions improve
+  - [ ] Test privacy controls (ignore patterns)
+
+**11.11: Real-World Validation**
+- [ ] Add telemetry/metrics (optional, opt-in):
+  - [ ] Track suggestion acceptance rate
+  - [ ] Track which commands benefit most from generic learning
+  - [ ] Track performance impact (memory, CPU)
+- [ ] Create feedback mechanism for users
+- [ ] Monitor for edge cases and bugs
+
+#### Performance Optimization
+
+**11.12: Performance Targets**
+- [ ] Learning overhead (FeedbackProvider): <5ms per command
+- [ ] Prediction overhead (GenericPredictor): <10ms per request
+- [ ] Memory footprint: <50MB for typical usage (100 commands, 500 arguments each)
+- [ ] Startup overhead: <50ms to load persisted data (if implemented)
+
+**11.13: Optimization Strategies**
+- [ ] Use efficient data structures:
+  - [ ] Dictionary for O(1) command lookup
+  - [ ] Trie for prefix matching (if needed)
+  - [ ] Ring buffer for fixed-size history
+- [ ] Lazy loading: don't load all data upfront
+- [ ] Background processing: heavy work off critical path
+- [ ] Caching: memoize expensive computations
+- [ ] Limits: cap sizes to prevent unbounded growth
+
+#### Documentation
+
+**11.14: Documentation Updates**
+- [ ] Update CLAUDE.md:
+  - [ ] Add Phase 11 to implementation plan
+  - [ ] Document generic learning architecture
+  - [ ] Update data flow diagrams
+- [ ] Update README.md:
+  - [ ] Explain generic learning feature
+  - [ ] Show examples (learning from unknown commands)
+  - [ ] Document privacy controls
+  - [ ] Show before/after (with vs without learning)
+- [ ] Add new document: `LEARNING.md`:
+  - [ ] Explain how generic learning works
+  - [ ] Data collected and stored
+  - [ ] Privacy and control
+  - [ ] Performance characteristics
+  - [ ] Troubleshooting
+- [ ] Add comments to new classes explaining algorithms
+
+#### Success Criteria
+- [ ] GenericPredictor provides suggestions for ANY command (even unsupported ones)
+- [ ] Suggestions improve over time as user runs commands
+- [ ] Context-aware suggestions (based on recent history)
+- [ ] Known commands get blend of explicit + learned completions
+- [ ] Privacy controls work (ignore patterns, clear learning)
+- [ ] Performance targets met (<5ms learning, <10ms prediction)
+- [ ] Memory usage stays bounded (<50MB typical)
+- [ ] Documentation complete and clear
+- [ ] Tests validate core functionality
+
+#### Implementation Order
+1. **11.1-11.2**: Data structures (CommandHistory, ArgumentGraph) - foundation
+2. **11.3**: Context analyzer - enables context-aware suggestions
+3. **11.4**: Enhance FeedbackProvider - start learning from all commands
+4. **11.5**: Generic prediction engine - generate suggestions from learned data
+5. **11.6**: Hybrid predictor - blend known + learned
+6. **11.7**: Configuration - allow customization
+7. **11.9**: Privacy controls - respect user privacy
+8. **11.10-11.11**: Testing & validation - ensure quality
+9. **11.12-11.13**: Performance optimization - meet targets
+10. **11.14**: Documentation - explain feature to users
+11. **11.8**: Cross-session persistence (optional, can defer) - save/load learned data
+
+#### Future Enhancements (Phase 12+)
+- [ ] ML-based prediction (beyond simple frequency/recency)
+- [ ] Detect command errors and suggest fixes
+- [ ] Learn command sequences (workflows)
+- [ ] Semantic understanding of arguments (file paths, URLs, etc.)
+- [ ] Multi-user learning (aggregate patterns across users, opt-in)
+- [ ] Cloud sync (sync learned data across machines, opt-in)
+
+---
+
+### Phase 12: Future Enhancements (Not in initial release)
 - [ ] Add ML-based prediction support
 - [ ] Copy AI model scripts to `ai/` directory
 - [ ] Create Scoop manifest
 - [ ] Publish to PowerShell Gallery
 - [ ] Add Homebrew formula (macOS/Linux)
-- [ ] Implement cross-session learning (persist cache to disk)
-- [ ] Enhanced cache learning algorithms (frequency × recency scoring)
 - [ ] Error suggestions when commands fail (FeedbackTrigger.Error)
+- [ ] Advanced learning: command sequences, workflow detection
+- [ ] Semantic argument understanding (detect file paths, URLs, etc.)
 
 ---
 
