@@ -1,548 +1,103 @@
-# PSCue - PowerShell Completion and Prediction Module
+# PSCue - Quick Reference for AI Agents
 
-## Project Overview
+## What This Is
+PowerShell completion module combining Tab completion (NativeAOT) + inline predictions (managed DLL) + IPC caching layer with learning.
 
-PSCue is a unified PowerShell module that provides intelligent command-line completion and prediction for PowerShell Core (7.2+).
+## Architecture
+- **ArgumentCompleter** (`pscue-completer.exe`): NativeAOT exe, <10ms startup, calls IPC for cached data, falls back to local
+- **Module** (`PSCue.Module.dll`): Long-lived, hosts IPC server, implements `ICommandPredictor` + `IFeedbackProvider` (7.4+)
+- **IPC**: Named pipes (`PSCue-{PID}` for production, `PSCue-Test-{GUID}` for tests), JSON protocol, <5ms round-trip
+- **Cache**: Usage tracking, priority scoring, learns from command execution
 
-**Key Components**:
-1. **PSCue.ArgumentCompleter** - NativeAOT executable for fast Tab completion via `Register-ArgumentCompleter`
-2. **PSCue.Module** - Managed DLL implementing `ICommandPredictor` (inline suggestions) and `IFeedbackProvider` (learning)
-3. **IPC Communication Layer** - Named Pipe-based API for state sharing and learning feedback loop ✅ **IMPLEMENTED**
-4. **CompletionCache** - Smart cache with usage tracking and priority scoring ✅ **IMPLEMENTED**
-
-## Architecture Philosophy
-
-### Two-Component Design
-
-**ArgumentCompleter (pscue-completer.exe)**:
-- Short-lived process (launches on each Tab press)
-- NativeAOT compilation for <10ms startup time
-- Can run standalone OR call into Predictor via IPC
-- Falls back to local logic if Predictor unavailable
-
-**CommandPredictor (PSCue.Module.dll)**:
-- Long-lived (loaded with PowerShell module)
-- Hosts Named Pipe server for serving completions
-- Maintains cached state (git branches, scoop packages, etc.)
-- Implements `ICommandPredictor` for inline suggestions
-- Implements `IFeedbackProvider` for learning from command usage (PowerShell 7.4+)
-  - **Success events**: Silently learns from command execution, updates cache scores
-- Updates cache with usage patterns to prioritize frequently-used completions
-
-### IPC Architecture with Learning Loop
-
-The Predictor hosts a Named Pipe server that the ArgumentCompleter can connect to, creating a learning feedback loop:
-
-```
-User types command
-    ↓
-ArgumentCompleter (short-lived) → IPC Request → Named Pipe → Predictor (long-lived)
-                                                                    ↓
-                                                             CompletionCache
-                                                          (with usage stats)
-                                                                    ↓
-ArgumentCompleter ← IPC Response (learned suggestions) ← Named Pipe
-    ↓
-User executes command
-    ↓
-IFeedbackProvider observes execution
-    ↓
-Cache updated with usage patterns
-    ↓
-Next completion request gets smarter suggestions
-```
-
-**Benefits**:
-- **State Persistence**: Cache git branches, scoop packages across Tab presses
-- **Learning Loop**: IFeedbackProvider updates cache based on actual command usage
-- **Consistency**: Tab completion and inline suggestions use same learned data
-- **Performance**: Warm cache serves completions <1ms, avoids redundant queries
-- **Personalization**: Learns user preferences (e.g., "git commit -am" vs "git commit -m")
-
-**Protocol**: JSON-based request/response over Named Pipes
-- Request: `{command, args, wordToComplete, requestType, includeDynamicArguments}`
-  - `includeDynamicArguments`: Controls whether to include slow operations (git branches, scoop packages)
-- Response: `{completions: [{text, description, score}], cached: bool}`
-  - `score`: Usage-based priority (higher = more frequently used by this user)
-
-## Supported Commands
-
-- **git** - branches, tags, remotes, files, subcommands
-- **code** - workspace suggestions, extensions
-- **az** - Azure CLI completions
-- **azd** - Azure Developer CLI
-- **func** - Azure Functions Core Tools
-- **gh** - GitHub CLI
-- **scoop** (Windows) - apps, buckets
-- **winget** (Windows) - packages
-- **chezmoi** - dotfile management
-- **tre** - tree alternative
-- **lsd** - ls alternative
-- **dust** - du alternative
-
-## Source Projects
-
-PSCue consolidates two existing projects:
-- **pwsh-argument-completer**: D:/source/lucaspimentel/pwsh-argument-completer
-- **pwsh-command-predictor**: D:/source/lucaspimentel/pwsh-command-predictor
-
-Code is copied (not linked) to allow PSCue-specific enhancements.
-
-## Development Guidelines
-
-### Project Structure
-
+## Project Structure
 ```
 src/
-├── PSCue.ArgumentCompleter/    # NativeAOT exe
-│   ├── Program.cs              # Entry point for Tab completion
-│   ├── IpcClient.cs            # Named Pipe client ✅
-│   └── AssemblyInfo.cs         # NativeAOT trim settings
-├── PSCue.Module/     # Managed DLL
-│   ├── Init.cs                 # IModuleAssemblyInitializer - auto-registers predictor & starts IPC server ✅
-│   ├── CommandCompleterPredictor.cs  # ICommandPredictor implementation
-│   ├── IpcServer.cs            # Named Pipe server ✅
-│   ├── CompletionCache.cs      # Cache with usage tracking and scoring ✅
-│   └── FeedbackProvider.cs     # IFeedbackProvider - learns from execution (Phase 9)
-└── PSCue.Shared/               # Shared completion logic
-    ├── CommandCompleter.cs     # Main completion orchestrator
-    ├── IpcProtocol.cs          # IPC request/response definitions ✅
-    ├── IpcJsonContext.cs       # JSON source generation for NativeAOT ✅
-    ├── Logger.cs               # Debug logging (shared, supports concurrent multi-process writes) ✅
-    ├── Helpers.cs              # Utility functions
-    ├── Completions/            # Completion framework
-    │   ├── ICompletion.cs      # Base completion interface
-    │   ├── Command.cs          # Command node
-    │   ├── CommandParameter.cs # Parameter/flag node
-    │   ├── StaticArgument.cs   # Static argument values
-    │   └── DynamicArgument.cs  # Dynamic argument provider
-    ├── KnownCompletions/       # Command-specific completions
-    │   ├── GitCommand.cs       # git completions
-    │   ├── GhCommand.cs        # GitHub CLI
-    │   ├── ScoopCommand.cs     # Scoop package manager
-    │   ├── WingetCommand.cs    # Windows Package Manager
-    │   ├── VsCodeCommand.cs    # VS Code CLI
-    │   └── Azure/              # Azure tools
-    │       ├── AzCommand.cs    # Azure CLI
-    │       ├── AzdCommand.cs   # Azure Developer CLI
-    │       └── FuncCommand.cs  # Azure Functions Core Tools
+├── PSCue.ArgumentCompleter/    # NativeAOT exe for Tab completion
+├── PSCue.Module/               # ICommandPredictor + IFeedbackProvider + IPC server
+└── PSCue.Shared/               # Shared completion logic (avoid NativeAOT reference issues)
+    ├── CommandCompleter.cs     # Main orchestrator
+    ├── IpcProtocol.cs          # IPC definitions
+    ├── KnownCompletions/       # Command-specific: git, gh, scoop, az, etc.
+    └── Completions/            # Framework: Command, Parameter, Argument nodes
 ```
 
-### Namespaces
+## Key Files & Line References
+- `src/PSCue.Module/IpcServer.cs`: Named pipe server, cache handling, completion generation
+- `src/PSCue.Module/IpcServer.cs:27`: Constructor accepting custom pipe name (for test isolation)
+- `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
+- `test/PSCue.Module.Tests/IpcServerIntegrationTests.cs:22`: Unique pipe name generation per test
 
-- `PSCue.ArgumentCompleter.*` - ArgumentCompleter code
-- `PSCue.Module.*` - CommandPredictor code
-- `PSCue.Shared.*` - Shared types and protocol
-
-### Building
-
+## Common Tasks
 ```bash
-# ArgumentCompleter (NativeAOT, per platform)
+# Build
+dotnet build src/PSCue.Module/ -c Release -f net9.0
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
-# CommandPredictor (managed DLL)
-dotnet build src/PSCue.Module/ -c Release
-
-# Quick compile check (for dd-trace-dotnet habit compatibility)
-dotnet build src/PSCue.Module/ -c Release -f net9.0
-```
-
-### Testing
-
-```bash
-# Unit tests
+# Test (89 tests total: 62 ArgumentCompleter + 27 Module)
 dotnet test test/PSCue.ArgumentCompleter.Tests/
 dotnet test test/PSCue.Module.Tests/
 
-# PSCue.Debug tool - inspect cache, test IPC, and verify predictions
-dotnet run --project src/PSCue.Debug/ -- query-local "git checkout ma"  # Test local completion logic
-dotnet run --project src/PSCue.Debug/ -- query-ipc "git checkout ma"    # Test IPC completion request
-dotnet run --project src/PSCue.Debug/ -- ping                           # Test IPC connectivity
-dotnet run --project src/PSCue.Debug/ -- stats                          # Show cache statistics
-dotnet run --project src/PSCue.Debug/ -- cache --filter git             # Inspect cached completions
-
-# Test predictor registration and GetSuggestion
-pwsh -NoProfile -File test-inline-predictions.ps1
-
-# Test manual IModuleAssemblyInitializer.OnImport()
-pwsh -NoProfile -File test-manual-init.ps1
-
-# Test predictor subsystem registration
-pwsh -NoProfile -File test-predictor.ps1
-```
-
-**PSCue.Debug tool commands**:
-- `query-local <input>` - Get completion suggestions using local logic (no IPC)
-- `query-ipc <input>` - Get completion suggestions via IPC (requires PSCue loaded in PowerShell)
-- `ping` - Test IPC server connectivity and measure round-trip time
-- `stats` - Show cache statistics (entries, hits, age)
-- `cache [--filter <text>]` - Inspect cached completions with optional filter
-
-**Notes**:
-- All commands show timing statistics (e.g., `Time: 11.69ms`)
-- `query-ipc`, `ping`, `stats`, and `cache` automatically discover running PowerShell processes with PSCue loaded
-- Optionally set `$env:PSCUE_PID = $PID` in PowerShell to target a specific session
-
-**Testing inline predictions interactively**:
-```powershell
-# Load the module
-Import-Module ~/.local/pwsh-modules/PSCue/PSCue.psd1
-
-# Enable inline predictions
-Set-PSReadLineOption -PredictionSource HistoryAndPlugin
-
-# Type a command and wait - suggestions appear in gray text
-git checkout ma<wait for suggestion>
-```
-
-## Installation
-
-**Local (development)**:
-```powershell
-# PowerShell
+# Install locally
 ./scripts/install-local.ps1
 
-# Or from Windows Command Prompt
-scripts\install-local.cmd
+# Debug
+dotnet run --project src/PSCue.Debug/ -- query-ipc "git checkout ma"
+dotnet run --project src/PSCue.Debug/ -- stats
+dotnet run --project src/PSCue.Debug/ -- cache --filter git
 ```
-
-**Remote (end users)**:
-```powershell
-irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-remote.ps1 | iex
-```
-
-Installs to: `~/.local/pwsh-modules/PSCue/`
 
 ## Key Technical Decisions
-
-1. **NativeAOT for ArgumentCompleter**: Fast startup critical for Tab completion responsiveness
-2. **Managed DLL for Predictor**: Needs PowerShell SDK, doesn't need fast startup
-3. **Shared completion logic in PSCue.Shared**: Avoids NativeAOT assembly reference issues
-   - ArgumentCompleter (NativeAOT exe) cannot be referenced by CommandPredictor at runtime
-   - Solution: Move all completion logic to PSCue.Shared (managed DLL)
-   - Both projects reference PSCue.Shared for consistent behavior
-4. **NestedModules in manifest**: Required for IModuleAssemblyInitializer to trigger
-   - Module.dll must be listed in PSCue.psd1 NestedModules
-   - Loading via Import-Module in .psm1 does NOT trigger IModuleAssemblyInitializer
-5. **Named Pipes for IPC** ✅ **IMPLEMENTED**: Cross-platform, secure, efficient (<5ms round-trip target)
-   - Uses `System.IO.Pipes.NamedPipeServerStream` and `NamedPipeClientStream`
-   - Works on Windows (Named Pipes) and Linux/macOS (Unix Domain Sockets) transparently
-   - JSON-based protocol with source generation for NativeAOT compatibility
-6. **PowerShell Core only**: No PowerShell 5.1 support, requires 7.2+ minimum
-   - **IFeedbackProvider requires 7.4+**: Module works on 7.2-7.3 but without learning features
-7. **No git submodules**: Clean copy from source projects allows independent evolution
-8. **Session-specific pipe names** ✅ **IMPLEMENTED**: `PSCue-{PID}` avoids conflicts between PowerShell sessions
-9. **JSON Source Generation** ✅ **IMPLEMENTED**: `IpcJsonContext` for NativeAOT-compatible serialization
-   - Eliminates trimming warnings for ArgumentCompleter
-   - Better performance than reflection-based JSON serialization
-10. **Learning via IFeedbackProvider** (Phase 9): Creates true personalized completion system
-    - Tracks command frequency, flag combinations, argument patterns
-    - Updates cache priority scores based on actual usage
-    - Both Tab completion and inline suggestions benefit from learned behavior
-11. **Dynamic Argument Performance Optimization** ✅ **IMPLEMENTED**: Separate performance profiles for Tab vs inline predictions
-    - `includeDynamicArguments` parameter controls expensive operations (git branches, scoop packages, etc.)
-    - **ICommandPredictor**: `includeDynamicArguments: false` for fast inline suggestions (<10ms response)
-    - **ArgumentCompleter**: `includeDynamicArguments: true` for complete Tab completions (user expects delay)
-    - **IPC Protocol**: Supports flag to let client control behavior
-    - Result: Predictor responds instantly with flags/subcommands, Tab completion still gets full lists
-12. **Shared Logger with concurrent write support** ✅ **IMPLEMENTED**: Single Logger in PSCue.Shared for all components
-    - Logger only performs file I/O when `PSCUE_DEBUG=1` environment variable is set
-    - Uses `FileShare.ReadWrite` to allow concurrent writes from multiple processes (ArgumentCompleter + Module)
-    - `AutoFlush = true` ensures immediate writes for debugging multi-process scenarios
-    - Log location: `$env:LOCALAPPDATA/PSCue/log.txt` (Windows) or `~/.local/share/PSCue/log.txt` (Linux/macOS)
-13. **Keep IPC between ArgumentCompleter and ICommandPredictor**: Benefits outweigh complexity
-    - **Why keep IPC**:
-      - Performance: Caching avoids redundant git/scoop queries on every Tab press (50-100ms → <5ms)
-      - UX: Tab completion shows learned usage-based ordering (most-used flags first)
-      - Consistency: Tab and inline suggestions use same cached data
-      - Low overhead: 0.075ms IPC round-trip is negligible
-      - Already implemented and working well
-    - **Scope of IPC**: ArgumentCompleter uses IPC for **known commands only** (git, gh, scoop, etc.)
-      - Gets cached data (git branches, scoop packages, etc.)
-      - Gets usage-based scoring for known completions
-      - Does NOT use generic learning (Tab requires accuracy, not guessing)
-    - **Generic Learning (Phase 11)**: ICommandPredictor-only feature
-      - Inline suggestions work for ANY command (even unsupported ones)
-      - Learn from all command history
-      - Context-aware suggestions
-      - Tab completion stays syntax-driven (explicit knowledge)
-    - **Clear separation**: Tab = explicit + cached + learned scores; Inline = universal + learned + context-aware
+1. **NativeAOT for ArgumentCompleter**: <10ms startup required for Tab responsiveness
+2. **Shared logic in PSCue.Shared**: NativeAOT exe can't be referenced by Module.dll at runtime
+3. **Named Pipes for IPC**: Cross-platform, <5ms round-trip, session-specific names
+4. **Test isolation**: Each test gets unique pipe name (`PSCue-Test-{GUID}`) to avoid conflicts
+5. **NestedModules in manifest**: Required for `IModuleAssemblyInitializer` to trigger
+6. **`includeDynamicArguments` flag**: ArgumentCompleter=true (full), ICommandPredictor=false (fast)
+7. **Concurrent logging**: `FileShare.ReadWrite` + `AutoFlush` for multi-process debug logging
 
 ## Performance Targets
-
 - ArgumentCompleter startup: <10ms
 - IPC round-trip: <5ms
-- Total Tab completion time: <50ms
-- Predictor cache hit: <1ms
+- Cache hit: <1ms
+- Total Tab completion: <50ms
 
-## Platform Support
+## Supported Commands
+git, gh, az, azd, func, code, scoop, winget, chezmoi, tre, lsd, dust
 
-**Tier 1** (full CI/CD support):
-- Windows x64
-- macOS arm64 (Apple Silicon)
-- Linux x64
+## When Adding Features
+- Put shared completion logic in `PSCue.Shared`
+- Use `includeDynamicArguments` flag for expensive operations (git branches, scoop packages)
+- Write tests with unique pipe names: `new IpcServer($"PSCue-Test-{Guid.NewGuid():N}")`
+- Update cache scores via `CompletionCache.IncrementUsage()` in `IFeedbackProvider`
 
-**Not Supported**:
-- macOS x64 (Intel) - skipped in favor of Apple Silicon
+## Testing Patterns
+```csharp
+// Test with unique pipe name to avoid conflicts
+private readonly string _pipeName = $"PSCue-Test-{Guid.NewGuid():N}";
+private readonly IpcServer _server;
 
-## Implementation Status
+public TestClass() {
+    _server = new IpcServer(_pipeName);  // Custom pipe name
+    Thread.Sleep(100);  // Give server time to start
+}
 
-See TODO.md for detailed implementation plan and progress tracking.
-
-**Current Status**: Phase 10 complete! Enhanced debugging tool with JSON output, clear command, and comprehensive testing.
-
-**Completed phases:**
-- ✅ Phase 1: Project Structure Setup
-- ✅ Phase 2: Copy ArgumentCompleter Code
-- ✅ Phase 3: Copy CommandPredictor Code
-- ✅ Phase 4: Create Module Files
-- ✅ Phase 5: Create Installation Scripts
-- ✅ Phase 6: GitHub Actions & CI/CD
-- ✅ Phase 7: Documentation
-- ✅ Phase 7.5: CLI Testing Tool
-- ✅ Phase 8: IPC Communication Layer
-  - Named Pipe server in CommandPredictor
-  - Named Pipe client in ArgumentCompleter
-  - CompletionCache with usage tracking
-  - JSON source generation for NativeAOT
-  - Graceful fallback when IPC unavailable
-  - Async/await with proper timeout handling
-  - Performance optimization (0.075ms IPC round-trip when available)
-- ✅ Phase 9: Learning System (IFeedbackProvider)
-  - ✅ Implemented CommandCompleterFeedbackProvider
-  - ✅ Registered in Init with PowerShell 7.4+ detection
-  - ✅ **Success events**: Silently learns from command execution, updates cache scores
-  - ✅ Updates cache scores via CompletionCache.IncrementUsage()
-  - ✅ Graceful degradation on PowerShell 7.2-7.3
-  - ✅ Test script verifies provider registration (PowerShell 7.4+)
-  - ✅ Benchmarks confirm async performance targets met
-- ✅ Phase 10: Enhanced Debugging Tool (PSCue.Debug)
-  - ✅ Commands: query-local, query-ipc, stats, cache, clear, ping, help
-  - ✅ JSON output support for stats and cache commands (--json flag)
-  - ✅ PowerShell process auto-discovery (finds PSCue-loaded sessions)
-  - ✅ Timing statistics on all commands
-  - ✅ Filter support for cache inspection (--filter flag)
-  - ✅ Comprehensive test script: test-scripts/test-pscue-debug.ps1
-
-**Future enhancements (Phase 11 - Generic Command Learning):**
-- Universal command learning (learn from ALL commands, not just known ones)
-- Enhanced learning algorithms (frequency × recency scoring)
-- Track flag combinations and argument patterns
-- Cross-session persistence (save learned data to disk)
-- Context-aware suggestions based on recent command history
-- Command sequence detection (workflows)
-- Error suggestions when commands fail (e.g., git errors, gh errors, az errors)
-
-**Known Issues Fixed:**
-- **IPC Cache Filtering Bugs (2025-10-27):**
-  - **Bug #1**: Fixed `scoop h<tab>` returning all completions instead of only those starting with "h"
-    - Root cause: Cached completions weren't being filtered by `wordToComplete` before returning to client
-    - Fix: Added filtering in `IpcServer.HandleCompletionRequestAsync()` after retrieving from cache (lines 156-164)
-  - **Bug #2**: Fixed `scoop <tab>` after `scoop h<tab>` returning only "h" completions instead of all
-    - Root cause: Cache was storing filtered completions (only 3 items) instead of all 28 subcommands
-    - Fix: Modified `GenerateCompletions()` to remove partial word from commandLine before calling `CommandCompleter.GetCompletions()`, ensuring cache stores ALL completions unfiltered
-  - **Bug #3**: Fixed `scoop update <tab>` returning all scoop subcommands instead of update arguments
-    - Root cause: When command line ended with trailing space (e.g., `"scoop update "`), `GenerateCompletions()` was incorrectly removing the last word ("update"), causing navigation to stay at root "scoop" command
-    - Fix: Added check in `IpcServer.GenerateCompletions()` to detect trailing space - only remove last word if there's no trailing space (indicating a partial word to complete)
-    - Behavior: `"scoop update "` now correctly returns `*` parameter and package arguments, while `"scoop upd"` still filters to "update" subcommand
-  - **Test Coverage**: Added 27 new unit tests (CompletionCacheTests, IpcFilteringTests, IpcServerIntegrationTests)
-  - **Total Tests**: 90 (62 ArgumentCompleter + 28 Module) - all passing ✓
-- **Phase 5:**
-  - Fixed `$IsWindows` read-only variable conflict in install-local.ps1
-  - Fixed PSCue.psm1 completer invocation to pass 3 required arguments (wordToComplete, line, cursorPosition)
-  - Updated output parsing from JSON format to pipe-delimited format (completionText|tooltip)
-- **Post-Phase 7.5:**
-  - Fixed install-local.ps1 warning about missing PSCue.ArgumentCompleter.dll (ArgumentCompleter is a NativeAOT exe, not a DLL)
-  - Fixed scoop command completions: added installed package suggestions for uninstall, cleanup, hold, unhold, home, info, prefix, and reset commands
-- **CommandPredictor Registration (2025-01-22):**
-  - Fixed IModuleAssemblyInitializer not being called: Added Module.dll to NestedModules in PSCue.psd1
-  - Fixed NativeAOT assembly reference error: Moved completion logic from ArgumentCompleter to PSCue.Shared
-  - CommandPredictor now successfully registers and provides inline suggestions
-  - Test files added: test-predictor.ps1, test-manual-init.ps1, test-inline-predictions.ps1
-- **PSCue.Debug & IPC (2025-01-26):**
-  - Fixed CS1998 compiler warning: Removed unnecessary async from HandleQueryCommand
-  - Split query command into `query-local` (local logic) and `query-ipc` (via IPC) for testing both paths
-  - Added timing statistics to all commands (format: `Time: 11.69ms`)
-  - Fixed IPC server race condition: Pipe was being disposed while HandleClientAsync was still using it
-  - Added PowerShell process discovery: Debug commands now automatically find any PSCue-loaded PowerShell session
-  - Commands search all `pwsh` and `powershell` processes to locate IPC server
-- **IPC Cache Population (2025-10-26):**
-  - **CRITICAL FIX**: ArgumentCompleter wasn't using IPC - cache was never populated!
-  - Fixed `IpcProtocol.GetCurrentPipeName()` to check `PSCUE_PID` environment variable (was using completer's own PID instead of PowerShell PID)
-  - Fixed PSCue.psm1 to set `$env:PSCUE_PID = $PID` so ArgumentCompleter can find the IPC server
-  - Added `-Native` flag to `Register-ArgumentCompleter` for native commands (git, gh, az, etc.)
-  - Changed debug environment variable from `DEBUG` to `PSCUE_DEBUG` for consistency
-  - Cache now correctly populates when Tab completion is triggered
-  - Added 9 new diagnostic test scripts to help troubleshoot IPC and cache issues
-  - ArgumentCompleter log shows "Using IPC completions" instead of "Using local completions"
-- **Logger Consolidation & Concurrent Write Support (2025-10-26):**
-  - Consolidated duplicate Logger classes into single implementation in PSCue.Shared
-  - Fixed concurrent write issue: changed `FileShare.Read` to `FileShare.ReadWrite` to allow both ArgumentCompleter and Module to write simultaneously
-  - Added `AutoFlush = true` to StreamWriter for immediate writes in multi-process scenarios
-  - Logger only performs file I/O when `PSCUE_DEBUG=1` (no filesystem operations in production)
-  - Updated log path from `pwsh-argument-completer` to `PSCue` folder
-  - Added component name to each log entry (e.g., `[ArgumentCompleter]`, `[Module]`) for clarity in multi-process debugging
-  - Log location: `$env:LOCALAPPDATA/PSCue/log.txt` (Windows) or `~/.local/share/PSCue/log.txt` (Linux/macOS)
-
-**Phase 6 Highlights:**
-- Created CI workflow for multi-platform builds and tests
-- Created Release workflow for automated binary releases
-- Skipped macOS x64 (Intel) support - focusing on Apple Silicon (osx-arm64)
-- Added minimal README.md with installation instructions
-- Fixed platform-specific tests using Xunit.SkippableFact
-- CI now passing on all platforms (Windows, macOS, Linux)
-
-## Troubleshooting Guide
-
-### Platform-Specific Tests in CI
-
-When tests fail on Linux/macOS but pass on Windows:
-
-1. **Identify Windows-only tools**: Commands like `winget` and `scoop` only exist on Windows
-2. **Use SkippableFact instead of Fact**:
-   ```csharp
-   using System.Runtime.InteropServices;
-   using Xunit;
-
-   [SkippableFact]
-   public void Winget_Install()
-   {
-       Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
-
-       // Test code...
-   }
-   ```
-3. **Add Xunit.SkippableFact package**: Add to test project csproj:
-   ```xml
-   <PackageReference Include="Xunit.SkippableFact" Version="1.4.13" />
-   ```
-4. **Pattern for bulk updates**: When updating many tests at once, create a PowerShell script that:
-   - Finds `[Fact]` followed by specific test name patterns
-   - Replaces with `[SkippableFact]`
-   - Adds `Skip.IfNot()` check as first line in method body
-
-**Common Windows-only commands to watch for:**
-- `winget` - Windows Package Manager
-- `scoop` - Windows package manager
-- PowerShell 5.1 specific features
-
-### Testing Installation Scripts
-
-When testing PowerShell installation scripts:
-1. **Always test with `-Force` flag first** to avoid interactive prompts during automated testing
-2. **Check for read-only automatic variables**: `$IsWindows`, `$IsMacOS`, `$IsLinux` cannot be reassigned
-   - Solution: Use different variable names like `$IsWindowsPlatform`
-3. **Verify file paths after installation**: Use `Get-ChildItem` to confirm all expected files were copied
-4. **Test module loading with `-Verbose`**: Helps identify issues with module initialization
-
-### Testing ArgumentCompleter Integration
-
-When the completer returns no output:
-1. **Check the argument count**: The Program.cs expects exactly 3 arguments (line 38-41 in src/PSCue.ArgumentCompleter/Program.cs)
-   - `wordToComplete`, `commandAst`, `cursorPosition`
-2. **Test the executable directly** with correct arguments:
-   ```powershell
-   & 'path/to/pscue-completer.exe' 'che' 'git che' 7
-   ```
-3. **Check output format**: Program.cs outputs pipe-delimited format `completionText|tooltip`, not JSON
-4. **Verify the module script matches the executable's API**:
-   - PSCue.psm1 must pass all 3 arguments to the completer
-   - Output parsing must match the actual format (pipe-delimited, not JSON)
-
-### Testing Tab Completions
-
-Use `TabExpansion2` to test completions programmatically:
-```powershell
-Import-Module ~/.local/pwsh-modules/PSCue/PSCue.psd1
-$result = TabExpansion2 'git che' 7
-$result.CompletionMatches | Select-Object CompletionText, ToolTip
+private async Task<IpcResponse> SendRequest(IpcRequest request) {
+    using var client = new NamedPipeClientStream(".", _pipeName, ...);
+    // ... send request
+}
 ```
 
-**Common issues**:
-- Cursor position must be valid (≥0 and ≤ command length)
-- For testing, use `$commandLine.Length` as cursor position for end-of-line completions
+## Common Pitfalls
+1. **Test hangs**: Tests sharing same pipe name → Use unique names per test instance
+2. **IPC not working**: Check `$env:PSCUE_PID = $PID` is set in PowerShell session
+3. **ArgumentCompleter slow**: Check `includeDynamicArguments` flag usage
+4. **NativeAOT reference errors**: Put shared code in PSCue.Shared, not ArgumentCompleter
 
-### Debugging Module Loading
+## Documentation
+- Full details: See `docs/ARCHITECTURE.md` and `docs/TROUBLESHOOTING.md`
+- Implementation status: See `TODO.md`
+- Bug fix history: See git log and commit messages
+- API docs: [ICommandPredictor](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-cmdlet-predictor), [IFeedbackProvider](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider)
 
-If the CommandPredictor doesn't register:
-1. Check module imports with: `Get-Module PSCue | Format-List NestedModules`
-2. Verify DLL is loaded: The output should show `PSCue.Module` in NestedModules
-3. Check for assembly loading errors in verbose output: `Import-Module -Verbose`
-4. Verify IModuleAssemblyInitializer.OnImport() is being called (should register subsystem automatically)
-
-## Common Tasks for AI Assistants
-
-### When working on ArgumentCompleter:
-- Use `ReadOnlySpan<char>` for string operations (NativeAOT optimization) - but note they can't cross async boundaries
-- Minimize allocations
-- Keep startup time <10ms
-- Always implement fallback logic if IPC unavailable
-- Handle IPC connection failures gracefully
-- Uses async/await for IPC communication (proper CancellationToken-based timeouts)
-
-### When working on CommandPredictor:
-- Can use async/await (long-lived process)
-- Implement proper cache invalidation (time-based, event-based)
-- Handle concurrent IPC requests safely
-- Clean up resources on module unload
-- Register both `ICommandPredictor` and `IFeedbackProvider` on initialization
-
-### When working on CompletionCache:
-- Track usage statistics: command frequency, flag combinations, patterns
-- Implement priority scoring algorithm (e.g., frequency * recency)
-- Update scores atomically for thread-safety
-- Expire old entries to manage memory
-- Provide cache statistics endpoint for debugging
-
-### When working on IFeedbackProvider:
-- Handle `FeedbackTrigger.Success` events (currently implemented)
-- Extract command patterns from `FeedbackContext`
-- Update cache scores based on observed usage
-- Be performant - runs after every command execution
-- Test on PowerShell 7.4+ (requires experimental feature)
-- Error suggestions (`FeedbackTrigger.Error`) planned for future enhancement
-
-### When working on IPC layer:
-- Keep protocol simple and fast
-- Use JSON for human-readability (can optimize to MessagePack later)
-- Always set timeouts on client connections (<10ms for ArgumentCompleter)
-- Validate session ownership for security
-- Include usage scores in completion responses
-
-### When copying code from source projects:
-- Update namespaces from `PowerShellArgumentCompleter`/`PowerShellPredictor` to `PSCue.*`
-- Update assembly names in .csproj files
-- Update test project references
-- Keep git history references in comments for attribution
-
-## Git Workflow
-
-- Main branch: `main`
-- Commit style: Follow repository's existing style (see `git log`)
-- GitHub username: `lucaspimentel`
-
-## Helpful Context
-
-The developer (Lucas) works on:
-- Datadog APM .NET tracer (dd-trace-dotnet)
-- Azure Functions serverless instrumentation
-- Prefers pwsh over powershell, uses `-NoProfile` flag
-- Uses Windows with `/` paths in bash commands
-
-## Quick Reference
-
-**Important files**:
-- `TODO.md` - Complete implementation plan with phases and checklists
-- `module/PSCue.psd1` - Module manifest
-- `module/PSCue.psm1` - Module initialization script
-
-**Documentation**:
-- [ICommandPredictor API](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-cmdlet-predictor)
-- [IFeedbackProvider API](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider)
-- [Register-ArgumentCompleter](https://learn.microsoft.com/powershell/module/microsoft.powershell.core/register-argumentcompleter)
-- [NativeAOT](https://learn.microsoft.com/dotnet/core/deploying/native-aot/)
-
-**Key Concepts**:
-- **ICommandPredictor**: Provides suggestions BEFORE command execution (as you type)
-- **IFeedbackProvider**: Learns from command execution AFTER it completes (currently only success events)
-- **Learning Loop**: IFeedbackProvider updates cache → ICommandPredictor/ArgumentCompleter use updated cache → Better suggestions next time
+## Platform Support
+Windows x64, macOS arm64, Linux x64 (PowerShell 7.2+, IFeedbackProvider requires 7.4+)
