@@ -14,10 +14,13 @@ namespace PSCue.Module.Tests;
 public class IpcServerIntegrationTests : IDisposable
 {
     private readonly IpcServer _server;
+    private readonly string _pipeName;
 
     public IpcServerIntegrationTests()
     {
-        _server = new IpcServer();
+        // Generate a unique pipe name for this test instance to avoid conflicts
+        _pipeName = $"PSCue-Test-{Guid.NewGuid():N}";
+        _server = new IpcServer(_pipeName);
         // Give server time to start
         Thread.Sleep(100);
     }
@@ -283,9 +286,7 @@ public class IpcServerIntegrationTests : IDisposable
     /// </summary>
     private async Task<IpcResponse> SendIpcRequestAsync(IpcRequest request)
     {
-        var pipeName = IpcProtocol.GetCurrentPipeName();
-
-        using var client = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+        using var client = new NamedPipeClientStream(".", _pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
         await client.ConnectAsync(1000);
 
         // Send request

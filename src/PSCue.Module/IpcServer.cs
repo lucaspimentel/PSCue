@@ -17,15 +17,27 @@ public class IpcServer : IDisposable
     private readonly string _pipeName;
     private bool _disposed;
 
-    public IpcServer()
+    public IpcServer() : this(IpcProtocol.GetCurrentPipeName())
+    {
+    }
+
+    /// <summary>
+    /// Create an IPC server with a custom pipe name (useful for testing).
+    /// </summary>
+    public IpcServer(string pipeName)
     {
         _cache = new CompletionCache();
         _cancellationTokenSource = new CancellationTokenSource();
-        _pipeName = IpcProtocol.GetCurrentPipeName();
+        _pipeName = pipeName;
 
         // Start the server loop in a background task
         _serverTask = Task.Run(ServerLoopAsync);
     }
+
+    /// <summary>
+    /// Get the pipe name this server is listening on.
+    /// </summary>
+    public string PipeName => _pipeName;
 
     /// <summary>
     /// Main server loop that listens for client connections.
