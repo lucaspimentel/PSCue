@@ -65,8 +65,26 @@ This directory contains PowerShell test scripts for manually testing PSCue funct
 - **Covers the bugs fixed on 2025-10-27**:
   - Bug #1: `scoop h<tab>` returning all completions instead of filtered
   - Bug #2: `scoop <tab>` after `scoop h<tab>` returning only "h" completions
+  - Bug #3: `scoop update <tab>` returning all scoop subcommands instead of update arguments
 - Returns exit code 0 if all tests pass, 1 if any fail
 - **Run**: `pwsh -NoProfile -File test-scripts/test-completion-filtering.ps1 all`
+
+**test-scoop-update.ps1**
+- Tests the `scoop update <tab>` bug fix
+- Verifies that commands with trailing spaces navigate into subcommands correctly
+- Shows that `scoop update <tab>` returns update arguments (e.g., `*` parameter), not scoop subcommands
+- Interactive test using TabExpansion2
+
+**test-scoop-update-debug.ps1**
+- Debug version of scoop update test with logging enabled
+- Uses PSCue.Debug tool to test completions
+- Shows log output to diagnose completion behavior
+
+**test-scoop-update-with-logging.ps1**
+- Complete scoop update test with full logging
+- Clears log before testing
+- Shows Tab completion results
+- Displays relevant log entries to verify behavior
 
 **test-scoop-sequence.ps1**
 - Tests the exact bug scenario: `scoop h<tab>` then `scoop <tab>`
@@ -146,6 +164,12 @@ This directory contains PowerShell test scripts for manually testing PSCue funct
 - Displays last 30 lines of log
 - Highlights IPC-related and local fallback messages
 - Useful for diagnosing IPC connectivity issues
+
+**check-log.ps1**
+- Simple utility to view PSCue log file
+- Shows last 100 lines of the log
+- Displays log file path
+- Quick access to debug output
 
 ### PSCue.Debug Tool Tests
 
@@ -253,20 +277,20 @@ pwsh -NoProfile -File test-scripts/test-pscue-debug.ps1
 
 ## Automated Tests
 
-PSCue has **87 unit tests** covering ArgumentCompleter logic, IPC server behavior, cache filtering, and integration scenarios.
+PSCue has **90 unit tests** covering ArgumentCompleter logic, IPC server behavior, cache filtering, and integration scenarios.
 
 For automated unit and integration tests, see:
 - `test/PSCue.ArgumentCompleter.Tests/` - **62 tests**
   - CommandCompleter logic tests
   - Completion generation for all supported commands
   - Platform-specific tests (Windows/Linux/macOS)
-- `test/PSCue.Module.Tests/` - **25 tests**
+- `test/PSCue.Module.Tests/` - **28 tests**
   - CompletionCache tests (cache key generation, get/set, hit counting)
   - IPC filtering tests (filtering behavior, cache storage, real-world scenarios)
   - IPC server integration tests (end-to-end request/response)
-  - **NEW** (added 2025-10-27): 24 tests covering IPC cache filtering bugs
+  - **NEW** (added 2025-10-27): 27 tests covering IPC cache filtering and subcommand navigation bugs
 
 Run all tests:
 ```powershell
-dotnet test  # All 87 tests
+dotnet test  # All 90 tests
 ```

@@ -341,8 +341,12 @@ See TODO.md for detailed implementation plan and progress tracking.
   - **Bug #2**: Fixed `scoop <tab>` after `scoop h<tab>` returning only "h" completions instead of all
     - Root cause: Cache was storing filtered completions (only 3 items) instead of all 28 subcommands
     - Fix: Modified `GenerateCompletions()` to remove partial word from commandLine before calling `CommandCompleter.GetCompletions()`, ensuring cache stores ALL completions unfiltered
-  - **Test Coverage**: Added 24 new unit tests (CompletionCacheTests, IpcFilteringTests, IpcServerIntegrationTests)
-  - **Total Tests**: 87 (62 ArgumentCompleter + 25 Module) - all passing ✓
+  - **Bug #3**: Fixed `scoop update <tab>` returning all scoop subcommands instead of update arguments
+    - Root cause: When command line ended with trailing space (e.g., `"scoop update "`), `GenerateCompletions()` was incorrectly removing the last word ("update"), causing navigation to stay at root "scoop" command
+    - Fix: Added check in `IpcServer.GenerateCompletions()` to detect trailing space - only remove last word if there's no trailing space (indicating a partial word to complete)
+    - Behavior: `"scoop update "` now correctly returns `*` parameter and package arguments, while `"scoop upd"` still filters to "update" subcommand
+  - **Test Coverage**: Added 27 new unit tests (CompletionCacheTests, IpcFilteringTests, IpcServerIntegrationTests)
+  - **Total Tests**: 90 (62 ArgumentCompleter + 28 Module) - all passing ✓
 - **Phase 5:**
   - Fixed `$IsWindows` read-only variable conflict in install-local.ps1
   - Fixed PSCue.psm1 completer invocation to pass 3 required arguments (wordToComplete, line, cursorPosition)
