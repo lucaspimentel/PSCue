@@ -183,6 +183,100 @@ public class IpcServerIntegrationTests : IDisposable
         Assert.NotEqual(scoopCached.Length, gitCached.Length);
     }
 
+    [Fact]
+    public async Task IpcServer_ScoopUpdateWithTrailingSpace_ReturnsUpdateArguments()
+    {
+        // This test verifies the fix for the "scoop update <tab>" bug
+        // When command line ends with a space, we should navigate into the subcommand
+        // and return its arguments (parameters + dynamic arguments), not the parent's subcommands
+
+        // Arrange
+        var request = new IpcRequest
+        {
+            Command = "scoop",
+            CommandLine = "scoop update ",  // Trailing space = completing next argument
+            WordToComplete = "",
+            IncludeDynamicArguments = false  // Don't actually call scoop list (slow)
+        };
+
+        // Act
+        var response = await SendIpcRequestAsync(request);
+
+        // Assert
+        Assert.NotNull(response);
+        Assert.NotEmpty(response.Completions);
+
+        // Should return the "*" parameter from the update command
+        Assert.Contains(response.Completions, c => c.Text == "*");
+
+        // Should NOT return scoop subcommands like "alias", "bucket", etc.
+        Assert.DoesNotContain(response.Completions, c => c.Text == "alias");
+        Assert.DoesNotContain(response.Completions, c => c.Text == "bucket");
+        Assert.DoesNotContain(response.Completions, c => c.Text == "cache");
+    }
+
+    [Fact]
+    public async Task IpcServer_ScoopUpdatePartialWord_ReturnsFilteredSubcommands()
+    {
+        // When there's NO trailing space, we're still completing the subcommand itself
+        // "scoop upd" should return "update" (filtered subcommands)
+
+        // Arrange
+        var request = new IpcRequest
+        {
+            Command = "scoop",
+            CommandLine = "scoop upd",  // No trailing space = completing this word
+            WordToComplete = "upd",
+            IncludeDynamicArguments = false
+        };
+
+        // Act
+        var response = await SendIpcRequestAsync(request);
+
+        // Assert
+        Assert.NotNull(response);
+        Assert.NotEmpty(response.Completions);
+
+        // Should return "update" (subcommand starting with "upd")
+        var completionTexts = response.Completions.Select(c => c.Text).ToList();
+        Assert.Contains("update", completionTexts);
+
+        // Should NOT return subcommands that don't start with "upd"
+        Assert.DoesNotContain("alias", completionTexts);
+        Assert.DoesNotContain("bucket", completionTexts);
+        Assert.DoesNotContain("unhold", completionTexts);  // starts with "un", not "upd"
+    }
+
+    [Fact]
+    public async Task IpcServer_GitCheckoutWithTrailingSpace_ReturnsCheckoutArguments()
+    {
+        // Similar test for git - verify the fix works for other commands too
+
+        // Arrange
+        var request = new IpcRequest
+        {
+            Command = "git",
+            CommandLine = "git checkout ",  // Trailing space
+            WordToComplete = "",
+            IncludeDynamicArguments = false  // Don't actually call git (slow)
+        };
+
+        // Act
+        var response = await SendIpcRequestAsync(request);
+
+        // Assert
+        Assert.NotNull(response);
+        Assert.NotEmpty(response.Completions);
+
+        // Should return parameters like "-b", "--track", etc.
+        Assert.Contains(response.Completions, c => c.Text == "-b");
+
+        // Should NOT return git subcommands like "add", "commit", etc.
+        Assert.DoesNotContain(response.Completions, c => c.Text == "add");
+        Assert.DoesNotContain(response.Completions, c => c.Text == "commit");
+        Assert.DoesNotContain(response.Completions, c => c.Text == "push");
+    }
+
     /// <summary>
     /// Helper to send IPC request and get response.
     /// This simulates what ArgumentCompleter does.

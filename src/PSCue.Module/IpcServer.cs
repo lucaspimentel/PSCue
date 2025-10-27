@@ -353,15 +353,26 @@ public class IpcServer : IDisposable
         try
         {
             // To get ALL completions (unfiltered), we need to:
-            // 1. Remove the partial word from the command line
+            // 1. Remove the partial word from the command line (if there is one)
             // 2. Pass empty wordToComplete
             // This prevents CommandCompleter from extracting and using the partial word as a filter
 
-            // Split command line and remove the last part (the partial word being completed)
-            var parts = request.CommandLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var commandLineWithoutPartial = parts.Length > 1
-                ? string.Join(' ', parts.Take(parts.Length - 1)) + ' '  // Add trailing space to indicate we're past that argument
-                : request.CommandLine;
+            string commandLineWithoutPartial;
+
+            // Check if command line ends with a space - if so, there's no partial word to remove
+            if (request.CommandLine.EndsWith(' '))
+            {
+                // Already has trailing space, no partial word to remove
+                commandLineWithoutPartial = request.CommandLine;
+            }
+            else
+            {
+                // Has a partial word - remove it and add trailing space
+                var parts = request.CommandLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                commandLineWithoutPartial = parts.Length > 1
+                    ? string.Join(' ', parts.Take(parts.Length - 1)) + ' '  // Add trailing space to indicate we're past that argument
+                    : request.CommandLine;
+            }
 
             // Use the existing CommandCompleter logic from PSCue.Shared
             // Pass includeDynamicArguments from the request (ArgumentCompleter wants all, Predictor wants fast)
