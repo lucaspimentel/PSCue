@@ -334,6 +334,15 @@ See TODO.md for detailed implementation plan and progress tracking.
 - Error suggestions when commands fail (e.g., git errors, gh errors, az errors)
 
 **Known Issues Fixed:**
+- **IPC Cache Filtering Bugs (2025-10-27):**
+  - **Bug #1**: Fixed `scoop h<tab>` returning all completions instead of only those starting with "h"
+    - Root cause: Cached completions weren't being filtered by `wordToComplete` before returning to client
+    - Fix: Added filtering in `IpcServer.HandleCompletionRequestAsync()` after retrieving from cache (lines 156-164)
+  - **Bug #2**: Fixed `scoop <tab>` after `scoop h<tab>` returning only "h" completions instead of all
+    - Root cause: Cache was storing filtered completions (only 3 items) instead of all 28 subcommands
+    - Fix: Modified `GenerateCompletions()` to remove partial word from commandLine before calling `CommandCompleter.GetCompletions()`, ensuring cache stores ALL completions unfiltered
+  - **Test Coverage**: Added 24 new unit tests (CompletionCacheTests, IpcFilteringTests, IpcServerIntegrationTests)
+  - **Total Tests**: 87 (62 ArgumentCompleter + 25 Module) - all passing ✓
 - **Phase 5:**
   - Fixed `$IsWindows` read-only variable conflict in install-local.ps1
   - Fixed PSCue.psm1 completer invocation to pass 3 required arguments (wordToComplete, line, cursorPosition)

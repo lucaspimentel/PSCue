@@ -267,16 +267,21 @@ dotnet test
 
 ### Running Tests
 
+PSCue has **87 unit tests** covering ArgumentCompleter logic, IPC server behavior, cache filtering, and integration scenarios.
+
 ```powershell
-# All tests
+# All tests (87 total: 62 ArgumentCompleter + 25 Module)
 dotnet test
 
 # Specific project
-dotnet test test/PSCue.ArgumentCompleter.Tests/
-dotnet test test/PSCue.Module.Tests/
+dotnet test test/PSCue.ArgumentCompleter.Tests/  # 62 tests
+dotnet test test/PSCue.Module.Tests/             # 25 tests
 
 # With verbose output
 dotnet test --logger "console;verbosity=detailed"
+
+# Run integration tests for filtering scenarios
+pwsh -NoProfile -File test-scripts/test-completion-filtering.ps1 all
 ```
 
 ### Testing Completions Manually

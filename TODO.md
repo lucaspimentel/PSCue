@@ -744,6 +744,28 @@ git push origin v1.0.0
 6. Phase 10.12-10.13 (testing & docs) - validation
 7. Phase 10.14 (optional) - as time permits
 
+#### Post-Phase 10: IPC Cache Filtering Bugs Fixed (2025-10-27)
+
+**Issue #1**: `scoop h<tab>` was returning all completions instead of only those starting with "h"
+- **Root Cause**: Cached completions weren't being filtered by `wordToComplete` before returning to client
+- **Fix**: Added filtering in `IpcServer.HandleCompletionRequestAsync()` (lines 156-164)
+- **File**: `src/PSCue.Module/IpcServer.cs`
+
+**Issue #2**: After `scoop h<tab>`, then `scoop <tab>` was returning only "h" completions instead of all
+- **Root Cause**: Cache was storing filtered completions (only 3 items) instead of all 28 subcommands
+- **Fix**: Modified `GenerateCompletions()` to remove partial word from commandLine before calling `CommandCompleter.GetCompletions()`, ensuring cache stores ALL completions unfiltered
+- **File**: `src/PSCue.Module/IpcServer.cs` (lines 360-364)
+
+**New Test Coverage**:
+- Added `CompletionCacheTests.cs` (7 tests): Cache key generation, get/set, hit counting, usage tracking
+- Added `IpcFilteringTests.cs` (12 tests): Filtering behavior, cache storage, real-world scenarios
+- Added `IpcServerIntegrationTests.cs` (5 tests): End-to-end IPC request/response testing
+- Added integration test script: `test-scripts/test-completion-filtering.ps1`
+
+**Total Tests**: **87** (62 ArgumentCompleter + 25 Module) - all passing ✓
+
+**Key Lesson**: These bugs existed because PSCue.Module.Tests had essentially zero coverage of the IPC server and caching logic. The new tests would have caught both bugs before they reached users.
+
 ### Phase 11: Generic Command Learning (Universal Predictor)
 
 **Goal**: Transform ICommandPredictor from command-specific (only knows git, gh, scoop, etc.) to a generic system that learns from ALL user commands, even ones PSCue doesn't explicitly support.

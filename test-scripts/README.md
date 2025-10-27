@@ -55,6 +55,37 @@ This directory contains PowerShell test scripts for manually testing PSCue funct
   - **Success events**: Silent learning, updates cache scores
   - **Error events**: Provides recovery suggestions (e.g., git errors)
 
+### Completion Filtering Tests
+
+**test-completion-filtering.ps1**
+- **NEW**: Comprehensive test for IPC cache filtering behavior
+- Tests both scoop and git completions with various prefixes
+- Verifies filtering works correctly for both cached and fresh completions
+- Can run specific test suites: `all`, `scoop`, or `git`
+- **Covers the bugs fixed on 2025-10-27**:
+  - Bug #1: `scoop h<tab>` returning all completions instead of filtered
+  - Bug #2: `scoop <tab>` after `scoop h<tab>` returning only "h" completions
+- Returns exit code 0 if all tests pass, 1 if any fail
+- **Run**: `pwsh -NoProfile -File test-scripts/test-completion-filtering.ps1 all`
+
+**test-scoop-sequence.ps1**
+- Tests the exact bug scenario: `scoop h<tab>` then `scoop <tab>`
+- Verifies cache stores all completions, not just filtered ones
+- Shows detailed test results with PASS/FAIL indicators
+- Helps verify the IPC cache filtering fix is working
+
+**test-with-clear-cache.ps1**
+- Tests cache population after clearing
+- Verifies cache is populated with ALL completions (unfiltered)
+- Inspects cache contents using PSCue.Debug tool
+- Useful for debugging cache storage issues
+
+**test-cache-contents.ps1**
+- Triggers a specific completion and inspects what gets cached
+- Uses PSCue.Debug tool to inspect cache entries
+- Shows completion count and top completions
+- Helps verify cache is storing data correctly
+
 ### Cache and Learning Tests
 
 **test-cache-learning.ps1**
@@ -222,6 +253,20 @@ pwsh -NoProfile -File test-scripts/test-pscue-debug.ps1
 
 ## Automated Tests
 
+PSCue has **87 unit tests** covering ArgumentCompleter logic, IPC server behavior, cache filtering, and integration scenarios.
+
 For automated unit and integration tests, see:
-- `test/PSCue.ArgumentCompleter.Tests/`
-- `test/PSCue.Module.Tests/`
+- `test/PSCue.ArgumentCompleter.Tests/` - **62 tests**
+  - CommandCompleter logic tests
+  - Completion generation for all supported commands
+  - Platform-specific tests (Windows/Linux/macOS)
+- `test/PSCue.Module.Tests/` - **25 tests**
+  - CompletionCache tests (cache key generation, get/set, hit counting)
+  - IPC filtering tests (filtering behavior, cache storage, real-world scenarios)
+  - IPC server integration tests (end-to-end request/response)
+  - **NEW** (added 2025-10-27): 24 tests covering IPC cache filtering bugs
+
+Run all tests:
+```powershell
+dotnet test  # All 87 tests
+```
