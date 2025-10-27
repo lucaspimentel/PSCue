@@ -153,6 +153,16 @@ public class IpcServer : IDisposable
             fromCache = false;
         }
 
+        // Filter completions by wordToComplete (both cached and fresh need filtering)
+        // The cache stores all completions for a context (e.g., all "scoop" subcommands)
+        // but we need to filter to only those that start with wordToComplete (e.g., "scoop h" -> help, hold, home)
+        if (!string.IsNullOrEmpty(request.WordToComplete))
+        {
+            completions = completions
+                .Where(c => c.Text.StartsWith(request.WordToComplete, StringComparison.OrdinalIgnoreCase))
+                .ToArray();
+        }
+
         // Create response
         var response = new IpcResponse
         {
@@ -335,16 +345,29 @@ public class IpcServer : IDisposable
 
     /// <summary>
     /// Generate completion suggestions using the shared completion logic.
+    /// NOTE: This generates ALL completions for the context (unfiltered).
+    /// Filtering by wordToComplete happens in HandleCompletionRequestAsync.
     /// </summary>
     private static CompletionItem[] GenerateCompletions(IpcRequest request)
     {
         try
         {
+            // To get ALL completions (unfiltered), we need to:
+            // 1. Remove the partial word from the command line
+            // 2. Pass empty wordToComplete
+            // This prevents CommandCompleter from extracting and using the partial word as a filter
+
+            // Split command line and remove the last part (the partial word being completed)
+            var parts = request.CommandLine.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var commandLineWithoutPartial = parts.Length > 1
+                ? string.Join(' ', parts.Take(parts.Length - 1)) + ' '  // Add trailing space to indicate we're past that argument
+                : request.CommandLine;
+
             // Use the existing CommandCompleter logic from PSCue.Shared
             // Pass includeDynamicArguments from the request (ArgumentCompleter wants all, Predictor wants fast)
             var completions = CommandCompleter.GetCompletions(
-                request.CommandLine.AsSpan(),
-                request.WordToComplete.AsSpan(),
+                commandLineWithoutPartial.AsSpan(),
+                ReadOnlySpan<char>.Empty,  // Empty wordToComplete = no filtering
                 request.IncludeDynamicArguments);
 
             return completions
