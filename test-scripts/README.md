@@ -116,6 +116,16 @@ This directory contains PowerShell test scripts for manually testing PSCue funct
 - Highlights IPC-related and local fallback messages
 - Useful for diagnosing IPC connectivity issues
 
+### PSCue.Debug Tool Tests
+
+**test-pscue-debug.ps1**
+- Comprehensive test script for the PSCue.Debug tool
+- Tests all commands: query-local, query-ipc, stats, cache, clear, ping, help
+- Validates JSON output format
+- Tests both with and without IPC server running
+- Shows summary of test results
+- **This is the main test script for Phase 10 enhancements**
+
 ## Usage
 
 ### Quick IPC Test
@@ -177,6 +187,28 @@ pwsh -NoProfile -File test-scripts/test-feedback-provider.ps1
 - PowerShell 7.4 or higher
 - PSFeedbackProvider experimental feature enabled (script will prompt if not enabled)
 - PSCue module installed to `~/.local/pwsh-modules/PSCue/`
+
+### PSCue.Debug Tool Test
+```powershell
+# Run comprehensive test of PSCue.Debug tool (Phase 10)
+pwsh -NoProfile -File test-scripts/test-pscue-debug.ps1
+```
+
+**Tests include**:
+- Help system (`help` command)
+- Local completions (`query-local`)
+- IPC connectivity (`ping`)
+- Cache statistics (`stats`, with and without `--json`)
+- Cache inspection (`cache`, with `--filter` and `--json`)
+- Clear cache (`clear`)
+- IPC completions (`query-ipc`)
+
+**Features tested**:
+- JSON output format for automation
+- PowerShell process auto-discovery
+- Filter support for cache inspection
+- Timing statistics on all commands
+- Graceful handling when IPC server unavailable
 
 ## Notes
 

@@ -281,7 +281,7 @@ dotnet test --logger "console;verbosity=detailed"
 
 ### Testing Completions Manually
 
-Use the PSCue.Debug tool:
+Use the **PSCue.Debug** tool for testing and debugging:
 
 ```powershell
 # Test local completion logic (no IPC)
@@ -296,11 +296,29 @@ dotnet run --project src/PSCue.Debug/ -- ping
 # Show cache statistics
 dotnet run --project src/PSCue.Debug/ -- stats
 
+# Show cache statistics in JSON format
+dotnet run --project src/PSCue.Debug/ -- stats --json
+
 # Inspect cached completions (optionally filtered)
 dotnet run --project src/PSCue.Debug/ -- cache --filter git
+
+# Inspect cache in JSON format
+dotnet run --project src/PSCue.Debug/ -- cache --filter git --json
+
+# Clear all cached completions
+dotnet run --project src/PSCue.Debug/ -- clear
+
+# Show help with all commands
+dotnet run --project src/PSCue.Debug/ -- help
 ```
 
-**Note**: All commands show timing statistics (e.g., `Time: 11.69ms`). The IPC commands (`query-ipc`, `ping`, `stats`, `cache`) automatically discover running PowerShell processes with PSCue loaded.
+**Features**:
+- All commands show timing statistics (e.g., `Time: 11.69ms`)
+- JSON output support for scripting (`--json` flag on stats/cache commands)
+- Automatic PowerShell process discovery (finds PSCue-loaded sessions)
+- Filter support for cache inspection (`--filter` flag)
+- Clear cache command for testing
+- Comprehensive test script: `test-scripts/test-pscue-debug.ps1`
 
 Or test in PowerShell directly:
 
@@ -327,13 +345,24 @@ TabExpansion2 'git checkout ma' 15
   - Usage tracking and priority scoring
   - Personalized completions based on command history
   - Error recovery suggestions for git commands
+- [x] **Phase 10**: Enhanced Debugging Tool (PSCue.Debug)
+  - Commands: query-local, query-ipc, stats, cache, clear, ping, help
+  - JSON output support for automation (--json flag)
+  - PowerShell process auto-discovery
+  - Filter support for cache inspection (--filter flag)
+  - Timing statistics on all commands
+  - Comprehensive test script: test-scripts/test-pscue-debug.ps1
 
 ### Future Phases
 
-- **Phase 10**: Enhanced Learning & Distribution
+- **Phase 11**: Generic Command Learning
+  - Universal command learning (learn from ALL commands, not just known ones)
   - Enhanced learning algorithms (frequency × recency scoring)
+  - Context-aware suggestions based on command history
+  - Command sequence detection (workflows)
+  - Cross-session persistence (save learned data to disk)
+- **Phase 12**: Distribution & Advanced Features
   - Error suggestions for more commands (gh, az, scoop)
-  - Cross-session learning (persistent cache)
   - ML-based prediction support
   - PowerShell Gallery publishing
   - Scoop/Homebrew package managers

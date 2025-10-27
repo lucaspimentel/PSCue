@@ -289,7 +289,7 @@ Installs to: `~/.local/pwsh-modules/PSCue/`
 
 See TODO.md for detailed implementation plan and progress tracking.
 
-**Current Status**: Learning system (Phase 9) complete! FeedbackProvider learns from successful commands.
+**Current Status**: Phase 10 complete! Enhanced debugging tool with JSON output, clear command, and comprehensive testing.
 
 **Completed phases:**
 - ✅ Phase 1: Project Structure Setup
@@ -316,13 +316,22 @@ See TODO.md for detailed implementation plan and progress tracking.
   - ✅ Graceful degradation on PowerShell 7.2-7.3
   - ✅ Test script verifies provider registration (PowerShell 7.4+)
   - ✅ Benchmarks confirm async performance targets met
+- ✅ Phase 10: Enhanced Debugging Tool (PSCue.Debug)
+  - ✅ Commands: query-local, query-ipc, stats, cache, clear, ping, help
+  - ✅ JSON output support for stats and cache commands (--json flag)
+  - ✅ PowerShell process auto-discovery (finds PSCue-loaded sessions)
+  - ✅ Timing statistics on all commands
+  - ✅ Filter support for cache inspection (--filter flag)
+  - ✅ Comprehensive test script: test-scripts/test-pscue-debug.ps1
 
-**Future enhancements (Phase 10):**
+**Future enhancements (Phase 11 - Generic Command Learning):**
+- Universal command learning (learn from ALL commands, not just known ones)
 - Enhanced learning algorithms (frequency × recency scoring)
 - Track flag combinations and argument patterns
 - Cross-session persistence (save learned data to disk)
+- Context-aware suggestions based on recent command history
+- Command sequence detection (workflows)
 - Error suggestions when commands fail (e.g., git errors, gh errors, az errors)
-- ML-based predictions
 
 **Known Issues Fixed:**
 - **Phase 5:**

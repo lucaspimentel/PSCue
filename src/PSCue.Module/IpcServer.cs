@@ -208,6 +208,7 @@ public class IpcServer : IDisposable
                 "ping" => new IpcDebugResponse { Success = true, Message = "pong" },
                 "stats" => GetStatsResponse(),
                 "cache" => GetCacheResponse(request.Filter),
+                "clear" => ClearCacheResponse(),
                 _ => new IpcDebugResponse { Success = false, Message = $"Unknown request type: {request.RequestType}" }
             };
 
@@ -263,6 +264,21 @@ public class IpcServer : IDisposable
         {
             Success = true,
             CacheEntries = cacheEntries
+        };
+    }
+
+    /// <summary>
+    /// Clear the cache and return success response.
+    /// </summary>
+    private IpcDebugResponse ClearCacheResponse()
+    {
+        var statsBefore = _cache.GetStatistics();
+        _cache.Clear();
+
+        return new IpcDebugResponse
+        {
+            Success = true,
+            Message = $"Cache cleared. Removed {statsBefore.EntryCount} entries."
         };
     }
 

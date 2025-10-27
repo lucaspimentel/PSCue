@@ -27,8 +27,9 @@ class Program
             {
                 "query-local" => HandleQueryLocalCommand(args),
                 "query-ipc" => await HandleQueryIpcCommand(args),
-                "stats" => await HandleStatsCommand(),
+                "stats" => await HandleStatsCommand(args),
                 "cache" => await HandleCacheCommand(args),
+                "clear" => await HandleClearCommand(args),
                 "ping" => await HandlePingCommand(),
                 "help" or "--help" or "-h" => ShowUsage(),
                 _ => HandleUnknownCommand(args[0])
@@ -48,18 +49,27 @@ class Program
         Console.WriteLine("Usage: pscue-debug <command> [options]");
         Console.WriteLine();
         Console.WriteLine("Commands:");
-        Console.WriteLine("  query-local <input>   Get completion suggestions using local logic");
-        Console.WriteLine("  query-ipc <input>     Get completion suggestions via IPC");
-        Console.WriteLine("  stats                 Show cache statistics");
-        Console.WriteLine("  cache [--filter]      Inspect cached completions (optionally filtered)");
-        Console.WriteLine("  ping                  Test IPC server connectivity");
-        Console.WriteLine("  help                  Show this help message");
+        Console.WriteLine("  query-local <input>          Get completion suggestions using local logic");
+        Console.WriteLine("  query-ipc <input>            Get completion suggestions via IPC");
+        Console.WriteLine("  stats [--json]               Show cache statistics");
+        Console.WriteLine("  cache [--filter <text>]      Inspect cached completions (optionally filtered)");
+        Console.WriteLine("        [--json]");
+        Console.WriteLine("  clear                        Clear all cached completions");
+        Console.WriteLine("  ping                         Test IPC server connectivity");
+        Console.WriteLine("  help                         Show this help message");
+        Console.WriteLine();
+        Console.WriteLine("Options:");
+        Console.WriteLine("  --json                       Output in JSON format (for stats/cache commands)");
+        Console.WriteLine("  --filter <text>              Filter cache entries by text (for cache command)");
         Console.WriteLine();
         Console.WriteLine("Examples:");
         Console.WriteLine("  pscue-debug query-local \"git checkout ma\"");
         Console.WriteLine("  pscue-debug query-ipc \"git checkout ma\"");
         Console.WriteLine("  pscue-debug stats");
+        Console.WriteLine("  pscue-debug stats --json");
         Console.WriteLine("  pscue-debug cache --filter git");
+        Console.WriteLine("  pscue-debug cache --filter git --json");
+        Console.WriteLine("  pscue-debug clear");
         Console.WriteLine("  pscue-debug ping");
         return 0;
     }
@@ -249,34 +259,83 @@ class Program
     }
 
     /// <summary>
+    /// Check if --json flag is present in args
+    /// </summary>
+    static bool HasJsonFlag(string[] args) => args.Any(a => a == "--json");
+
+    /// <summary>
     /// Handle 'stats' command - show cache statistics via IPC
     /// </summary>
-    static async Task<int> HandleStatsCommand()
+    static async Task<int> HandleStatsCommand(string[] args)
     {
+        var useJson = HasJsonFlag(args);
+        var stopwatch = Stopwatch.StartNew();
         var response = await SendDebugRequest(new IpcDebugRequest { RequestType = "stats" });
+        stopwatch.Stop();
 
         if (response == null)
         {
-            Console.Error.WriteLine("Failed to connect to IPC server. Is PSCue loaded?");
+            if (useJson)
+            {
+                Console.WriteLine(JsonSerializer.Serialize(new { success = false, error = "Failed to connect to IPC server" }));
+            }
+            else
+            {
+                Console.Error.WriteLine("Failed to connect to IPC server. Is PSCue loaded?");
+            }
             return 1;
         }
 
         if (!response.Success)
         {
-            Console.Error.WriteLine($"Error: {response.Message}");
+            if (useJson)
+            {
+                Console.WriteLine(JsonSerializer.Serialize(new { success = false, error = response.Message }));
+            }
+            else
+            {
+                Console.Error.WriteLine($"Error: {response.Message}");
+            }
             return 1;
         }
 
         if (response.Stats == null)
         {
-            Console.Error.WriteLine("Error: No stats returned");
+            if (useJson)
+            {
+                Console.WriteLine(JsonSerializer.Serialize(new { success = false, error = "No stats returned" }));
+            }
+            else
+            {
+                Console.Error.WriteLine("Error: No stats returned");
+            }
             return 1;
         }
 
-        Console.WriteLine("Cache Statistics:");
-        Console.WriteLine($"  Entry Count:       {response.Stats.EntryCount}");
-        Console.WriteLine($"  Total Hits:        {response.Stats.TotalHits}");
-        Console.WriteLine($"  Oldest Entry Age:  {response.Stats.OldestEntryAge}");
+        if (useJson)
+        {
+            var jsonOutput = new
+            {
+                success = true,
+                stats = new
+                {
+                    entryCount = response.Stats.EntryCount,
+                    totalHits = response.Stats.TotalHits,
+                    oldestEntryAge = response.Stats.OldestEntryAge
+                },
+                timeMs = stopwatch.Elapsed.TotalMilliseconds
+            };
+            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        else
+        {
+            Console.WriteLine("Cache Statistics:");
+            Console.WriteLine($"  Entry Count:       {response.Stats.EntryCount}");
+            Console.WriteLine($"  Total Hits:        {response.Stats.TotalHits}");
+            Console.WriteLine($"  Oldest Entry Age:  {response.Stats.OldestEntryAge}");
+            Console.WriteLine();
+            Console.WriteLine($"Time: {stopwatch.Elapsed.TotalMilliseconds:F2}ms");
+        }
         return 0;
     }
 
@@ -285,6 +344,7 @@ class Program
     /// </summary>
     static async Task<int> HandleCacheCommand(string[] args)
     {
+        var useJson = HasJsonFlag(args);
         string? filter = null;
 
         // Look for --filter argument
@@ -297,49 +357,165 @@ class Program
             }
         }
 
+        var stopwatch = Stopwatch.StartNew();
         var response = await SendDebugRequest(new IpcDebugRequest
         {
             RequestType = "cache",
             Filter = filter
         });
+        stopwatch.Stop();
 
         if (response == null)
         {
-            Console.Error.WriteLine("Failed to connect to IPC server. Is PSCue loaded?");
+            if (useJson)
+            {
+                Console.WriteLine(JsonSerializer.Serialize(new { success = false, error = "Failed to connect to IPC server" }));
+            }
+            else
+            {
+                Console.Error.WriteLine("Failed to connect to IPC server. Is PSCue loaded?");
+            }
             return 1;
         }
 
         if (!response.Success)
         {
-            Console.Error.WriteLine($"Error: {response.Message}");
+            if (useJson)
+            {
+                Console.WriteLine(JsonSerializer.Serialize(new { success = false, error = response.Message }));
+            }
+            else
+            {
+                Console.Error.WriteLine($"Error: {response.Message}");
+            }
             return 1;
         }
 
         if (response.CacheEntries == null || response.CacheEntries.Length == 0)
         {
-            Console.WriteLine("No cache entries found.");
+            if (useJson)
+            {
+                Console.WriteLine(JsonSerializer.Serialize(new { success = true, entries = Array.Empty<object>(), count = 0 }, new JsonSerializerOptions { WriteIndented = true }));
+            }
+            else
+            {
+                Console.WriteLine("No cache entries found.");
+            }
             return 0;
         }
 
-        Console.WriteLine($"Cache Entries ({response.CacheEntries.Length}):");
-        Console.WriteLine();
-
-        foreach (var entry in response.CacheEntries)
+        if (useJson)
         {
-            Console.WriteLine($"Key: {entry.Key}");
-            Console.WriteLine($"  Completions: {entry.CompletionCount}");
-            Console.WriteLine($"  Hit Count:   {entry.HitCount}");
-            Console.WriteLine($"  Age:         {entry.Age}");
-
-            if (entry.TopCompletions.Length > 0)
+            var jsonOutput = new
             {
-                Console.WriteLine("  Top Completions:");
-                foreach (var completion in entry.TopCompletions)
+                success = true,
+                count = response.CacheEntries.Length,
+                filter = filter,
+                entries = response.CacheEntries.Select(e => new
                 {
-                    Console.WriteLine($"    - {completion.Text} (score: {completion.Score:F2})");
-                }
-            }
+                    key = e.Key,
+                    completionCount = e.CompletionCount,
+                    hitCount = e.HitCount,
+                    age = e.Age,
+                    topCompletions = e.TopCompletions.Select(c => new
+                    {
+                        text = c.Text,
+                        description = c.Description,
+                        score = c.Score
+                    }).ToArray()
+                }).ToArray(),
+                timeMs = stopwatch.Elapsed.TotalMilliseconds
+            };
+            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        else
+        {
+            Console.WriteLine($"Cache Entries ({response.CacheEntries.Length}):");
             Console.WriteLine();
+
+            foreach (var entry in response.CacheEntries)
+            {
+                Console.WriteLine($"Key: {entry.Key}");
+                Console.WriteLine($"  Completions: {entry.CompletionCount}");
+                Console.WriteLine($"  Hit Count:   {entry.HitCount}");
+                Console.WriteLine($"  Age:         {entry.Age}");
+
+                if (entry.TopCompletions.Length > 0)
+                {
+                    Console.WriteLine("  Top Completions:");
+                    foreach (var completion in entry.TopCompletions)
+                    {
+                        Console.WriteLine($"    - {completion.Text} (score: {completion.Score:F2})");
+                    }
+                }
+                Console.WriteLine();
+            }
+
+            Console.WriteLine($"Time: {stopwatch.Elapsed.TotalMilliseconds:F2}ms");
+        }
+
+        return 0;
+    }
+
+    /// <summary>
+    /// Handle 'clear' command - clear all cached completions
+    /// </summary>
+    static async Task<int> HandleClearCommand(string[] args)
+    {
+        var useJson = HasJsonFlag(args);
+
+        // Check if --force flag is present (for future use - skip confirmation)
+        var force = args.Any(a => a == "--force");
+
+        if (!force)
+        {
+            // For now, just proceed - in the future we could add a confirmation prompt
+        }
+
+        var stopwatch = Stopwatch.StartNew();
+        var response = await SendDebugRequest(new IpcDebugRequest { RequestType = "clear" });
+        stopwatch.Stop();
+
+        if (response == null)
+        {
+            if (useJson)
+            {
+                Console.WriteLine(JsonSerializer.Serialize(new { success = false, error = "Failed to connect to IPC server" }));
+            }
+            else
+            {
+                Console.Error.WriteLine("Failed to connect to IPC server. Is PSCue loaded?");
+            }
+            return 1;
+        }
+
+        if (!response.Success)
+        {
+            if (useJson)
+            {
+                Console.WriteLine(JsonSerializer.Serialize(new { success = false, error = response.Message }));
+            }
+            else
+            {
+                Console.Error.WriteLine($"Error: {response.Message}");
+            }
+            return 1;
+        }
+
+        if (useJson)
+        {
+            var jsonOutput = new
+            {
+                success = true,
+                message = response.Message,
+                timeMs = stopwatch.Elapsed.TotalMilliseconds
+            };
+            Console.WriteLine(JsonSerializer.Serialize(jsonOutput, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        else
+        {
+            Console.WriteLine(response.Message);
+            Console.WriteLine($"Time: {stopwatch.Elapsed.TotalMilliseconds:F2}ms");
         }
 
         return 0;
