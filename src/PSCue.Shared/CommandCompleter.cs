@@ -35,6 +35,7 @@ public static class CommandCompleter
             "chezmoi" => ChezmoiCommand.Create(),
             "git" => GitCommand.Create(),
             "gh" => GhCommand.Create(),
+            "claude" => ClaudeCommand.Create(),
             "tre" => TreCommand.Create(),
             "lsd" => LsdCommand.Create(),
             "dust" => DustCommand.Create(),
