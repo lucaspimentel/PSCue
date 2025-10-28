@@ -7,12 +7,17 @@ namespace PSCue.Module;
 /// Feedback provider that learns from command execution to improve completion suggestions.
 /// Requires PowerShell 7.4+ with PSFeedbackProvider experimental feature enabled.
 ///
+/// Phase 11: Enhanced with generic learning system - learns from ALL commands, not just supported ones.
+///
 /// Documentation:
 /// https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider
 /// </summary>
 public class FeedbackProvider : IFeedbackProvider
 {
     private readonly IpcServer? _ipcServer;
+    private readonly CommandHistory? _commandHistory;
+    private readonly ArgumentGraph? _argumentGraph;
+    private readonly HashSet<string> _ignorePatterns;
 
     /// <summary>
     /// Gets the unique identifier for this feedback provider.
@@ -39,9 +44,14 @@ public class FeedbackProvider : IFeedbackProvider
     /// Initializes a new instance of the FeedbackProvider class.
     /// </summary>
     /// <param name="ipcServer">Optional IPC server instance for accessing the completion cache.</param>
-    public FeedbackProvider(IpcServer? ipcServer = null)
+    /// <param name="commandHistory">Optional command history for generic learning.</param>
+    /// <param name="argumentGraph">Optional argument graph for generic learning.</param>
+    public FeedbackProvider(IpcServer? ipcServer = null, CommandHistory? commandHistory = null, ArgumentGraph? argumentGraph = null)
     {
         _ipcServer = ipcServer;
+        _commandHistory = commandHistory;
+        _argumentGraph = argumentGraph;
+        _ignorePatterns = LoadIgnorePatterns();
     }
 
     /// <summary>
@@ -78,8 +88,8 @@ public class FeedbackProvider : IFeedbackProvider
 
             var mainCommand = commandElements[0];
 
-            // Only process commands we provide completions for
-            if (!IsSupportedCommand(mainCommand))
+            // Check if command should be ignored for privacy
+            if (ShouldIgnoreCommand(mainCommand, commandLine))
             {
                 return null;
             }
@@ -87,14 +97,27 @@ public class FeedbackProvider : IFeedbackProvider
             // Handle based on trigger type
             if (context.Trigger == FeedbackTrigger.Success)
             {
-                // Learn from successful command execution
-                UpdateCacheFromUsage(mainCommand, commandLine, commandElements);
+                // Phase 11: Learn from ALL commands (generic learning)
+                LearnFromCommand(mainCommand, commandLine, commandElements, success: true);
+
+                // Also update cache for supported commands (backward compatibility)
+                if (IsSupportedCommand(mainCommand))
+                {
+                    UpdateCacheFromUsage(mainCommand, commandLine, commandElements);
+                }
+
                 return null; // Silent learning
             }
             else if (context.Trigger == FeedbackTrigger.Error)
             {
-                // Provide helpful suggestions for failed commands
-                return GetErrorSuggestions(mainCommand, commandLine, commandElements, context);
+                // Learn from failed commands too (marked as failed)
+                LearnFromCommand(mainCommand, commandLine, commandElements, success: false);
+
+                // Provide helpful suggestions for failed commands (only for supported commands)
+                if (IsSupportedCommand(mainCommand))
+                {
+                    return GetErrorSuggestions(mainCommand, commandLine, commandElements, context);
+                }
             }
 
             return null;
@@ -297,5 +320,82 @@ public class FeedbackProvider : IFeedbackProvider
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// Loads ignore patterns from environment variable for privacy.
+    /// Format: PSCUE_IGNORE_PATTERNS="aws *,*secret*,*password*"
+    /// </summary>
+    private static HashSet<string> LoadIgnorePatterns()
+    {
+        var patterns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var envValue = Environment.GetEnvironmentVariable("PSCUE_IGNORE_PATTERNS");
+        if (string.IsNullOrWhiteSpace(envValue))
+        {
+            return patterns;
+        }
+
+        foreach (var pattern in envValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            patterns.Add(pattern);
+        }
+
+        return patterns;
+    }
+
+    /// <summary>
+    /// Checks if a command should be ignored for privacy.
+    /// </summary>
+    private bool ShouldIgnoreCommand(string command, string commandLine)
+    {
+        if (_ignorePatterns.Count == 0)
+            return false;
+
+        // Check exact command name
+        if (_ignorePatterns.Contains(command))
+            return true;
+
+        // Check wildcard patterns
+        foreach (var pattern in _ignorePatterns)
+        {
+            if (pattern.Contains('*'))
+            {
+                // Simple wildcard matching
+                var regex = "^" + System.Text.RegularExpressions.Regex.Escape(pattern).Replace("\\*", ".*") + "$";
+                if (System.Text.RegularExpressions.Regex.IsMatch(commandLine, regex, System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Phase 11: Learns from ANY command execution (generic learning).
+    /// Updates CommandHistory and ArgumentGraph.
+    /// </summary>
+    private void LearnFromCommand(string command, string commandLine, List<string> commandElements, bool success)
+    {
+        try
+        {
+            // Extract arguments (everything after the command)
+            var arguments = commandElements.Skip(1).ToArray();
+
+            // Add to command history
+            _commandHistory?.Add(command, commandLine, arguments, success);
+
+            // Update argument graph (only for successful commands to avoid learning bad patterns)
+            if (success && _argumentGraph != null && arguments.Length > 0)
+            {
+                _argumentGraph.RecordUsage(command, arguments);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Error in generic learning: {ex.Message}");
+        }
     }
 }

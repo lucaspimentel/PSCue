@@ -11,6 +11,12 @@
     <!-- This is a test project -->
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+
+    <!-- Enable preview features for Phase 11 learning system -->
+    <EnablePreviewFeatures>true</EnablePreviewFeatures>
+
+    <!-- Suppress CA2022 pipe read warnings -->
+    <NoWarn>$(NoWarn);CA2022</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

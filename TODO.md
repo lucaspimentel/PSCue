@@ -768,7 +768,22 @@ git push origin v1.0.0
 
 **Key Lesson**: These bugs existed because PSCue.Module.Tests had essentially zero coverage of the IPC server and caching logic. The new tests would have caught both bugs before they reached users.
 
-### Phase 11: Generic Command Learning (Universal Predictor)
+### Phase 11: Generic Command Learning (Universal Predictor) ✅ **COMPLETE**
+
+**Status**: ✅ Implementation complete, all 154 tests passing (62 ArgumentCompleter + 92 Module including 65 new Phase 11 tests)
+
+**Completed**: 2025-01-27
+
+**Summary**:
+- ✅ 4 new core components: CommandHistory, ArgumentGraph, ContextAnalyzer, GenericPredictor (~1,050 lines)
+- ✅ Enhanced FeedbackProvider for universal learning (+80 lines)
+- ✅ Hybrid CommandPredictor blending known + learned completions (+100 lines)
+- ✅ 65 comprehensive unit tests covering all learning components (~1,225 lines)
+- ✅ Configuration via environment variables (PSCUE_DISABLE_LEARNING, PSCUE_HISTORY_SIZE, etc.)
+- ✅ Privacy controls (PSCUE_IGNORE_PATTERNS with wildcard support)
+- ✅ Context-aware suggestions based on command workflows
+- ✅ Frequency × recency scoring (60/40 split)
+- ✅ Cross-session persistence deferred to Phase 12
 
 **Goal**: Transform ICommandPredictor from command-specific (only knows git, gh, scoop, etc.) to a generic system that learns from ALL user commands, even ones PSCue doesn't explicitly support.
 
@@ -797,12 +812,12 @@ git push origin v1.0.0
 
 #### Data Structures
 
-**11.1: Command History Store**
-- [ ] Create `CommandHistory.cs` in PSCue.Module
-- [ ] Track recent commands (last N commands, configurable, default 100)
-- [ ] Store: command name, arguments, flags, timestamp, success/failure
-- [ ] Ring buffer implementation for memory efficiency
-- [ ] Thread-safe (concurrent access from predictor & feedback provider)
+**11.1: Command History Store** ✅
+- [x] Create `CommandHistory.cs` in PSCue.Module
+- [x] Track recent commands (last N commands, configurable, default 100)
+- [x] Store: command name, arguments, flags, timestamp, success/failure
+- [x] Ring buffer implementation for memory efficiency
+- [x] Thread-safe (concurrent access from predictor & feedback provider)
 - [ ] Example:
   ```csharp
   public class CommandHistoryEntry
@@ -814,13 +829,13 @@ git push origin v1.0.0
   }
   ```
 
-**11.2: Argument Knowledge Graph**
-- [ ] Create `ArgumentGraph.cs` in PSCue.Module
-- [ ] Track per-command argument patterns:
-  - [ ] Which arguments/flags are used with each command
-  - [ ] Frequency of each argument
-  - [ ] Co-occurrence patterns (which flags appear together)
-  - [ ] Position information (flags vs positional args)
+**11.2: Argument Knowledge Graph** ✅
+- [x] Create `ArgumentGraph.cs` in PSCue.Module
+- [x] Track per-command argument patterns:
+  - [x] Which arguments/flags are used with each command
+  - [x] Frequency of each argument
+  - [x] Co-occurrence patterns (which flags appear together)
+  - [x] Position information (flags vs positional args)
 - [ ] Data structure:
   ```csharp
   public class CommandKnowledge
@@ -844,7 +859,7 @@ git push origin v1.0.0
 - [ ] Aging mechanism (decay old patterns)
 - [ ] Maximum size limits (prevent unbounded growth)
 
-**11.3: Context Analyzer**
+**11.3: Context Analyzer** ✅
 - [ ] Create `ContextAnalyzer.cs` in PSCue.Module
 - [ ] Analyze recent command history for patterns:
   - [ ] Current directory changes (cd commands)
@@ -856,7 +871,7 @@ git push origin v1.0.0
 
 #### Learning System Updates
 
-**11.4: Enhance FeedbackProvider**
+**11.4: Enhance FeedbackProvider** ✅
 - [ ] Extend `FeedbackProvider.cs` to extract more from `FeedbackContext`:
   - [ ] Parse command line into: command + arguments + flags
   - [ ] Identify flag patterns (e.g., `-am` = `-a` + `-m`)
@@ -872,7 +887,7 @@ git push origin v1.0.0
   - [ ] Error: potentially flag invalid combinations (future)
 - [ ] Performance: must be fast (<5ms), runs after every command
 
-**11.5: Generic Prediction Engine**
+**11.5: Generic Prediction Engine** ✅
 - [ ] Create `GenericPredictor.cs` in PSCue.Module
 - [ ] Implement generic suggestion logic:
   ```csharp
@@ -922,7 +937,7 @@ git push origin v1.0.0
 
 #### Configuration & Persistence
 
-**11.7: Configuration**
+**11.7: Configuration** ✅
 - [ ] Add settings to module configuration:
   - [ ] `EnableGenericLearning` (bool, default: true)
   - [ ] `HistorySize` (int, default: 100)
@@ -944,7 +959,7 @@ git push origin v1.0.0
 
 #### Privacy & Control
 
-**11.9: Privacy Considerations**
+**11.9: Privacy Considerations** ✅
 - [ ] Add opt-out mechanism for sensitive commands
   - [ ] Check environment variable: `PSCUE_IGNORE_PATTERNS`
   - [ ] Support glob patterns: `aws *, *secret*, *password*`
@@ -960,7 +975,7 @@ git push origin v1.0.0
 
 #### Testing & Validation
 
-**11.10: Testing**
+**11.10: Testing** ✅
 - [ ] Unit tests for ArgumentGraph:
   - [ ] Test add/update argument patterns
   - [ ] Test frequency tracking

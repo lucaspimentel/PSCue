@@ -1,10 +1,19 @@
 using System.Management.Automation.Subsystem.Prediction;
 using PSCue.Shared;
+using PSCue.Shared.Completions;
 
 namespace PSCue.Module;
 
+/// <summary>
+/// Phase 11: Hybrid predictor that combines known completions with generic learning.
+/// - For supported commands: Blends explicit completions with learned patterns
+/// - For unsupported commands: Uses generic learning only
+/// </summary>
 public class CommandPredictor : ICommandPredictor
 {
+    private readonly GenericPredictor? _genericPredictor;
+    private readonly bool _enableGenericLearning;
+
     /// <summary>
     /// Gets the unique identifier for a subsystem implementation.
     /// </summary>
@@ -18,7 +27,18 @@ public class CommandPredictor : ICommandPredictor
     /// <summary>
     /// Gets the description of a subsystem implementation.
     /// </summary>
-    public string Description => "A PowerShell predictor that uses an auto-completer.";
+    public string Description => "A PowerShell predictor that combines explicit completions with generic learning.";
+
+    /// <summary>
+    /// Creates a new CommandPredictor.
+    /// </summary>
+    /// <param name="genericPredictor">Optional generic predictor for learning-based suggestions.</param>
+    /// <param name="enableGenericLearning">Whether to enable generic learning (default: true).</param>
+    public CommandPredictor(GenericPredictor? genericPredictor = null, bool enableGenericLearning = true)
+    {
+        _genericPredictor = genericPredictor;
+        _enableGenericLearning = enableGenericLearning && genericPredictor != null;
+    }
 
     public SuggestionPackage GetSuggestion(PredictionClient client, PredictionContext context, CancellationToken cancellationToken)
     {
@@ -29,22 +49,102 @@ public class CommandPredictor : ICommandPredictor
             return default;
         }
 
-        // Skip dynamic arguments (git branches, scoop packages, etc.) for fast predictor responses
-        var completions = CommandCompleter.GetCompletions(input, default, includeDynamicArguments: false).ToList();
+        var inputString = input.ToString();
+        var command = ExtractCommand(inputString);
 
-        if (completions.Count == 0)
+        // Get known completions (for supported commands)
+        // Skip dynamic arguments (git branches, scoop packages, etc.) for fast predictor responses
+        var knownCompletions = CommandCompleter.GetCompletions(input, default, includeDynamicArguments: false).ToList();
+
+        // Get generic learned suggestions if enabled
+        List<PredictionSuggestion>? genericSuggestions = null;
+        if (_enableGenericLearning && _genericPredictor != null)
+        {
+            try
+            {
+                genericSuggestions = _genericPredictor.GetSuggestions(inputString, maxResults: 10);
+            }
+            catch
+            {
+                // Silently ignore errors in generic predictor
+            }
+        }
+
+        // Merge suggestions
+        var mergedSuggestions = MergeSuggestions(input, knownCompletions, genericSuggestions);
+
+        if (mergedSuggestions.Count == 0)
         {
             return default;
         }
 
-        var suggestions = new List<PredictiveSuggestion>(completions.Count);
+        return new SuggestionPackage(mergedSuggestions);
+    }
 
-        foreach (var c in completions)
+    /// <summary>
+    /// Merges known completions with generic learned suggestions.
+    /// Deduplicates and ranks by score.
+    /// </summary>
+    private List<PredictiveSuggestion> MergeSuggestions(
+        ReadOnlySpan<char> input,
+        List<ICompletion> knownCompletions,
+        List<PredictionSuggestion>? genericSuggestions)
+    {
+        var suggestions = new Dictionary<string, (string fullText, string? tooltip, double score)>(StringComparer.OrdinalIgnoreCase);
+
+        // Add known completions (priority score based on order)
+        for (int i = 0; i < knownCompletions.Count; i++)
         {
-            suggestions.Add(new PredictiveSuggestion(Combine(input, c.CompletionText), c.Tooltip));
+            var c = knownCompletions[i];
+            var fullText = Combine(input, c.CompletionText);
+
+            // Score: higher for earlier items (assuming they're pre-sorted by relevance)
+            var score = 1.0 - (i * 0.05); // First item = 1.0, second = 0.95, etc.
+
+            suggestions[c.CompletionText] = (fullText, c.Tooltip, score);
         }
 
-        return new SuggestionPackage(suggestions);
+        // Merge in generic suggestions
+        if (genericSuggestions != null)
+        {
+            foreach (var g in genericSuggestions)
+            {
+                var fullText = Combine(input, g.Text);
+
+                if (suggestions.TryGetValue(g.Text, out var existing))
+                {
+                    // Already exists from known completions - boost the score
+                    var boostedScore = Math.Max(existing.score, g.Score) * 1.2;
+                    boostedScore = Math.Min(1.0, boostedScore);
+
+                    // Keep better tooltip
+                    var tooltip = !string.IsNullOrEmpty(existing.tooltip) ? existing.tooltip : g.Description;
+
+                    suggestions[g.Text] = (fullText, tooltip, boostedScore);
+                }
+                else
+                {
+                    // New suggestion from generic learning
+                    suggestions[g.Text] = (fullText, g.Description, g.Score);
+                }
+            }
+        }
+
+        // Sort by score and return
+        return suggestions.Values
+            .OrderByDescending(s => s.score)
+            .Take(10) // Top 10 suggestions
+            .Select(s => new PredictiveSuggestion(s.fullText, s.tooltip))
+            .ToList();
+    }
+
+    /// <summary>
+    /// Extracts the command name from input (e.g., "git" from "git commit").
+    /// </summary>
+    private static string ExtractCommand(string input)
+    {
+        var firstSpace = input.IndexOf(' ');
+        return firstSpace > 0 ? input.Substring(0, firstSpace) : input;
     }
 
     private static string Combine(ReadOnlySpan<char> input, string completionText)

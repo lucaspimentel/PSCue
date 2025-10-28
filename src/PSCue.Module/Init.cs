@@ -18,11 +18,43 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
     private readonly List<(SubsystemKind Kind, Guid Id)> _subsystems = [];
     private static IpcServer? _ipcServer;
 
+    // Phase 11: Generic learning components
+    private static CommandHistory? _commandHistory;
+    private static ArgumentGraph? _argumentGraph;
+    private static ContextAnalyzer? _contextAnalyzer;
+    private static GenericPredictor? _genericPredictor;
+
     /// <summary>
     /// Gets called when assembly is loaded.
     /// </summary>
     public void OnImport()
     {
+        // Phase 11: Initialize generic learning system
+        // Check if generic learning is enabled (default: true, can be disabled via env var)
+        var enableGenericLearning = Environment.GetEnvironmentVariable("PSCUE_DISABLE_LEARNING")?.Equals("true", StringComparison.OrdinalIgnoreCase) != true;
+
+        if (enableGenericLearning)
+        {
+            try
+            {
+                // Read configuration from environment variables (with defaults)
+                var historySize = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_HISTORY_SIZE"), out var hs) ? hs : 100;
+                var maxCommands = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_MAX_COMMANDS"), out var mc) ? mc : 500;
+                var maxArgs = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_MAX_ARGS_PER_CMD"), out var ma) ? ma : 100;
+                var decayDays = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_DECAY_DAYS"), out var dd) ? dd : 30;
+
+                _commandHistory = new CommandHistory(historySize);
+                _argumentGraph = new ArgumentGraph(maxCommands, maxArgs, decayDays);
+                _contextAnalyzer = new ContextAnalyzer();
+                _genericPredictor = new GenericPredictor(_commandHistory, _argumentGraph, _contextAnalyzer);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"Warning: Failed to initialize generic learning: {ex.Message}");
+                enableGenericLearning = false;
+            }
+        }
+
         // Start IPC server for ArgumentCompleter communication
         try
         {
@@ -34,12 +66,13 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
             Console.Error.WriteLine($"Failed to start IPC server: {ex.Message}");
         }
 
-        RegisterCommandPredictor(new CommandPredictor());
+        // Register command predictor with generic learning support
+        RegisterCommandPredictor(new CommandPredictor(_genericPredictor, enableGenericLearning));
         //RegisterCommandPredictor(new SamplePredictor());
 
         // Register feedback provider (requires PowerShell 7.4+ with PSFeedbackProvider experimental feature)
         // This will fail gracefully on older PowerShell versions
-        RegisterFeedbackProvider(new FeedbackProvider(_ipcServer));
+        RegisterFeedbackProvider(new FeedbackProvider(_ipcServer, _commandHistory, _argumentGraph));
     }
 
     private void RegisterCommandPredictor(ICommandPredictor commandPredictor)
@@ -113,4 +146,19 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
     /// Get the IPC server instance for testing or feedback provider access.
     /// </summary>
     public static IpcServer? GetIpcServer() => _ipcServer;
+
+    /// <summary>
+    /// Get the command history instance for testing or debugging.
+    /// </summary>
+    public static CommandHistory? GetCommandHistory() => _commandHistory;
+
+    /// <summary>
+    /// Get the argument graph instance for testing or debugging.
+    /// </summary>
+    public static ArgumentGraph? GetArgumentGraph() => _argumentGraph;
+
+    /// <summary>
+    /// Get the generic predictor instance for testing or debugging.
+    /// </summary>
+    public static GenericPredictor? GetGenericPredictor() => _genericPredictor;
 }

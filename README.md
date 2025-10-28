@@ -9,7 +9,8 @@
 - **🚀 Fast Tab Completion**: Native AOT executable for <10ms startup time
 - **💡 Inline Predictions**: Smart command suggestions as you type using `ICommandPredictor`
 - **⚡ IPC Communication**: ArgumentCompleter and CommandPredictor share state via Named Pipes for intelligent caching
-- **🧠 Learning System**: Adapts to your command patterns over time (PowerShell 7.4+ with `IFeedbackProvider`)
+- **🧠 Universal Learning System (Phase 11)**: Learns from ALL commands (not just pre-configured ones) and adapts to your workflow patterns
+- **🎯 Context-Aware Suggestions**: Detects command sequences and boosts relevant suggestions based on recent activity
 - **🆘 Error Suggestions**: Provides helpful recovery suggestions when commands fail (e.g., git errors)
 - **🔌 Cross-platform**: Windows, macOS (Apple Silicon), and Linux support
 - **📦 Zero Configuration**: Works out of the box after installation
@@ -32,7 +33,9 @@ This architecture enables:
 
 ## Supported Commands
 
-PSCue provides intelligent completions for:
+### Explicit Completions (Pre-configured)
+
+PSCue provides detailed completions for these commands:
 
 - **Git**: `git` - branches, tags, remotes, files, subcommands
 - **GitHub CLI**: `gh` - repos, PRs, issues, workflows
@@ -45,6 +48,18 @@ PSCue provides intelligent completions for:
 - **Chezmoi**: `chezmoi` - dotfile management commands
 - **Tree alternatives**: `tre`, `lsd` - directory navigation
 - **Disk usage**: `dust` - directory analysis
+
+### Universal Learning (Phase 11)
+
+**NEW**: PSCue now learns from ANY command you use, even those not explicitly supported:
+
+- **kubectl**, **docker**, **cargo**, **npm**, **dotnet**, **go**, **terraform**, and hundreds more
+- Tracks which flags and arguments you use most frequently
+- Detects command workflows (e.g., docker build → docker run)
+- Provides context-aware suggestions based on recent activity
+- Fully automatic - no configuration needed
+
+**Example**: Never used kubectl before? After you run `kubectl get pods`, `kubectl describe pod`, etc., PSCue learns these patterns and will suggest them next time you type `kubectl`.
 
 ## Installation
 
@@ -269,15 +284,15 @@ dotnet test
 
 ### Running Tests
 
-PSCue has **89 unit tests** covering ArgumentCompleter logic, IPC server behavior, cache filtering, and integration scenarios.
+PSCue has **154 unit tests** covering ArgumentCompleter logic, IPC server behavior, cache filtering, generic learning components, and integration scenarios.
 
 ```powershell
-# All tests (89 total: 62 ArgumentCompleter + 27 Module)
+# All tests (154 total: 62 ArgumentCompleter + 92 Module including Phase 11)
 dotnet test
 
 # Specific project
 dotnet test test/PSCue.ArgumentCompleter.Tests/  # 62 tests
-dotnet test test/PSCue.Module.Tests/             # 27 tests
+dotnet test test/PSCue.Module.Tests/             # 92 tests (27 original + 65 Phase 11)
 
 # With verbose output
 dotnet test --logger "console;verbosity=detailed"
@@ -361,15 +376,35 @@ TabExpansion2 'git checkout ma' 15
   - Timing statistics on all commands
   - Comprehensive test script: test-scripts/test-pscue-debug.ps1
 
+- [x] **Phase 11**: Generic Command Learning ✅ **COMPLETE**
+  - Universal command learning (learns from ALL commands, not just pre-configured ones)
+  - Enhanced learning algorithms (frequency × recency scoring: 60% frequency + 40% recency)
+  - Context-aware suggestions based on recent command history
+  - Command sequence detection for workflows (git add → commit → push, docker build → run, etc.)
+  - Privacy controls via `PSCUE_IGNORE_PATTERNS` environment variable
+  - **65 new unit tests** covering all learning components
+  - **154 total tests passing** (62 ArgumentCompleter + 92 Module)
+  - Components: CommandHistory (ring buffer), ArgumentGraph (knowledge graph), ContextAnalyzer, GenericPredictor, Hybrid CommandPredictor
+
+### Configuration (Phase 11)
+
+```powershell
+# Disable generic learning entirely
+$env:PSCUE_DISABLE_LEARNING = "true"
+
+# Learning configuration (defaults shown)
+$env:PSCUE_HISTORY_SIZE = "100"          # Command history size
+$env:PSCUE_MAX_COMMANDS = "500"          # Max commands to track
+$env:PSCUE_MAX_ARGS_PER_CMD = "100"      # Max arguments per command
+$env:PSCUE_DECAY_DAYS = "30"             # Score decay period (days)
+
+# Privacy: ignore sensitive commands (comma-separated wildcards)
+$env:PSCUE_IGNORE_PATTERNS = "aws *,*secret*,*password*"
+```
+
 ### Future Phases
 
-- **Phase 11**: Generic Command Learning
-  - Universal command learning (learn from ALL commands, not just known ones)
-  - Enhanced learning algorithms (frequency × recency scoring)
-  - Context-aware suggestions based on command history
-  - Command sequence detection (workflows)
-  - Cross-session persistence (save learned data to disk)
-- **Phase 12**: Distribution & Advanced Features
+- **Phase 12**: Advanced Features & Distribution
   - Error suggestions for more commands (gh, az, scoop)
   - ML-based prediction support
   - PowerShell Gallery publishing

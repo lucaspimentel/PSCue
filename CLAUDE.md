@@ -1,13 +1,20 @@
 # PSCue - Quick Reference for AI Agents
 
 ## What This Is
-PowerShell completion module combining Tab completion (NativeAOT) + inline predictions (managed DLL) + IPC caching layer with learning.
+PowerShell completion module combining Tab completion (NativeAOT) + inline predictions (managed DLL) + IPC caching layer with **generic learning** (Phase 11).
+
+**Phase 11 Complete**: Now learns from ALL commands (not just git/gh/scoop), with context-aware suggestions based on usage patterns.
 
 ## Architecture
 - **ArgumentCompleter** (`pscue-completer.exe`): NativeAOT exe, <10ms startup, computes completions locally with full dynamic arguments support
 - **Module** (`PSCue.Module.dll`): Long-lived, hosts IPC server (for CommandPredictor), implements `ICommandPredictor` + `IFeedbackProvider` (7.4+)
 - **IPC**: Named pipes (`PSCue-{PID}` for production, `PSCue-Test-{GUID}` for tests), used only by CommandPredictor for fast inline predictions
-- **Cache**: Usage tracking, priority scoring, learns from command execution (used by CommandPredictor only)
+- **Learning System (Phase 11)**:
+  - **CommandHistory**: Ring buffer tracking last 100 commands
+  - **ArgumentGraph**: Knowledge graph of command → arguments with frequency + recency scoring
+  - **ContextAnalyzer**: Detects command sequences and workflow patterns
+  - **GenericPredictor**: Generates suggestions from learned data for ANY command
+  - **Hybrid CommandPredictor**: Blends known completions + generic learning
 
 ## Project Structure
 ```
@@ -33,7 +40,7 @@ src/
 dotnet build src/PSCue.Module/ -c Release -f net9.0
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
-# Test (89 tests total: 62 ArgumentCompleter + 27 Module)
+# Test (154 tests total: 62 ArgumentCompleter + 92 Module including Phase 11)
 dotnet test test/PSCue.ArgumentCompleter.Tests/
 dotnet test test/PSCue.Module.Tests/
 
@@ -63,6 +70,8 @@ dotnet run --project src/PSCue.Debug/ -- cache --filter git
 
 ## Supported Commands
 git, gh, az, azd, func, code, scoop, winget, chezmoi, tre, lsd, dust
+
+**Plus**: Generic learning works for ANY command (kubectl, docker, cargo, npm, etc.)
 
 ## When Adding Features
 - Put shared completion logic in `PSCue.Shared`
@@ -98,6 +107,21 @@ private async Task<IpcResponse> SendRequest(IpcRequest request) {
 - Implementation status: See `TODO.md`
 - Bug fix history: See git log and commit messages
 - API docs: [ICommandPredictor](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-cmdlet-predictor), [IFeedbackProvider](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider)
+
+## Configuration (Environment Variables)
+```powershell
+# Disable generic learning entirely
+$env:PSCUE_DISABLE_LEARNING = "true"
+
+# Learning configuration (defaults shown)
+$env:PSCUE_HISTORY_SIZE = "100"          # Command history size
+$env:PSCUE_MAX_COMMANDS = "500"          # Max commands to track
+$env:PSCUE_MAX_ARGS_PER_CMD = "100"      # Max arguments per command
+$env:PSCUE_DECAY_DAYS = "30"             # Score decay period (days)
+
+# Privacy: ignore sensitive commands (comma-separated wildcards)
+$env:PSCUE_IGNORE_PATTERNS = "aws *,*secret*,*password*"
+```
 
 ## Platform Support
 Windows x64, macOS arm64, Linux x64 (PowerShell 7.2+, IFeedbackProvider requires 7.4+)
