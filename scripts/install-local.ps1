@@ -126,7 +126,7 @@ $PredictorProject = Join-Path $RepoRoot "src/PSCue.Module/PSCue.Module.csproj"
 
 Push-Location $RepoRoot
 try {
-    & dotnet build $PredictorProject -c Release
+    & dotnet publish $PredictorProject -c Release
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Failed to build Module"
         exit 1
@@ -157,7 +157,7 @@ if (Test-Path $CompleterSource) {
 }
 
 # Copy Module DLL and dependencies
-$PredictorSource = Join-Path $RepoRoot "src/PSCue.Module/bin/Release/net9.0"
+$PredictorSource = Join-Path $RepoRoot "src/PSCue.Module/bin/Release/net9.0/publish"
 $PredictorDll = "PSCue.Module.dll"
 $PredictorDllSource = Join-Path $PredictorSource $PredictorDll
 $PredictorDllDest = Join-Path $InstallDir $PredictorDll
@@ -172,7 +172,11 @@ if (Test-Path $PredictorDllSource) {
 
 # Copy required dependencies
 $Dependencies = @(
-    "PSCue.Shared.dll"
+    "PSCue.Shared.dll",
+    "Microsoft.Data.Sqlite.dll",
+    "SQLitePCLRaw.batteries_v2.dll",
+    "SQLitePCLRaw.core.dll",
+    "SQLitePCLRaw.provider.e_sqlite3.dll"
 )
 
 foreach ($dep in $Dependencies) {
@@ -185,6 +189,15 @@ foreach ($dep in $Dependencies) {
     } else {
         Write-Warning "Dependency not found: $dep (may not be required)"
     }
+}
+
+# Copy native SQLite libraries for current platform
+$RuntimesSource = Join-Path $PredictorSource "runtimes/$RID/native"
+if (Test-Path $RuntimesSource) {
+    $RuntimesDest = Join-Path $InstallDir "runtimes/$RID/native"
+    New-Item -ItemType Directory -Path (Split-Path $RuntimesDest -Parent) -Force | Out-Null
+    Copy-Item -Path $RuntimesSource -Destination $RuntimesDest -Recurse -Force
+    Write-Info "  Installed: runtimes/$RID/native/ (native SQLite libraries)"
 }
 
 # Copy module files
