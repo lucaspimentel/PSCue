@@ -246,6 +246,88 @@ public class ArgumentGraph
     }
 
     /// <summary>
+    /// Gets all commands with their knowledge (for persistence).
+    /// </summary>
+    internal IEnumerable<KeyValuePair<string, CommandKnowledge>> GetAllCommands()
+    {
+        return _commands;
+    }
+
+    /// <summary>
+    /// Initializes a command with persisted metadata (used by PersistenceManager).
+    /// </summary>
+    internal void InitializeCommand(string command, int totalUsage, DateTime firstSeen, DateTime lastUsed)
+    {
+        var knowledge = _commands.GetOrAdd(command, cmd => new CommandKnowledge
+        {
+            Command = cmd,
+            FirstSeen = firstSeen,
+            LastUsed = lastUsed,
+            TotalUsageCount = totalUsage
+        });
+
+        // Update if already exists (shouldn't happen, but handle gracefully)
+        if (knowledge.TotalUsageCount == 0)
+        {
+            knowledge.TotalUsageCount = totalUsage;
+            knowledge.FirstSeen = firstSeen;
+            knowledge.LastUsed = lastUsed;
+        }
+    }
+
+    /// <summary>
+    /// Initializes an argument with persisted stats (used by PersistenceManager).
+    /// </summary>
+    internal void InitializeArgument(string command, string argument, int usageCount, DateTime firstSeen, DateTime lastUsed, bool isFlag)
+    {
+        if (!_commands.TryGetValue(command, out var knowledge))
+            return;
+
+        var stats = knowledge.Arguments.GetOrAdd(argument, arg => new ArgumentStats
+        {
+            Argument = arg,
+            UsageCount = usageCount,
+            FirstSeen = firstSeen,
+            LastUsed = lastUsed,
+            IsFlag = isFlag
+        });
+
+        // Update if already exists (shouldn't happen, but handle gracefully)
+        if (stats.UsageCount == 0)
+        {
+            stats.UsageCount = usageCount;
+            stats.FirstSeen = firstSeen;
+            stats.LastUsed = lastUsed;
+            stats.IsFlag = isFlag;
+        }
+    }
+
+    /// <summary>
+    /// Initializes a co-occurrence relationship (used by PersistenceManager).
+    /// </summary>
+    internal void InitializeCoOccurrence(string command, string argument, string coOccurredWith, int count)
+    {
+        if (!_commands.TryGetValue(command, out var knowledge))
+            return;
+
+        if (!knowledge.Arguments.TryGetValue(argument, out var stats))
+            return;
+
+        stats.CoOccurrences.TryAdd(coOccurredWith, count);
+    }
+
+    /// <summary>
+    /// Initializes a flag combination (used by PersistenceManager).
+    /// </summary>
+    internal void InitializeFlagCombination(string command, string flags, int count)
+    {
+        if (!_commands.TryGetValue(command, out var knowledge))
+            return;
+
+        knowledge.FlagCombinations.TryAdd(flags, count);
+    }
+
+    /// <summary>
     /// Clears all learned data.
     /// </summary>
     public void Clear()

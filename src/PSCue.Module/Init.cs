@@ -24,6 +24,10 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
     private static ContextAnalyzer? _contextAnalyzer;
     private static GenericPredictor? _genericPredictor;
 
+    // Phase 12: Cross-session persistence
+    private static PersistenceManager? _persistenceManager;
+    private static System.Threading.Timer? _autoSaveTimer;
+
     /// <summary>
     /// Gets called when assembly is loaded.
     /// </summary>
@@ -43,10 +47,17 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
                 var maxArgs = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_MAX_ARGS_PER_CMD"), out var ma) ? ma : 100;
                 var decayDays = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_DECAY_DAYS"), out var dd) ? dd : 30;
 
-                _commandHistory = new CommandHistory(historySize);
-                _argumentGraph = new ArgumentGraph(maxCommands, maxArgs, decayDays);
+                // Phase 12: Initialize persistence manager and load learned data
+                _persistenceManager = new PersistenceManager();
+                _argumentGraph = _persistenceManager.LoadArgumentGraph(maxCommands, maxArgs, decayDays);
+                _commandHistory = _persistenceManager.LoadCommandHistory(historySize);
+
                 _contextAnalyzer = new ContextAnalyzer();
                 _genericPredictor = new GenericPredictor(_commandHistory, _argumentGraph, _contextAnalyzer);
+
+                // Set up auto-save timer (every 5 minutes)
+                var autoSaveInterval = TimeSpan.FromMinutes(5);
+                _autoSaveTimer = new System.Threading.Timer(AutoSave, null, autoSaveInterval, autoSaveInterval);
             }
             catch (Exception ex)
             {
@@ -117,10 +128,52 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
     }
 
     /// <summary>
+    /// Auto-save callback - saves learned data periodically.
+    /// </summary>
+    private static void AutoSave(object? state)
+    {
+        try
+        {
+            if (_persistenceManager != null && _argumentGraph != null && _commandHistory != null)
+            {
+                _persistenceManager.SaveArgumentGraph(_argumentGraph);
+                _persistenceManager.SaveCommandHistory(_commandHistory);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Log but don't crash - saving is best-effort
+            Console.Error.WriteLine($"Warning: Auto-save failed: {ex.Message}");
+        }
+    }
+
+    /// <summary>
     /// Gets called when the binary module is unloaded.
     /// </summary>
     public void OnRemove(PSModuleInfo psModuleInfo)
     {
+        // Phase 12: Save learned data before unloading
+        try
+        {
+            if (_persistenceManager != null && _argumentGraph != null && _commandHistory != null)
+            {
+                _persistenceManager.SaveArgumentGraph(_argumentGraph);
+                _persistenceManager.SaveCommandHistory(_commandHistory);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Warning: Failed to save learned data: {ex.Message}");
+        }
+
+        // Stop auto-save timer
+        _autoSaveTimer?.Dispose();
+        _autoSaveTimer = null;
+
+        // Cleanup persistence manager
+        _persistenceManager?.Dispose();
+        _persistenceManager = null;
+
         // Unregister all subsystems (predictors and feedback providers)
         foreach (var (kind, id) in _subsystems)
         {
