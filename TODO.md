@@ -1112,7 +1112,63 @@ git push origin v1.0.0
 
 ---
 
-### Phase 13: Future Enhancements
+### Phase 13: Directory-Aware Navigation Suggestions (Set-Location/cd) ✅ **COMPLETE**
+
+**Status**: ✅ Implementation complete
+
+**Completed**: 2025-01-28
+
+**Summary**:
+- ✅ Created SetLocationCommand.cs with directory completion support (~370 lines)
+- ✅ Integrated with CommandCompleter for cd/Set-Location/sl/chdir
+- ✅ Enhanced GenericPredictor for navigation-aware inline predictions
+- ✅ Smart caching (5s TTL) for performance (<50ms)
+- ✅ Context detection (absolute/relative/parent/home paths)
+- ✅ Cross-platform (Windows & Unix path handling)
+- ✅ 31 comprehensive tests (29 passing, 2 Unix-specific properly skipped on Windows)
+- ✅ Total tests: 229 (93 ArgumentCompleter + 136 Module, all passing)
+
+**Key Features**:
+- Subdirectories of current directory
+- Parent/sibling directories (../)
+- Home directory expansion (~/)
+- Absolute path completion (C:\, D:\, /)
+- Common shortcuts (., .., ~)
+- Frequently visited directories from learning system
+- Performance optimized (<50ms target met with caching)
+
+**Files Modified/Created**:
+- Created: src/PSCue.Shared/KnownCompletions/SetLocationCommand.cs
+- Modified: src/PSCue.Shared/CommandCompleter.cs (added 4 command cases)
+- Modified: src/PSCue.Module/GenericPredictor.cs (added navigation command handling)
+- Created: test/PSCue.ArgumentCompleter.Tests/SetLocationCommandTests.cs (31 tests)
+- Updated: CLAUDE.md, README.md (documentation)
+
+**Architecture**:
+- **Tab Completion**: SetLocationCommand with DynamicArguments enumerates directories
+- **Inline Predictions**: GenericPredictor detects navigation commands, calls GetDirectorySuggestions()
+- **Learning Integration**: Merges filesystem suggestions with learned frequently-visited paths
+- **Caching**: ConcurrentDictionary with 5s TTL, granular cache keys per directory
+
+**Test Coverage**:
+- Basic functionality (cd, Set-Location, sl, chdir commands)
+- Directory enumeration (subdirectories, parent directories)
+- Context detection (absolute, relative, parent, home, implicit)
+- Partial name filtering
+- Performance validation (<50ms)
+- Cache behavior
+- Cross-platform (Windows/Unix paths)
+- Edge cases (nonexistent paths, empty results)
+
+**Post-Completion Fix (2025-01-28)**:
+- Fixed tooltip inconsistency between Tab completions and inline predictions
+- Added `GetDirectorySuggestionsWithPaths()` method returning `(CompletionText, FullPath)` tuples
+- Both mechanisms now show consistent tooltips: "Directory: {full-path}"
+- Modified: SetLocationCommand.cs (added `*WithPaths` methods), GenericPredictor.cs
+
+---
+
+### Phase 14: Future Enhancements
 - [ ] Add ML-based prediction support
 - [ ] Copy AI model scripts to `ai/` directory
 - [ ] Create Scoop manifest

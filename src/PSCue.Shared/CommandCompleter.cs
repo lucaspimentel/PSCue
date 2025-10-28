@@ -41,6 +41,10 @@ public static class CommandCompleter
             "azd" => AzdCommand.Create(),
             "az" => AzCommand.Create(),
             "func" => FuncCommand.Create(),
+            "cd" => SetLocationCommand.Create(),
+            "set-location" => SetLocationCommand.Create(),
+            "sl" => SetLocationCommand.Create(),
+            "chdir" => SetLocationCommand.Create(),
             _ => null
         };
 

@@ -73,6 +73,73 @@ public class GenericPredictor
 
         var command = parts[0];
         var arguments = parts.Skip(1).ToList();
+        var wordToComplete = arguments.Count > 0 ? arguments[^1] : string.Empty;
+
+        // Check if this is a navigation command
+        var isNavigationCommand = command.Equals("cd", StringComparison.OrdinalIgnoreCase)
+            || command.Equals("Set-Location", StringComparison.OrdinalIgnoreCase)
+            || command.Equals("sl", StringComparison.OrdinalIgnoreCase)
+            || command.Equals("chdir", StringComparison.OrdinalIgnoreCase);
+
+        if (isNavigationCommand)
+        {
+            // Get directory suggestions from filesystem with full paths for descriptions
+            var directorySuggestions = PSCue.Shared.KnownCompletions.SetLocationCommand.GetDirectorySuggestionsWithPaths(wordToComplete);
+
+            // Get learned directory paths from ArgumentGraph
+            var learnedPaths = _argumentGraph.GetSuggestions(command, arguments.ToArray(), maxResults * 2)
+                .Where(s => System.IO.Directory.Exists(s.Argument))
+                .ToList();
+
+            // Merge suggestions: filesystem dirs + learned paths that still exist
+            var navSuggestions = new List<PredictionSuggestion>();
+
+            // Add filesystem directory suggestions (base score based on relevance)
+            foreach (var (completionText, fullPath) in directorySuggestions.Take(maxResults))
+            {
+                navSuggestions.Add(new PredictionSuggestion
+                {
+                    Text = completionText,
+                    Description = $"Directory: {fullPath}",
+                    Score = 0.6, // Base score for filesystem suggestions
+                    IsFlag = false,
+                    Source = "filesystem"
+                });
+            }
+
+            // Add learned paths with boosted scores (frequency + recency)
+            foreach (var learned in learnedPaths)
+            {
+                var existing = navSuggestions.FirstOrDefault(s => s.Text.Equals(learned.Argument, StringComparison.OrdinalIgnoreCase));
+                if (existing != null)
+                {
+                    // Boost score for frequently visited directories
+                    var learnedScore = learned.GetScore(_argumentGraph.GetCommandKnowledge(command)?.TotalUsageCount ?? 1);
+                    existing.Score = Math.Max(existing.Score, 0.7) + (learnedScore * 0.3); // Boost to 0.7-1.0 range
+                    existing.Score = Math.Min(1.0, existing.Score);
+                    existing.Description = $"visited {learned.UsageCount}x";
+                    existing.Source = "learned+filesystem";
+                }
+                else
+                {
+                    // Add learned path not in filesystem suggestions
+                    navSuggestions.Add(new PredictionSuggestion
+                    {
+                        Text = learned.Argument,
+                        Description = $"visited {learned.UsageCount}x",
+                        Score = 0.8 + (learned.GetScore(_argumentGraph.GetCommandKnowledge(command)?.TotalUsageCount ?? 1) * 0.2),
+                        IsFlag = false,
+                        Source = "learned"
+                    });
+                }
+            }
+
+            // Sort by score and return
+            return navSuggestions
+                .OrderByDescending(s => s.Score)
+                .Take(maxResults)
+                .ToList();
+        }
 
         // Get context from recent history
         var context = _contextAnalyzer.AnalyzeContext(_history, command);

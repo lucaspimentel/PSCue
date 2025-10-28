@@ -7,6 +7,8 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 
 **Phase 12 Complete**: Learned data persists across PowerShell sessions using SQLite with concurrent access support.
 
+**Phase 13 Complete**: Directory-aware navigation suggestions for cd/Set-Location with smart caching and learning integration.
+
 ## Architecture
 - **ArgumentCompleter** (`pscue-completer.exe`): NativeAOT exe, <10ms startup, computes completions locally with full dynamic arguments support
 - **Module** (`PSCue.Module.dll`): Long-lived, hosts IPC server (for CommandPredictor), implements `ICommandPredictor` + `IFeedbackProvider` (7.4+)
@@ -85,7 +87,7 @@ dotnet run --project src/PSCue.Debug/ -- cache --filter git
 - Total Tab completion: <50ms
 
 ## Supported Commands
-git, gh, az, azd, func, code, scoop, winget, chezmoi, tre, lsd, dust
+git, gh, az, azd, func, code, scoop, winget, chezmoi, tre, lsd, dust, cd (Set-Location/sl/chdir)
 
 **Plus**: Generic learning works for ANY command (kubectl, docker, cargo, npm, etc.)
 

@@ -49,6 +49,7 @@ PSCue provides detailed completions for these commands:
 - **Chezmoi**: `chezmoi` - dotfile management commands
 - **Tree alternatives**: `tre`, `lsd` - directory navigation
 - **Disk usage**: `dust` - directory analysis
+- **Navigation**: `cd`, `Set-Location`, `sl`, `chdir` - directory completion with smart caching
 
 ### Universal Learning (Phase 11)
 
@@ -123,6 +124,9 @@ Press `Tab` after typing a partial command to cycle through completions:
 git checkout ma<Tab>    # Completes to branch names: main, master, etc.
 scoop install no<Tab>   # Completes to: nodejs, notepadplusplus, etc.
 az group list --<Tab>   # Shows available flags: --output, --query, etc.
+cd src<Tab>             # Completes to subdirectories: src/, srcBackup/, etc.
+cd ../<Tab>             # Shows sibling directories (parent's subdirectories)
+cd ~/<Tab>              # Shows home directory subdirectories
 ```
 
 ### Inline Predictions
