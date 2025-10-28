@@ -42,8 +42,7 @@ public class IpcServerIntegrationTests : IDisposable
         {
             Command = "scoop",
             CommandLine = "scoop h",
-            WordToComplete = "h",
-            IncludeDynamicArguments = false
+            WordToComplete = "h"
         };
 
         // Act
@@ -78,8 +77,7 @@ public class IpcServerIntegrationTests : IDisposable
         {
             Command = "scoop",
             CommandLine = "scoop h",
-            WordToComplete = "h",
-            IncludeDynamicArguments = false
+            WordToComplete = "h"
         };
         await SendIpcRequestAsync(request1);
 
@@ -88,8 +86,7 @@ public class IpcServerIntegrationTests : IDisposable
         {
             Command = "scoop",
             CommandLine = "scoop u",
-            WordToComplete = "u",
-            IncludeDynamicArguments = false
+            WordToComplete = "u"
         };
         var response2 = await SendIpcRequestAsync(request2);
 
@@ -120,8 +117,7 @@ public class IpcServerIntegrationTests : IDisposable
         {
             Command = "scoop",
             CommandLine = "scoop h",
-            WordToComplete = "h",
-            IncludeDynamicArguments = false
+            WordToComplete = "h"
         };
         var response1 = await SendIpcRequestAsync(request1);
 
@@ -132,8 +128,7 @@ public class IpcServerIntegrationTests : IDisposable
         {
             Command = "scoop",
             CommandLine = "scoop ",
-            WordToComplete = "",
-            IncludeDynamicArguments = false
+            WordToComplete = ""
         };
         var response2 = await SendIpcRequestAsync(request2);
 
@@ -159,8 +154,7 @@ public class IpcServerIntegrationTests : IDisposable
         {
             Command = "scoop",
             CommandLine = "scoop h",
-            WordToComplete = "h",
-            IncludeDynamicArguments = false
+            WordToComplete = "h"
         };
         await SendIpcRequestAsync(scoopRequest);
 
@@ -168,8 +162,7 @@ public class IpcServerIntegrationTests : IDisposable
         {
             Command = "git",
             CommandLine = "git ch",
-            WordToComplete = "ch",
-            IncludeDynamicArguments = false
+            WordToComplete = "ch"
         };
         await SendIpcRequestAsync(gitRequest);
 
@@ -198,8 +191,8 @@ public class IpcServerIntegrationTests : IDisposable
         {
             Command = "scoop",
             CommandLine = "scoop update ",  // Trailing space = completing next argument
-            WordToComplete = "",
-            IncludeDynamicArguments = false  // Don't actually call scoop list (slow)
+            WordToComplete = ""
+            // Note: IPC never includes dynamic arguments (no scoop list call)
         };
 
         // Act
@@ -229,8 +222,7 @@ public class IpcServerIntegrationTests : IDisposable
         {
             Command = "scoop",
             CommandLine = "scoop upd",  // No trailing space = completing this word
-            WordToComplete = "upd",
-            IncludeDynamicArguments = false
+            WordToComplete = "upd"
         };
 
         // Act
@@ -260,8 +252,8 @@ public class IpcServerIntegrationTests : IDisposable
         {
             Command = "git",
             CommandLine = "git checkout ",  // Trailing space
-            WordToComplete = "",
-            IncludeDynamicArguments = false  // Don't actually call git (slow)
+            WordToComplete = ""
+            // Note: IPC never includes dynamic arguments (no git calls)
         };
 
         // Act

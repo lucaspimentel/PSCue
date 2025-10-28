@@ -146,13 +146,13 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 - **Binary**: `pscue-completer.exe` (NativeAOT)
 - **Purpose**: Handles Tab completion via `Register-ArgumentCompleter`
 - **Lifetime**: Launches on each Tab press (~10ms startup)
-- **Features**: Fast, standalone, communicates with Predictor via Named Pipes for caching
+- **Features**: Fast, standalone, computes completions locally with full dynamic arguments support (git branches, scoop packages, etc.)
 
 ### CommandPredictor (Long-lived)
 - **Binary**: `PSCue.Module.dll` (Managed)
 - **Purpose**: Provides inline suggestions via `ICommandPredictor`
 - **Lifetime**: Loaded once with PowerShell module
-- **Features**: IPC server, intelligent cache, shared completion logic
+- **Features**: IPC server for self-communication, intelligent cache, shared completion logic, skips dynamic arguments for speed
 
 ### Shared Completion Logic
 - **Binary**: `PSCue.Shared.dll` (Managed)
@@ -164,21 +164,23 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 ┌─────────────────────────────────────┐
 │  PowerShell Session                 │
 ├─────────────────────────────────────┤
-│  PSCue.Module.dll        │
+│  PSCue.Module.dll                   │
 │  - ICommandPredictor (suggestions)  │
 │  - IFeedbackProvider (learning)     │
-│  - IPC Server (Named Pipes)         │
+│  - IPC Server (for self/debug)      │
 │  - CompletionCache (5-min TTL)      │
 │  - Uses PSCue.Shared.dll            │
+│  - Skips dynamic args (fast)        │
 └─────────────────────────────────────┘
-           ↕ IPC (Named Pipes)
+
 ┌─────────────────────────────────────┐
-│  Tab Completion                     │
+│  Tab Completion (independent)       │
 ├─────────────────────────────────────┤
 │  pscue-completer.exe                │
 │  - Fast startup (<10ms)             │
-│  - IPC Client (with fallback)       │
+│  - Local computation only           │
 │  - Uses PSCue.Shared.dll (compiled) │
+│  - Includes dynamic args (full)     │
 └─────────────────────────────────────┘
 ```
 
@@ -341,10 +343,11 @@ TabExpansion2 'git checkout ma' 15
 - [x] Shared completion logic (PSCue.Shared)
 - [x] Multi-platform CI/CD
 - [x] Comprehensive documentation
-- [x] **Phase 8**: IPC Communication Layer
-  - Named Pipe server/client for ArgumentCompleter ↔ Predictor communication
-  - Shared completion cache for consistency and performance
-  - <5ms IPC connection timeout achieved
+- [x] **Phase 8**: IPC Communication Layer (simplified in 2025-01-27)
+  - Named Pipe server in Module for CommandPredictor self-communication
+  - IPC used only for inline predictions (fast cache access)
+  - ArgumentCompleter simplified: always computes locally with full dynamic arguments
+  - Clear separation: Tab = local, Inline predictions = IPC cache
 - [x] **Phase 9**: Learning System & Error Suggestions
   - Full `IFeedbackProvider` implementation (PowerShell 7.4+)
   - Usage tracking and priority scoring
@@ -402,26 +405,13 @@ See existing completions like `GitCommand.cs` or `ScoopCommand.cs` for examples 
 1. Verify module is loaded: `Get-Module PSCue`
 2. Check completer registration: `Get-ArgumentCompleter`
 3. Test executable directly: `pscue-completer.exe "ma" "git checkout ma" 15`
-4. **Check if IPC is working** (cache requires IPC):
-   ```powershell
-   # Set PSCUE_PID to help debug tools find your session
-   $env:PSCUE_PID = $PID
-
-   # Test IPC connectivity
-   dotnet run --project src/PSCue.Debug/ -- ping
-
-   # Check cache state
-   dotnet run --project src/PSCue.Debug/ -- cache
-   ```
-5. **Enable debug logging** to diagnose issues:
+4. **Enable debug logging** to diagnose issues:
    ```powershell
    $env:PSCUE_DEBUG = "1"
    # Trigger a completion, then check the log
    # Log location: $env:LOCALAPPDATA/PSCue/log.txt (Windows)
    ```
-6. Look for "Using IPC completions" vs "Using local completions" in the log:
-   - **IPC completions** = cache is working ✅
-   - **Local completions** = fallback mode (no caching) ⚠️
+5. Check the log for completion activity - Tab completion always uses local computation
 
 ### Inline predictions not appearing
 
@@ -434,7 +424,12 @@ See existing completions like `GitCommand.cs` or `ScoopCommand.cs` for examples 
    Get-PSSubsystem -Kind CommandPredictor | Select-Object -ExpandProperty Implementations
    # Should show: PSCue (01a1e2c5-fbc1-4cf3-8178-ac2e55232434)
    ```
-3. Test predictor manually:
+3. Test IPC connectivity (used only for inline predictions):
+   ```powershell
+   $env:PSCUE_PID = $PID
+   dotnet run --project src/PSCue.Debug/ -- ping
+   ```
+4. Test predictor manually:
    ```powershell
    pwsh -NoProfile -File test-inline-predictions.ps1  # If running from source
    ```

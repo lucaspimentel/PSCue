@@ -27,7 +27,7 @@ internal static class Program
 {
     public static readonly bool Debug = Environment.GetEnvironmentVariable("PSCUE_DEBUG") == "1";
 
-    public static async Task<int> Main(string[] args)
+    public static int Main(string[] args)
     {
         try
         {
@@ -46,47 +46,24 @@ internal static class Program
             var commandAst = args[1];
             var cursorPosition = int.Parse(args[2]);
 
-            // Convert to string before async operations (can't use ReadOnlySpan across await)
             var commandLine = cursorPosition >= 0 && cursorPosition < commandAst.Length ?
                 commandAst[..cursorPosition] :
                 commandAst;
 
-            // Extract the main command for IPC request
-            var firstSpaceIndex = commandLine.IndexOf(' ');
-            var mainCommand = firstSpaceIndex > 0 ? commandLine[..firstSpaceIndex] : commandLine;
-
-            // Try IPC first (fast path if CommandPredictor is loaded)
-            var ipcResponse = await IpcClient.TryGetCompletionsAsync(mainCommand, commandLine, wordToComplete, cursorPosition);
-
-            if (ipcResponse is { Completions.Length: > 0 })
+            // Compute completions locally with full dynamic arguments support
+            // This is fast enough for Tab completion (<50ms) and ensures we always have
+            // the complete set including git branches, scoop packages, etc.
+            if (Debug)
             {
-                // Use IPC results
-                if (Debug)
-                {
-                    Logger.Write($"Using IPC completions (cached: {ipcResponse.Cached})");
-                }
-
-                foreach (var completion in ipcResponse.Completions)
-                {
-                    // completionText|toolTip
-                    Output($"{completion.Text}|{completion.Description ?? completion.Text}");
-                }
+                Logger.Write("Computing local completions with dynamic arguments");
             }
-            else
+
+            var completions = CommandCompleter.GetCompletions(commandLine.AsSpan(), wordToComplete, includeDynamicArguments: true);
+
+            foreach (var completion in completions)
             {
-                // Fallback to local completion logic
-                if (Debug)
-                {
-                    Logger.Write("Using local completions (IPC unavailable)");
-                }
-
-                var completions = CommandCompleter.GetCompletions(commandLine.AsSpan(), wordToComplete, includeDynamicArguments: true);
-
-                foreach (var completion in completions)
-                {
-                    // completionText|toolTip
-                    Output($"{completion.CompletionText}|{completion.Tooltip ?? completion.CompletionText}");
-                }
+                // completionText|toolTip
+                Output($"{completion.CompletionText}|{completion.Tooltip ?? completion.CompletionText}");
             }
 
             return 0;

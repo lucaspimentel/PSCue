@@ -24,9 +24,6 @@ public class IpcRequest
 
     [JsonPropertyName("requestType")]
     public string RequestType { get; set; } = string.Empty;
-
-    [JsonPropertyName("includeDynamicArguments")]
-    public bool IncludeDynamicArguments { get; set; } = true;
 }
 
 /// <summary>

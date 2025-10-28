@@ -547,10 +547,12 @@ git push origin v1.0.0
 - ✅ CompletionCache with usage tracking (`IncrementUsage()` method ready)
 - ✅ IPC protocol includes score field in CompletionItem
 - ✅ Cache statistics endpoint implemented
-- ✅ **Performance Optimization** (2025-01-22): `includeDynamicArguments` parameter added
-  - ICommandPredictor skips slow operations (git branches, scoop packages) for fast responses
-  - ArgumentCompleter includes all completions for comprehensive Tab suggestions
-  - IPC protocol updated to support the flag
+- ✅ **Architecture Simplification** (2025-01-27): Removed IPC from ArgumentCompleter
+  - ArgumentCompleter now always computes completions locally with full dynamic arguments support
+  - Simpler code: No IPC client, no async operations in ArgumentCompleter
+  - Fast enough: Local computation meets <50ms Tab completion target
+  - IPC remains valuable for CommandPredictor (inline predictions need instant cache hits)
+  - Clear separation: Tab completion = local, Inline predictions = cached via IPC
 
 **Completed work:**
 - [x] Implement IFeedbackProvider in PSCue.Module

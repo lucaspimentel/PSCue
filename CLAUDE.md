@@ -4,10 +4,10 @@
 PowerShell completion module combining Tab completion (NativeAOT) + inline predictions (managed DLL) + IPC caching layer with learning.
 
 ## Architecture
-- **ArgumentCompleter** (`pscue-completer.exe`): NativeAOT exe, <10ms startup, calls IPC for cached data, falls back to local
-- **Module** (`PSCue.Module.dll`): Long-lived, hosts IPC server, implements `ICommandPredictor` + `IFeedbackProvider` (7.4+)
-- **IPC**: Named pipes (`PSCue-{PID}` for production, `PSCue-Test-{GUID}` for tests), JSON protocol, <5ms round-trip
-- **Cache**: Usage tracking, priority scoring, learns from command execution
+- **ArgumentCompleter** (`pscue-completer.exe`): NativeAOT exe, <10ms startup, computes completions locally with full dynamic arguments support
+- **Module** (`PSCue.Module.dll`): Long-lived, hosts IPC server (for CommandPredictor), implements `ICommandPredictor` + `IFeedbackProvider` (7.4+)
+- **IPC**: Named pipes (`PSCue-{PID}` for production, `PSCue-Test-{GUID}` for tests), used only by CommandPredictor for fast inline predictions
+- **Cache**: Usage tracking, priority scoring, learns from command execution (used by CommandPredictor only)
 
 ## Project Structure
 ```
@@ -49,10 +49,10 @@ dotnet run --project src/PSCue.Debug/ -- cache --filter git
 ## Key Technical Decisions
 1. **NativeAOT for ArgumentCompleter**: <10ms startup required for Tab responsiveness
 2. **Shared logic in PSCue.Shared**: NativeAOT exe can't be referenced by Module.dll at runtime
-3. **Named Pipes for IPC**: Cross-platform, <5ms round-trip, session-specific names
-4. **Test isolation**: Each test gets unique pipe name (`PSCue-Test-{GUID}`) to avoid conflicts
-5. **NestedModules in manifest**: Required for `IModuleAssemblyInitializer` to trigger
-6. **`includeDynamicArguments` flag**: ArgumentCompleter=true (full), ICommandPredictor=false (fast)
+3. **No IPC in ArgumentCompleter**: Tab completion always computes locally with full dynamic arguments. Fast enough (<50ms) and simpler.
+4. **IPC only for CommandPredictor**: Named pipes for inline predictions cache (cross-platform, <5ms round-trip)
+5. **Test isolation**: Each test gets unique pipe name (`PSCue-Test-{GUID}`) to avoid conflicts
+6. **NestedModules in manifest**: Required for `IModuleAssemblyInitializer` to trigger
 7. **Concurrent logging**: `FileShare.ReadWrite` + `AutoFlush` for multi-process debug logging
 
 ## Performance Targets
@@ -66,7 +66,7 @@ git, gh, az, azd, func, code, scoop, winget, chezmoi, tre, lsd, dust
 
 ## When Adding Features
 - Put shared completion logic in `PSCue.Shared`
-- Use `includeDynamicArguments` flag for expensive operations (git branches, scoop packages)
+- DynamicArguments (git branches, scoop packages) are only used by ArgumentCompleter locally, not over IPC
 - Write tests with unique pipe names: `new IpcServer($"PSCue-Test-{Guid.NewGuid():N}")`
 - Update cache scores via `CompletionCache.IncrementUsage()` in `IFeedbackProvider`
 
@@ -89,8 +89,8 @@ private async Task<IpcResponse> SendRequest(IpcRequest request) {
 
 ## Common Pitfalls
 1. **Test hangs**: Tests sharing same pipe name → Use unique names per test instance
-2. **IPC not working**: Check `$env:PSCUE_PID = $PID` is set in PowerShell session
-3. **ArgumentCompleter slow**: Check `includeDynamicArguments` flag usage
+2. **IPC not working for predictions**: Check `$env:PSCUE_PID = $PID` is set in PowerShell session (only affects inline predictions, not Tab)
+3. **ArgumentCompleter slow**: DynamicArguments (git branches, scoop packages) are computed on every Tab press. This is expected and fast (<50ms).
 4. **NativeAOT reference errors**: Put shared code in PSCue.Shared, not ArgumentCompleter
 
 ## Documentation

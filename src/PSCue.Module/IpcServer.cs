@@ -387,11 +387,11 @@ public class IpcServer : IDisposable
             }
 
             // Use the existing CommandCompleter logic from PSCue.Shared
-            // Pass includeDynamicArguments from the request (ArgumentCompleter wants all, Predictor wants fast)
+            // Always skip dynamic arguments for IPC - ArgumentCompleter will compute them locally if needed
             var completions = CommandCompleter.GetCompletions(
                 commandLineWithoutPartial.AsSpan(),
                 ReadOnlySpan<char>.Empty,  // Empty wordToComplete = no filtering
-                request.IncludeDynamicArguments);
+                includeDynamicArguments: false);
 
             return completions
                 .Select(c => new CompletionItem
