@@ -1,9 +1,11 @@
 # PSCue - Quick Reference for AI Agents
 
 ## What This Is
-PowerShell completion module combining Tab completion (NativeAOT) + inline predictions (managed DLL) + IPC caching layer with **generic learning** (Phase 11).
+PowerShell completion module combining Tab completion (NativeAOT) + inline predictions (managed DLL) + IPC caching layer with **generic learning** (Phase 11) and **cross-session persistence** (Phase 12).
 
 **Phase 11 Complete**: Now learns from ALL commands (not just git/gh/scoop), with context-aware suggestions based on usage patterns.
+
+**Phase 12 Complete**: Learned data persists across PowerShell sessions using SQLite with concurrent access support.
 
 ## Architecture
 - **ArgumentCompleter** (`pscue-completer.exe`): NativeAOT exe, <10ms startup, computes completions locally with full dynamic arguments support
@@ -15,6 +17,12 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
   - **ContextAnalyzer**: Detects command sequences and workflow patterns
   - **GenericPredictor**: Generates suggestions from learned data for ANY command
   - **Hybrid CommandPredictor**: Blends known completions + generic learning
+- **Persistence (Phase 12)**:
+  - **PersistenceManager**: SQLite-based cross-session storage
+  - **Database Location**: `~/.local/share/PSCue/learned-data.db` (Linux/macOS), `%LOCALAPPDATA%\PSCue\learned-data.db` (Windows)
+  - **Auto-save**: Every 5 minutes + on module unload
+  - **Concurrent Access**: SQLite WAL mode handles multiple PowerShell sessions safely
+  - **Additive Merging**: Frequencies summed, timestamps use max (most recent)
 
 ## Project Structure
 ```
@@ -31,8 +39,13 @@ src/
 ## Key Files & Line References
 - `src/PSCue.Module/IpcServer.cs`: Named pipe server, cache handling, completion generation
 - `src/PSCue.Module/IpcServer.cs:27`: Constructor accepting custom pipe name (for test isolation)
+- `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence (~470 lines)
+- `src/PSCue.Module/Init.cs`: Module lifecycle (load on import, save on remove, auto-save timer)
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
-- `test/PSCue.Module.Tests/IpcServerIntegrationTests.cs:22`: Unique pipe name generation per test
+- `test/PSCue.Module.Tests/PersistenceManagerTests.cs`: Unit tests for persistence (10 tests)
+- `test/PSCue.Module.Tests/PersistenceConcurrencyTests.cs`: Multi-session concurrency (11 tests)
+- `test/PSCue.Module.Tests/PersistenceEdgeCaseTests.cs`: Edge cases & error handling (18 tests)
+- `test/PSCue.Module.Tests/PersistenceIntegrationTests.cs`: End-to-end integration (15 tests)
 
 ## Common Tasks
 ```bash
@@ -40,9 +53,12 @@ src/
 dotnet build src/PSCue.Module/ -c Release -f net9.0
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
-# Test (154 tests total: 62 ArgumentCompleter + 92 Module including Phase 11)
+# Test (198 tests total: 62 ArgumentCompleter + 136 Module including Phase 11 & 12)
 dotnet test test/PSCue.ArgumentCompleter.Tests/
 dotnet test test/PSCue.Module.Tests/
+
+# Run only persistence tests
+dotnet test --filter "FullyQualifiedName~Persistence"
 
 # Install locally
 ./scripts/install-local.ps1

@@ -9,7 +9,8 @@
 - **🚀 Fast Tab Completion**: Native AOT executable for <10ms startup time
 - **💡 Inline Predictions**: Smart command suggestions as you type using `ICommandPredictor`
 - **⚡ IPC Communication**: ArgumentCompleter and CommandPredictor share state via Named Pipes for intelligent caching
-- **🧠 Universal Learning System (Phase 11)**: Learns from ALL commands (not just pre-configured ones) and adapts to your workflow patterns
+- **🧠 Universal Learning System**: Learns from ALL commands (not just pre-configured ones) and adapts to your workflow patterns
+- **💾 Cross-Session Persistence**: Learning data persists across PowerShell sessions using SQLite
 - **🎯 Context-Aware Suggestions**: Detects command sequences and boosts relevant suggestions based on recent activity
 - **🆘 Error Suggestions**: Provides helpful recovery suggestions when commands fail (e.g., git errors)
 - **🔌 Cross-platform**: Windows, macOS (Apple Silicon), and Linux support
@@ -223,6 +224,8 @@ The learning system features:
 - **Silent Learning**: Observes commands you execute successfully
 - **Usage Tracking**: Increases priority scores for frequently-used completions
 - **Personalization**: Makes your most-used options appear first in suggestions
+- **Cross-Session Persistence**: Learning data persists across PowerShell sessions (stored in SQLite)
+- **Multi-Session Safe**: Multiple PowerShell sessions can run concurrently without data loss
 - **Error Recovery**: Provides helpful suggestions when commands fail (e.g., git errors)
 
 **Common error suggestions include**:
@@ -246,8 +249,10 @@ PSCue consolidates and enhances two existing projects:
 1. **Unified Module**: Single installation and configuration
 2. **Consistent Completions**: Tab and inline suggestions use the same logic
 3. **Better Performance**: Optimized build settings and caching strategy
-4. **Future-Ready**: Designed for IPC communication and learning feedback loop
-5. **CI/CD Pipeline**: Automated testing and releases for all platforms
+4. **Universal Learning**: Learns from ANY command, not just pre-configured ones
+5. **Cross-Session Persistence**: Learning data saved to SQLite, survives PowerShell restarts
+6. **Concurrent Sessions**: Multiple PowerShell sessions share learned data safely
+7. **CI/CD Pipeline**: Automated testing and releases for all platforms
 
 ### Migration from Original Projects
 
