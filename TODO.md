@@ -1479,6 +1479,222 @@ Response:
 
 ---
 
+## Phase 15: Test Coverage Improvements
+
+**Goal**: Address test coverage gaps identified during Phase 13 development. The "pluginstall" bug (claude plugin + install → claude pluginstall) revealed that critical logic paths lack automated tests.
+
+**Current State**: 229 tests total (93 ArgumentCompleter + 136 Module)
+- ArgumentCompleter.Tests: Good coverage for completion logic
+- Module.Tests: Heavy coverage for Phases 11-12 (learning & persistence), but gaps in core predictor logic
+
+### Identified Test Coverage Gaps
+
+#### **Critical Gap #1: CommandPredictor.Combine Method**
+- **Status**: ❌ No tests
+- **Location**: `src/PSCue.Module/CommandPredictor.cs:150-178`
+- **Issue**: Private method with complex string overlap logic
+- **Bug Found**: "claude plugin" + "install" → "claude pluginstall" (substring match instead of word boundary)
+- **Why Important**: Used by EVERY inline prediction to construct suggestion text
+- **Test Needs**:
+  - Partial command completion: "git chec" + "checkout" → "git checkout"
+  - Word boundary respect: "claude plugin" + "install" → "claude plugin install" (NOT "claude pluginstall")
+  - No overlap: "git " + "status" → "git status"
+  - Full overlap: "git" + "git" → "git"
+  - Multiple spaces: "git  " + "commit" → "git commit"
+  - Edge cases: empty input, special characters
+
+**Proposed Solution**:
+1. Make `Combine` method `internal` instead of `private`
+2. Add `[assembly: InternalsVisibleTo("PSCue.Module.Tests")]` to AssemblyInfo.cs
+3. Create `CommandPredictorTests.cs` with ~10 test cases for Combine method
+4. Add integration tests for GetSuggestion that indirectly validate Combine logic
+
+#### **Critical Gap #2: CommandPredictor.GetSuggestion**
+- **Status**: ❌ No direct tests (only tested indirectly via integration)
+- **Location**: `src/PSCue.Module/CommandPredictor.cs:43-82`
+- **Issue**: Core public API with no unit tests
+- **Why Important**: Entry point for ALL inline predictions
+- **Test Needs**:
+  - Known command suggestions (git, gh, scoop)
+  - Unknown command fallback to generic learning
+  - Empty input handling
+  - Merge logic (known + learned suggestions)
+  - Deduplication of suggestions
+  - Scoring and ranking
+
+#### **Medium Gap #3: IpcServer Core Logic**
+- **Status**: ⚠️ Partial coverage (IpcServerIntegrationTests exists, but limited)
+- **Location**: `src/PSCue.Module/IpcServer.cs`
+- **Current Tests**: IpcServerIntegrationTests.cs (5 tests), IpcFilteringTests.cs (12 tests)
+- **Missing Tests**:
+  - Error handling paths (malformed requests, exceptions during completion generation)
+  - Concurrent request handling
+  - Server lifecycle (start/stop/restart)
+  - Connection timeout scenarios
+  - Large payload handling
+  - Protocol version mismatches
+
+#### **Medium Gap #4: FeedbackProvider**
+- **Status**: ⚠️ No unit tests (only manual testing via test scripts)
+- **Location**: `src/PSCue.Module/FeedbackProvider.cs:15-288`
+- **Current Tests**: None
+- **Why Important**: Powers the learning system for ALL commands
+- **Test Needs**:
+  - Pattern extraction from FeedbackContext
+  - Command parsing (command + args + flags)
+  - Privacy controls (PSCUE_IGNORE_PATTERNS filtering)
+  - Integration with GenericPredictor
+  - Different command types (git, docker, kubectl, custom)
+  - Edge cases (empty commands, special characters, very long commands)
+
+#### **Medium Gap #5: Init Module Lifecycle**
+- **Status**: ❌ No tests
+- **Location**: `src/PSCue.Module/Init.cs`
+- **Current Tests**: None
+- **Why Important**: Handles module load/unload, IPC server lifecycle, persistence save/load
+- **Test Needs**:
+  - OnImport behavior (server starts, learning system initializes, persistence loads)
+  - OnRemove behavior (server stops, data saves)
+  - Auto-save timer functionality
+  - Error handling (persistence load failures, IPC start failures)
+  - Multiple OnImport calls (idempotent?)
+
+#### **Low Gap #6: KnownCompletions Command Classes**
+- **Status**: ⚠️ Minimal coverage
+- **Current Tests**: SetLocationCommandTests.cs (31 tests) - only SetLocationCommand tested
+- **Untested Commands**:
+  - GitCommand.cs (~400 lines) - NO TESTS
+  - GhCommand.cs (~485 lines) - NO TESTS
+  - ScoopCommand.cs - NO TESTS
+  - AzCommand.cs, AzdCommand.cs, FuncCommand.cs - NO TESTS
+  - ClaudeCommand.cs (just added) - NO TESTS
+  - Others: VsCodeCommand, ChezmoiCommand, WingetCommand, etc.
+- **Why Lower Priority**: These are mostly static data structures, less prone to logic bugs
+- **Test Needs** (if time permits):
+  - Spot-check a few commands for structure correctness
+  - Test dynamic arguments (git branches, scoop packages)
+  - Validate aliases work correctly
+
+#### **Low Gap #7: CompletionCache Advanced Features**
+- **Status**: ⚠️ Basic coverage exists (CompletionCacheTests.cs with 7 tests)
+- **Missing Tests**:
+  - Expiration behavior (5-minute TTL)
+  - RemoveExpired method
+  - GetStatistics accuracy
+  - Concurrent access under heavy load
+  - Memory pressure scenarios
+
+### Implementation Plan
+
+#### Phase 15.1: Critical Fixes (High Priority) 🔴
+**Time Estimate**: 2-4 hours
+
+1. **CommandPredictorTests.cs** (NEW FILE)
+   - [ ] Make `Combine` method `internal`
+   - [ ] Add `InternalsVisibleTo` attribute
+   - [ ] Test Combine word boundary logic (10 tests)
+     - Basic overlap: "sco" + "scoop" → "scoop"
+     - Partial word: "git chec" + "checkout" → "git checkout"
+     - Word boundary: "claude plugin" + "install" → "claude plugin install"
+     - No overlap: "git " + "status" → "git status"
+     - Full overlap: "git" + "git" → "git"
+     - Trailing space: "git  " + "commit" → "git commit"
+     - Empty input: "" + "git" → "git"
+     - Empty completion: "git" + "" → "git "
+     - Special chars: "test@" + "test@host" → "test@host"
+     - Unicode: Handle properly
+   - [ ] Test GetSuggestion integration (5 tests)
+     - Known command (git)
+     - Unknown command
+     - Empty input
+     - Suggestion merging
+     - Scoring/ranking
+
+**Success Criteria**: The "pluginstall" bug would be caught by automated tests
+
+#### Phase 15.2: Important Gaps (Medium Priority) 🟡
+**Time Estimate**: 3-5 hours
+
+2. **FeedbackProviderTests.cs** (NEW FILE)
+   - [ ] Command parsing tests (10 tests)
+   - [ ] Privacy filtering tests (5 tests)
+   - [ ] Integration with learning system (5 tests)
+
+3. **IpcServerTests.cs** (extend existing)
+   - [ ] Error handling (5 tests)
+   - [ ] Concurrent requests (3 tests)
+   - [ ] Lifecycle (3 tests)
+
+4. **InitTests.cs** (NEW FILE)
+   - [ ] Module load/unload (4 tests)
+   - [ ] Auto-save timer (2 tests)
+   - [ ] Error recovery (3 tests)
+
+#### Phase 15.3: Nice to Have (Low Priority) 🟢
+**Time Estimate**: 2-3 hours (optional)
+
+5. **Spot-check KnownCompletions**
+   - [ ] GitCommandTests.cs - basic structure validation
+   - [ ] ClaudeCommandTests.cs - validate new command
+   - [ ] Test a few dynamic arguments
+
+6. **CompletionCache extended tests**
+   - [ ] Expiration behavior
+   - [ ] Heavy concurrent load
+
+### Metrics
+
+**Current**: 229 tests
+**Target**: 270+ tests (add ~40-50 tests)
+
+**Coverage by Component** (estimated):
+- ArgumentCompleter: ✅ 90%+ (well tested)
+- GenericPredictor: ✅ 95%+ (65 tests in Phase 11)
+- Persistence: ✅ 95%+ (54 tests in Phase 12)
+- SetLocationCommand: ✅ 90%+ (31 tests in Phase 13)
+- **CommandPredictor: ❌ 10%** (critical gap)
+- **FeedbackProvider: ❌ 0%** (important gap)
+- **IpcServer: ⚠️ 40%** (partial coverage)
+- **Init: ❌ 0%** (lifecycle untested)
+- KnownCompletions: ⚠️ 5% (mostly untested, but low risk)
+
+### Success Criteria for Phase 15
+
+1. ✅ All critical bugs like "pluginstall" would be caught by automated tests
+2. ✅ CommandPredictor.Combine has comprehensive test coverage
+3. ✅ CommandPredictor.GetSuggestion has unit tests
+4. ✅ FeedbackProvider has unit tests covering core functionality
+5. ✅ IpcServer error paths are tested
+6. ✅ Init lifecycle is tested
+7. ✅ Test count increases to 270+ (from 229)
+8. ✅ All tests pass on all platforms (Windows, macOS, Linux)
+9. ✅ CI continues to pass with expanded test suite
+
+### Test Infrastructure Improvements
+
+**Consider adding**:
+- [ ] Code coverage reporting in CI (e.g., Coverlet)
+- [ ] Coverage badge in README
+- [ ] Pre-commit hook to run tests locally
+- [ ] Test coverage thresholds (fail if coverage drops below X%)
+
+### Lessons Learned
+
+**From the "pluginstall" bug**:
+- Private methods with complex logic should be testable (use `internal` + `InternalsVisibleTo`)
+- String manipulation is error-prone - needs comprehensive test coverage
+- Edge cases matter (word boundaries vs character-level matching)
+- Integration tests alone aren't enough - unit tests catch bugs earlier
+
+**Best Practices Going Forward**:
+1. Write tests BEFORE fixing bugs (TDD for bug fixes)
+2. Add regression test for every bug found
+3. Complex private methods should be `internal` and tested directly
+4. Consider property-based testing for string manipulation
+5. Test edge cases explicitly (empty strings, special chars, Unicode, etc.)
+
+---
+
 ## Notes
 
 - This plan is a living document and will be updated as implementation progresses
