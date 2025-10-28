@@ -135,7 +135,7 @@ public class SetLocationCommandTests
         suggestions.Should().NotBeNull();
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetDirectorySuggestions_Detects_Absolute_Path_Unix()
     {
         Skip.If(IsWindows, "Unix-specific test");
@@ -406,7 +406,7 @@ public class SetLocationCommandTests
         suggestions.Should().NotBeNull();
     }
 
-    [Fact]
+    [SkippableFact]
     public void Cross_Platform_Path_Handling_Unix()
     {
         Skip.If(IsWindows, "Unix-specific test");

@@ -1,3 +1,3 @@
 ﻿using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("PowerShellPredictor.Tests")]
+[assembly: InternalsVisibleTo("PSCue.Module.Tests")]

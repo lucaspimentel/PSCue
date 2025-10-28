@@ -147,7 +147,7 @@ public class CommandPredictor : ICommandPredictor
         return firstSpace > 0 ? input.Substring(0, firstSpace) : input;
     }
 
-    private static string Combine(ReadOnlySpan<char> input, string completionText)
+    internal static string Combine(ReadOnlySpan<char> input, string completionText)
     {
         // find overlap between the end of 'input' and the start of 'completionText' and "fold" them together
         // combine them like this:
@@ -157,14 +157,19 @@ public class CommandPredictor : ICommandPredictor
         // "scoop update" + "*" => "scoop update *"
         // e.g. "scoop al" + "alias" => "scoop alias"
 
-        for (int i = 0; i < input.Length; i++)
-        {
-            var substring = input[i..];
+        // Find the last word boundary (space) in input
+        var lastSpaceIndex = input.LastIndexOf(' ');
 
-            if (completionText.AsSpan().StartsWith(substring, StringComparison.OrdinalIgnoreCase))
-            {
-                return string.Concat(input[..i], completionText);
-            }
+        // Only look for overlaps starting from the last word (after the last space)
+        // This prevents false matches like "claude plugin" + "install" => "claude pluginstall"
+        var startIndex = lastSpaceIndex >= 0 ? lastSpaceIndex + 1 : 0;
+
+        // Only match if the completionText starts with the ENTIRE last word
+        // Don't match partial words like "in" from "plugin"
+        var lastWord = input[startIndex..];
+        if (completionText.AsSpan().StartsWith(lastWord, StringComparison.OrdinalIgnoreCase))
+        {
+            return string.Concat(input[..startIndex], completionText);
         }
 
         return $"{input} {completionText}";
