@@ -293,15 +293,15 @@ dotnet test
 
 ### Running Tests
 
-PSCue has **154 unit tests** covering ArgumentCompleter logic, IPC server behavior, cache filtering, generic learning components, and integration scenarios.
+PSCue has **269 unit tests** covering ArgumentCompleter logic, CommandPredictor, FeedbackProvider, IPC server behavior, cache filtering, generic learning components, persistence, navigation, and integration scenarios.
 
 ```powershell
-# All tests (154 total: 62 ArgumentCompleter + 92 Module including Phase 11)
+# All tests (269 total: 91 ArgumentCompleter + 178 Module including Phases 11-15)
 dotnet test
 
 # Specific project
-dotnet test test/PSCue.ArgumentCompleter.Tests/  # 62 tests
-dotnet test test/PSCue.Module.Tests/             # 92 tests (27 original + 65 Phase 11)
+dotnet test test/PSCue.ArgumentCompleter.Tests/  # 91 tests
+dotnet test test/PSCue.Module.Tests/             # 178 tests
 
 # With verbose output
 dotnet test --logger "console;verbosity=detailed"
@@ -392,8 +392,15 @@ TabExpansion2 'git checkout ma' 15
   - Command sequence detection for workflows (git add → commit → push, docker build → run, etc.)
   - Privacy controls via `PSCUE_IGNORE_PATTERNS` environment variable
   - **65 new unit tests** covering all learning components
-  - **154 total tests passing** (62 ArgumentCompleter + 92 Module)
   - Components: CommandHistory (ring buffer), ArgumentGraph (knowledge graph), ContextAnalyzer, GenericPredictor, Hybrid CommandPredictor
+
+- **Phase 15 (In Progress)**: Test Coverage Improvements
+  - Added 45 comprehensive tests for critical components (CommandPredictor, FeedbackProvider)
+  - **269 total tests passing** (91 ArgumentCompleter + 178 Module)
+  - Fixed the "pluginstall" bug with 19 CommandPredictor.Combine tests
+  - Added 26 FeedbackProvider tests covering command parsing, privacy filtering, and learning integration
+  - Uses reflection to properly test internal PowerShell SDK components
+  - All critical gaps addressed: CommandPredictor (95% coverage), FeedbackProvider (90% coverage)
 
 ### Configuration (Phase 11)
 

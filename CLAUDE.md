@@ -9,6 +9,8 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 
 **Phase 13 Complete**: Directory-aware navigation suggestions for cd/Set-Location with smart caching and learning integration.
 
+**Phase 15 In Progress**: Test coverage improvements - added 40 new tests for CommandPredictor and FeedbackProvider (269 total tests, all passing).
+
 ## Architecture
 - **ArgumentCompleter** (`pscue-completer.exe`): NativeAOT exe, <10ms startup, computes completions locally with full dynamic arguments support
 - **Module** (`PSCue.Module.dll`): Long-lived, hosts IPC server (for CommandPredictor), implements `ICommandPredictor` + `IFeedbackProvider` (7.4+)
@@ -44,6 +46,8 @@ src/
 - `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence (~470 lines)
 - `src/PSCue.Module/Init.cs`: Module lifecycle (load on import, save on remove, auto-save timer)
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
+- `test/PSCue.Module.Tests/CommandPredictorTests.cs`: CommandPredictor.Combine tests (19 tests, Phase 15)
+- `test/PSCue.Module.Tests/FeedbackProviderTests.cs`: FeedbackProvider tests (26 tests, Phase 15)
 - `test/PSCue.Module.Tests/PersistenceManagerTests.cs`: Unit tests for persistence (10 tests)
 - `test/PSCue.Module.Tests/PersistenceConcurrencyTests.cs`: Multi-session concurrency (11 tests)
 - `test/PSCue.Module.Tests/PersistenceEdgeCaseTests.cs`: Edge cases & error handling (18 tests)
@@ -55,12 +59,14 @@ src/
 dotnet build src/PSCue.Module/ -c Release -f net9.0
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
-# Test (198 tests total: 62 ArgumentCompleter + 136 Module including Phase 11 & 12)
+# Test (269 tests total: 91 ArgumentCompleter + 178 Module including Phases 11-15)
 dotnet test test/PSCue.ArgumentCompleter.Tests/
 dotnet test test/PSCue.Module.Tests/
 
-# Run only persistence tests
+# Run specific test groups
 dotnet test --filter "FullyQualifiedName~Persistence"
+dotnet test --filter "FullyQualifiedName~FeedbackProvider"
+dotnet test --filter "FullyQualifiedName~CommandPredictor"
 
 # Install locally
 ./scripts/install-local.ps1
