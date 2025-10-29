@@ -213,7 +213,7 @@ public class CommandHistoryTests
     }
 
     [Fact]
-    public void ThreadSafety_ConcurrentAdds()
+    public async Task ThreadSafety_ConcurrentAdds()
     {
         // Arrange
         var history = new CommandHistory(maxSize: 1000);
@@ -232,7 +232,7 @@ public class CommandHistoryTests
             }));
         }
 
-        Task.WaitAll(tasks.ToArray());
+        await Task.WhenAll(tasks.ToArray());
 
         // Assert - should have 1000 entries (or close to it due to max size)
         Assert.Equal(1000, history.Count);

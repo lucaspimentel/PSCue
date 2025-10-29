@@ -185,7 +185,7 @@ public class PersistenceConcurrencyTests : IDisposable
         }
 
         // Act & Assert - Should complete without deadlock
-        var completedInTime = Task.WaitAll(tasks.ToArray(), TimeSpan.FromSeconds(30));
+        var completedInTime = await Task.WhenAny(Task.WhenAll(tasks.ToArray()), Task.Delay(TimeSpan.FromSeconds(30))) == Task.WhenAll(tasks.ToArray());
         Assert.True(completedInTime, "Tasks did not complete in time - possible deadlock");
     }
 
@@ -262,7 +262,7 @@ public class PersistenceConcurrencyTests : IDisposable
     }
 
     [Fact]
-    public void StressTest_100ConcurrentWrites_DatabaseIntegrity()
+    public async Task StressTest_100ConcurrentWrites_DatabaseIntegrity()
     {
         // Arrange - Stress test with many concurrent writers
         const int writerCount = 100;
@@ -288,7 +288,7 @@ public class PersistenceConcurrencyTests : IDisposable
             }));
         }
 
-        Task.WaitAll(tasks.ToArray());
+        await Task.WhenAll(tasks.ToArray());
 
         // Assert - Database should be intact and consistent
         using var finalPersistence = new PersistenceManager(_testDbPath);
