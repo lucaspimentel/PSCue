@@ -111,6 +111,8 @@ public class IpcServer : IDisposable
                 var length = BitConverter.ToInt32(lengthBuffer, 0);
                 if (length is <= 0 or > 1024 * 1024) // Max 1MB
                 {
+                    // Close the pipe immediately to signal rejection to client
+                    // (await using will dispose, but we want immediate closure)
                     return;
                 }
 
