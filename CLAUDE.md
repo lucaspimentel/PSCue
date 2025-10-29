@@ -9,7 +9,9 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 
 **Phase 13 Complete**: Directory-aware navigation suggestions for cd/Set-Location with smart caching and learning integration.
 
-**Phase 15 Complete**: Test coverage improvements - added 27 new tests for IpcServer (error handling, concurrency, lifecycle). Total: 296 tests, 295 passing (1 skipped: complex timing scenario).
+**Phase 15 Complete**: Test coverage improvements - added 27 new tests for IpcServer (error handling, concurrency, lifecycle). Total: 315 tests, 314 passing (1 skipped: complex timing scenario).
+
+**Supported Commands Update**: Added Windows Terminal (wt) with full Tab completion support for all subcommands and parameters.
 
 ## Architecture
 - **ArgumentCompleter** (`pscue-completer.exe`): NativeAOT exe, <10ms startup, computes completions locally with full dynamic arguments support
@@ -97,7 +99,7 @@ dotnet run --project src/PSCue.Debug/ -- cache --filter git
 - Total Tab completion: <50ms
 
 ## Supported Commands
-git, gh, az, azd, func, code, scoop, winget, chezmoi, tre, lsd, dust, cd (Set-Location/sl/chdir)
+git, gh, az, azd, func, code, scoop, winget, wt, chezmoi, tre, lsd, dust, cd (Set-Location/sl/chdir)
 
 **Plus**: Generic learning works for ANY command (kubectl, docker, cargo, npm, etc.)
 

@@ -46,6 +46,7 @@ PSCue provides detailed completions for these commands:
 - **VS Code**: `code` - workspaces, extensions, files
 - **Scoop** (Windows): `scoop` - apps, buckets
 - **Winget** (Windows): `winget` - packages, sources
+- **Windows Terminal** (Windows): `wt` - tabs, panes, profiles
 - **Chezmoi**: `chezmoi` - dotfile management commands
 - **Tree alternatives**: `tre`, `lsd` - directory navigation
 - **Disk usage**: `dust` - directory analysis

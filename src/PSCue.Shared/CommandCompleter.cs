@@ -31,6 +31,7 @@ public static class CommandCompleter
         {
             "scoop" when isWindows => ScoopCommand.Create(),
             "winget" when isWindows => WingetCommand.Create(),
+            "wt" when isWindows => WindowsTerminalCommand.Create(),
             "code" => VsCodeCommand.Create(),
             "chezmoi" => ChezmoiCommand.Create(),
             "git" => GitCommand.Create(),
