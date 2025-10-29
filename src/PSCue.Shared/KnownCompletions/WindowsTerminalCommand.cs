@@ -40,8 +40,9 @@ public static class WindowsTerminalCommand
 {
     public static Command Create()
     {
-        var newTabCommand = new Command("new-tab", "Create a new tab")
+        var newTabCommand = new Command("new-tab", "Create a new tab (alias: nt)")
         {
+            Alias = "nt",
             Parameters =
             [
                 new("-d", "Set the starting directory for the new tab"),
@@ -58,8 +59,9 @@ public static class WindowsTerminalCommand
             ]
         };
 
-        var splitPaneCommand = new Command("split-pane", "Create a new split pane")
+        var splitPaneCommand = new Command("split-pane", "Create a new split pane (alias: sp)")
         {
+            Alias = "sp",
             Parameters =
             [
                 new("-H", "Split horizontally (split to the bottom)"),
@@ -81,8 +83,9 @@ public static class WindowsTerminalCommand
             ]
         };
 
-        var focusTabCommand = new Command("focus-tab", "Move focus to another tab")
+        var focusTabCommand = new Command("focus-tab", "Move focus to another tab (alias: ft)")
         {
+            Alias = "ft",
             Parameters =
             [
                 new("-t", "Focus the tab at the specified index"),
@@ -94,8 +97,9 @@ public static class WindowsTerminalCommand
             ]
         };
 
-        var moveFocusCommand = new Command("move-focus", "Move focus to the adjacent pane in the specified direction")
+        var moveFocusCommand = new Command("move-focus", "Move focus to the adjacent pane in the specified direction (alias: mf)")
         {
+            Alias = "mf",
             Parameters =
             [
                 new("up", "Move focus up"),
@@ -111,8 +115,9 @@ public static class WindowsTerminalCommand
             ]
         };
 
-        var movePaneCommand = new Command("move-pane", "Move focused pane to another tab")
+        var movePaneCommand = new Command("move-pane", "Move focused pane to another tab (alias: mp)")
         {
+            Alias = "mp",
             Parameters =
             [
                 new("-t", "Move to the tab at the specified index"),
@@ -137,8 +142,9 @@ public static class WindowsTerminalCommand
             ]
         };
 
-        var focusPaneCommand = new Command("focus-pane", "Move focus to another pane")
+        var focusPaneCommand = new Command("focus-pane", "Move focus to another pane (alias: fp)")
         {
+            Alias = "fp",
             Parameters =
             [
                 new("-t", "Focus the pane at the specified index"),
@@ -170,18 +176,12 @@ public static class WindowsTerminalCommand
             SubCommands =
             [
                 newTabCommand,
-                new("nt", "An alias for the \"new-tab\" subcommand.") { Parameters = newTabCommand.Parameters },
                 splitPaneCommand,
-                new("sp", "An alias for the \"split-pane\" subcommand.") { Parameters = splitPaneCommand.Parameters },
                 focusTabCommand,
-                new("ft", "An alias for the \"focus-tab\" subcommand.") { Parameters = focusTabCommand.Parameters },
                 moveFocusCommand,
-                new("mf", "An alias for the \"move-focus\" subcommand.") { Parameters = moveFocusCommand.Parameters },
                 movePaneCommand,
-                new("mp", "An alias for the \"move-pane\" subcommand.") { Parameters = movePaneCommand.Parameters },
                 swapPaneCommand,
                 focusPaneCommand,
-                new("fp", "An alias for the \"focus-pane\" subcommand.") { Parameters = focusPaneCommand.Parameters },
                 new("--save", "Save the command line as input action")
             ]
         };

@@ -7,15 +7,32 @@ public sealed class Command(string completionText, string? tooltip = null)
 {
     public string CompletionText { get; } = completionText;
     public string? Tooltip { get; } = tooltip;
+    public string? Alias { get; init; }
     public Command[] SubCommands { get; init; } = [];
     public CommandParameter[] Parameters { get; init; } = [];
     public DynamicArgumentsFactory? DynamicArguments { get; init; }
 
     public ICompletion? FindNode(ReadOnlySpan<char> wordToComplete)
     {
-        var completion = Helpers.ThisIfEquals(this, wordToComplete) ??
-                         Helpers.FindEquals(SubCommands, wordToComplete) ??
-                         Helpers.FindEquals(Parameters, wordToComplete);
+        // Check if the word matches either the main completion text or the alias
+        if (Helpers.Equals(CompletionText, wordToComplete) ||
+            (Alias is not null && Helpers.Equals(Alias, wordToComplete)))
+        {
+            return this;
+        }
+
+        // Check subcommands (including their aliases)
+        foreach (var subCommand in SubCommands)
+        {
+            if (Helpers.Equals(subCommand.CompletionText, wordToComplete) ||
+                (subCommand.Alias is not null && Helpers.Equals(subCommand.Alias, wordToComplete)))
+            {
+                return subCommand;
+            }
+        }
+
+        // Check parameters
+        var completion = Helpers.FindEquals(Parameters, wordToComplete);
 
         if (completion is null && DynamicArguments?.Invoke() is { } arguments)
         {
@@ -29,7 +46,20 @@ public sealed class Command(string completionText, string? tooltip = null)
     {
         var results = new List<ICompletion>();
 
-        Helpers.AddWhereStartsWith(SubCommands, results, wordToComplete);
+        // Add subcommands that match the search, including by alias
+        foreach (var subCommand in SubCommands)
+        {
+            // Check if the long form starts with the search text
+            var longFormMatches = Helpers.StartsWith(subCommand.CompletionText, wordToComplete);
+
+            // Check if the alias (short form) starts with the search text
+            var aliasMatches = subCommand.Alias is not null && Helpers.StartsWith(subCommand.Alias, wordToComplete);
+
+            if (longFormMatches || aliasMatches)
+            {
+                results.Add(subCommand);
+            }
+        }
 
         // Add parameters that match the search, including by alias
         foreach (var param in Parameters)

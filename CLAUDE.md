@@ -38,8 +38,11 @@ src/
 └── PSCue.Shared/               # Shared completion logic (avoid NativeAOT reference issues)
     ├── CommandCompleter.cs     # Main orchestrator
     ├── IpcProtocol.cs          # IPC definitions
-    ├── KnownCompletions/       # Command-specific: git, gh, scoop, az, etc.
+    ├── KnownCompletions/       # Command-specific: git, gh, scoop, az, wt, etc.
     └── Completions/            # Framework: Command, Parameter, Argument nodes
+        ├── Command.cs          # Command with Alias support
+        ├── CommandParameter.cs # Parameter with Alias support
+        └── ...
 ```
 
 ## Key Files & Line References
@@ -64,7 +67,7 @@ src/
 dotnet build src/PSCue.Module/ -c Release -f net9.0
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
-# Test (296 tests total: 91 ArgumentCompleter + 205 Module including Phases 11-15)
+# Test (319 tests total: 115 ArgumentCompleter + 205 Module including Phases 11-15)
 dotnet test test/PSCue.ArgumentCompleter.Tests/
 dotnet test test/PSCue.Module.Tests/
 
@@ -108,6 +111,8 @@ git, gh, az, azd, func, code, scoop, winget, wt, chezmoi, tre, lsd, dust, cd (Se
 - DynamicArguments (git branches, scoop packages) are only used by ArgumentCompleter locally, not over IPC
 - Write tests with unique pipe names: `new IpcServer($"PSCue-Test-{Guid.NewGuid():N}")`
 - Update cache scores via `CompletionCache.IncrementUsage()` in `IFeedbackProvider`
+- **Command aliases**: Use `Alias` property on `Command` class, include in tooltip like `"Create a new tab (alias: nt)"`
+- **Parameter aliases**: Use `Alias` property on `CommandParameter` class, include in tooltip like `"Only list directories (-d)"`
 
 ## Testing Patterns
 ```csharp

@@ -245,4 +245,84 @@ public class WindowsTerminalCommandTests
 
         Assert.Contains(completions, x => x.CompletionText == "--save");
     }
+
+    [SkippableFact]
+    public void Wt_Alias_Partial_Match_Nt()
+    {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "wt is Windows-only");
+
+        var completions = CommandCompleter.GetCompletions("wt n").ToList();
+
+        // Should match both "new-tab" (by full name) and its alias "nt"
+        Assert.Contains(completions, x => x.CompletionText == "new-tab");
+    }
+
+    [SkippableFact]
+    public void Wt_Alias_Partial_Match_Sp()
+    {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "wt is Windows-only");
+
+        var completions = CommandCompleter.GetCompletions("wt s").ToList();
+
+        // Should match "split-pane" (by full name) and its alias "sp", plus "swap-pane"
+        Assert.Contains(completions, x => x.CompletionText == "split-pane");
+        Assert.Contains(completions, x => x.CompletionText == "swap-pane");
+    }
+
+    [SkippableFact]
+    public void Wt_Alias_Partial_Match_F()
+    {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "wt is Windows-only");
+
+        var completions = CommandCompleter.GetCompletions("wt f").ToList();
+
+        // Should match "focus-tab", "focus-pane" (by full name) and their aliases "ft", "fp"
+        Assert.Contains(completions, x => x.CompletionText == "focus-tab");
+        Assert.Contains(completions, x => x.CompletionText == "focus-pane");
+    }
+
+    [SkippableFact]
+    public void Wt_Alias_Partial_Match_M()
+    {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "wt is Windows-only");
+
+        var completions = CommandCompleter.GetCompletions("wt m").ToList();
+
+        // Should match "move-focus", "move-pane" (by full name) and their aliases "mf", "mp"
+        Assert.Contains(completions, x => x.CompletionText == "move-focus");
+        Assert.Contains(completions, x => x.CompletionText == "move-pane");
+    }
+
+    [SkippableFact]
+    public void Wt_Subcommand_Tooltips_Include_Alias()
+    {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "wt is Windows-only");
+
+        var completions = CommandCompleter.GetCompletions("wt").ToList();
+
+        // Verify that commands with aliases show the alias in their tooltip
+        var newTab = completions.FirstOrDefault(x => x.CompletionText == "new-tab");
+        Assert.NotNull(newTab);
+        Assert.Contains("alias: nt", newTab.Tooltip);
+
+        var splitPane = completions.FirstOrDefault(x => x.CompletionText == "split-pane");
+        Assert.NotNull(splitPane);
+        Assert.Contains("alias: sp", splitPane.Tooltip);
+
+        var focusTab = completions.FirstOrDefault(x => x.CompletionText == "focus-tab");
+        Assert.NotNull(focusTab);
+        Assert.Contains("alias: ft", focusTab.Tooltip);
+
+        var moveFocus = completions.FirstOrDefault(x => x.CompletionText == "move-focus");
+        Assert.NotNull(moveFocus);
+        Assert.Contains("alias: mf", moveFocus.Tooltip);
+
+        var movePane = completions.FirstOrDefault(x => x.CompletionText == "move-pane");
+        Assert.NotNull(movePane);
+        Assert.Contains("alias: mp", movePane.Tooltip);
+
+        var focusPane = completions.FirstOrDefault(x => x.CompletionText == "focus-pane");
+        Assert.NotNull(focusPane);
+        Assert.Contains("alias: fp", focusPane.Tooltip);
+    }
 }
