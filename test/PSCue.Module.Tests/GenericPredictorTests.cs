@@ -105,8 +105,11 @@ public class GenericPredictorTests
 
         // Assert
         Assert.NotEmpty(suggestions);
-        Assert.All(suggestions, s => Assert.NotNull(s.Description));
-        Assert.All(suggestions, s => Assert.NotEmpty(s.Description!));
+        Assert.All(suggestions, s =>
+        {
+            Assert.NotNull(s.Description);
+            Assert.NotEmpty(s.Description);
+        });
     }
 
     [Fact]
