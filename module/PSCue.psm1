@@ -76,6 +76,7 @@ $SupportedCommands = @(
     'tre'
     'lsd'
     'dust'
+    'wt'
 )
 
 # Debug: Log registration
