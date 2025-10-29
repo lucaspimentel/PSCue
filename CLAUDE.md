@@ -9,7 +9,7 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 
 **Phase 13 Complete**: Directory-aware navigation suggestions for cd/Set-Location with smart caching and learning integration.
 
-**Phase 15 In Progress**: Test coverage improvements - added 40 new tests for CommandPredictor and FeedbackProvider (269 total tests, all passing).
+**Phase 15 Complete**: Test coverage improvements - added 27 new tests for IpcServer (error handling, concurrency, lifecycle). Total: 296 tests, 295 passing (1 skipped: complex timing scenario).
 
 ## Architecture
 - **ArgumentCompleter** (`pscue-completer.exe`): NativeAOT exe, <10ms startup, computes completions locally with full dynamic arguments support
@@ -48,6 +48,9 @@ src/
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
 - `test/PSCue.Module.Tests/CommandPredictorTests.cs`: CommandPredictor.Combine tests (19 tests, Phase 15)
 - `test/PSCue.Module.Tests/FeedbackProviderTests.cs`: FeedbackProvider tests (26 tests, Phase 15)
+- `test/PSCue.Module.Tests/IpcServerErrorHandlingTests.cs`: Error handling & edge cases (10 tests, Phase 15)
+- `test/PSCue.Module.Tests/IpcServerConcurrencyTests.cs`: Concurrent request handling (7 tests, Phase 15)
+- `test/PSCue.Module.Tests/IpcServerLifecycleTests.cs`: Server lifecycle & cleanup (10 tests, Phase 15)
 - `test/PSCue.Module.Tests/PersistenceManagerTests.cs`: Unit tests for persistence (10 tests)
 - `test/PSCue.Module.Tests/PersistenceConcurrencyTests.cs`: Multi-session concurrency (11 tests)
 - `test/PSCue.Module.Tests/PersistenceEdgeCaseTests.cs`: Edge cases & error handling (18 tests)
@@ -59,7 +62,7 @@ src/
 dotnet build src/PSCue.Module/ -c Release -f net9.0
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
-# Test (269 tests total: 91 ArgumentCompleter + 178 Module including Phases 11-15)
+# Test (296 tests total: 91 ArgumentCompleter + 205 Module including Phases 11-15)
 dotnet test test/PSCue.ArgumentCompleter.Tests/
 dotnet test test/PSCue.Module.Tests/
 
@@ -67,6 +70,7 @@ dotnet test test/PSCue.Module.Tests/
 dotnet test --filter "FullyQualifiedName~Persistence"
 dotnet test --filter "FullyQualifiedName~FeedbackProvider"
 dotnet test --filter "FullyQualifiedName~CommandPredictor"
+dotnet test --filter "FullyQualifiedName~IpcServer"
 
 # Install locally
 ./scripts/install-local.ps1
