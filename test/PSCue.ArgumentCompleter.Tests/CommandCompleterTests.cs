@@ -1,5 +1,5 @@
+using System.Linq;
 using System.Runtime.InteropServices;
-using FluentAssertions;
 using PSCue.Shared;
 
 namespace PSCue.ArgumentCompleter.Tests;
@@ -11,11 +11,11 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "scoop is Windows-only");
 
-        CommandCompleter.GetCompletions("scoop")
-                        .Should().Contain(x => x.CompletionText == "install")
-                        .And.Contain(x => x.CompletionText == "update")
-                        .And.Contain(x => x.CompletionText == "status")
-                        .And.Contain(x => x.CompletionText == "checkup");
+        var completions = CommandCompleter.GetCompletions("scoop").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "install");
+        Assert.Contains(completions, x => x.CompletionText == "update");
+        Assert.Contains(completions, x => x.CompletionText == "status");
+        Assert.Contains(completions, x => x.CompletionText == "checkup");
     }
 
     [SkippableFact]
@@ -23,9 +23,9 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "scoop is Windows-only");
 
-        CommandCompleter.GetCompletions("scoop in")
-                        .Should().Contain(x => x.CompletionText == "install")
-                        .And.Contain(x => x.CompletionText == "info");
+        var completions = CommandCompleter.GetCompletions("scoop in").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "install");
+        Assert.Contains(completions, x => x.CompletionText == "info");
     }
 
     [SkippableFact]
@@ -33,35 +33,35 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "scoop is Windows-only");
 
-        CommandCompleter.GetCompletions("scoop up")
-                        .Should().ContainSingle()
-                        .Which.CompletionText.Should().Be("update");
+        var completions = CommandCompleter.GetCompletions("scoop up").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("update", item.CompletionText);
     }
 
     [Fact(Skip = "Requires scoop to be installed with specific packages")]
     public void Scoop_Update_All()
     {
-        CommandCompleter.GetCompletions("scoop update")
-                        .Should().HaveCountGreaterThanOrEqualTo(2)
-                        .And.ContainSingle(x => x.CompletionText == "*");
+        var completions = CommandCompleter.GetCompletions("scoop update").ToList();
+        Assert.True(completions.Count >= 2);
+        var item = Assert.Single(completions, x => x.CompletionText == "*");
     }
 
     [Fact(Skip = "Requires scoop to be installed with zoxide package")]
     public void Scoop_Update_z()
     {
-        CommandCompleter.GetCompletions("scoop update z")
-                        .Should().ContainSingle()
-                        .Which.CompletionText.Should().Be("zoxide");
+        var completions = CommandCompleter.GetCompletions("scoop update z").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("zoxide", item.CompletionText);
     }
 
     [Fact(Skip = "Requires scoop to be installed with bat, bottom, and broot packages")]
     public void Scoop_Update_b()
     {
-        CommandCompleter.GetCompletions("scoop update b")
-                        .Should().HaveCount(3)
-                        .And.ContainSingle(x => x.CompletionText == "bat")
-                        .And.ContainSingle(x => x.CompletionText == "bottom")
-                        .And.ContainSingle(x => x.CompletionText == "broot");
+        var completions = CommandCompleter.GetCompletions("scoop update b").ToList();
+        Assert.Equal(3, completions.Count);
+        Assert.Single(completions, x => x.CompletionText == "bat");
+        Assert.Single(completions, x => x.CompletionText == "bottom");
+        Assert.Single(completions, x => x.CompletionText == "broot");
     }
 
     [SkippableFact]
@@ -69,9 +69,9 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "scoop is Windows-only");
 
-        CommandCompleter.GetCompletions("scoop st")
-                        .Should().ContainSingle()
-                        .Which.CompletionText.Should().Be("status");
+        var completions = CommandCompleter.GetCompletions("scoop st").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("status", item.CompletionText);
     }
 
     [SkippableFact]
@@ -79,289 +79,289 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "scoop is Windows-only");
 
-        CommandCompleter.GetCompletions("scoop ch")
-                        .Should().ContainSingle()
-                        .Which.CompletionText.Should().Be("checkup");
+        var completions = CommandCompleter.GetCompletions("scoop ch").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("checkup", item.CompletionText);
     }
 
     [Fact]
     public void Git()
     {
-        CommandCompleter.GetCompletions("git")
-                        .Should().Contain(x => x.CompletionText == "add")
-                        .And.Contain(x => x.CompletionText == "commit")
-                        .And.Contain(x => x.CompletionText == "push")
-                        .And.Contain(x => x.CompletionText == "pull")
-                        .And.Contain(x => x.CompletionText == "status")
-                        .And.Contain(x => x.CompletionText == "branch")
-                        .And.Contain(x => x.CompletionText == "checkout");
+        var completions = CommandCompleter.GetCompletions("git").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "add");
+        Assert.Contains(completions, x => x.CompletionText == "commit");
+        Assert.Contains(completions, x => x.CompletionText == "push");
+        Assert.Contains(completions, x => x.CompletionText == "pull");
+        Assert.Contains(completions, x => x.CompletionText == "status");
+        Assert.Contains(completions, x => x.CompletionText == "branch");
+        Assert.Contains(completions, x => x.CompletionText == "checkout");
     }
 
     [Fact]
     public void Git_Add()
     {
-        CommandCompleter.GetCompletions("git ad")
-                        .Should().ContainSingle()
-                        .Which.CompletionText.Should().Be("add");
+        var completions = CommandCompleter.GetCompletions("git ad").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("add", item.CompletionText);
     }
 
     [Fact]
     public void Git_Add_Parameters()
     {
-        CommandCompleter.GetCompletions("git add")
-                        .Should().Contain(x => x.CompletionText == "--all")
-                        .And.Contain(x => x.CompletionText == "--patch")
-                        .And.Contain(x => x.CompletionText == ".");
+        var completions = CommandCompleter.GetCompletions("git add").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--all");
+        Assert.Contains(completions, x => x.CompletionText == "--patch");
+        Assert.Contains(completions, x => x.CompletionText == ".");
     }
 
     [Fact]
     public void Git_Commit()
     {
-        CommandCompleter.GetCompletions("git com")
-                        .Should().ContainSingle()
-                        .Which.CompletionText.Should().Be("commit");
+        var completions = CommandCompleter.GetCompletions("git com").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("commit", item.CompletionText);
     }
 
     [Fact]
     public void Git_Commit_Parameters()
     {
-        CommandCompleter.GetCompletions("git commit")
-                        .Should().Contain(x => x.CompletionText == "--all")
-                        .And.Contain(x => x.CompletionText == "--amend")
-                        .And.Contain(x => x.CompletionText == "--message");
+        var completions = CommandCompleter.GetCompletions("git commit").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--all");
+        Assert.Contains(completions, x => x.CompletionText == "--amend");
+        Assert.Contains(completions, x => x.CompletionText == "--message");
     }
 
     [Fact]
     public void Git_Commit_MultipleParameters()
     {
-        CommandCompleter.GetCompletions("git commit -a -")
-                        .Should().Contain(x => x.CompletionText == "--message")
-                        .And.Contain(x => x.CompletionText == "--amend");
+        var completions = CommandCompleter.GetCompletions("git commit -a -").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--message");
+        Assert.Contains(completions, x => x.CompletionText == "--amend");
     }
 
     [Fact]
     public void Git_Stash()
     {
-        CommandCompleter.GetCompletions("git st")
-                        .Should().HaveCount(2)
-                        .And.Contain(x => x.CompletionText == "stash")
-                        .And.Contain(x => x.CompletionText == "status");
+        var completions = CommandCompleter.GetCompletions("git st").ToList();
+        Assert.Equal(2, completions.Count);
+        Assert.Contains(completions, x => x.CompletionText == "stash");
+        Assert.Contains(completions, x => x.CompletionText == "status");
     }
 
     [Fact]
     public void Git_Stash_Subcommands()
     {
-        CommandCompleter.GetCompletions("git stash")
-                        .Should().Contain(x => x.CompletionText == "push")
-                        .And.Contain(x => x.CompletionText == "pop")
-                        .And.Contain(x => x.CompletionText == "apply")
-                        .And.Contain(x => x.CompletionText == "list")
-                        .And.Contain(x => x.CompletionText == "clear");
+        var completions = CommandCompleter.GetCompletions("git stash").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "push");
+        Assert.Contains(completions, x => x.CompletionText == "pop");
+        Assert.Contains(completions, x => x.CompletionText == "apply");
+        Assert.Contains(completions, x => x.CompletionText == "list");
+        Assert.Contains(completions, x => x.CompletionText == "clear");
     }
 
     [Fact]
     public void Gh()
     {
-        CommandCompleter.GetCompletions("gh")
-                        .Should().Contain(x => x.CompletionText == "auth")
-                        .And.Contain(x => x.CompletionText == "repo")
-                        .And.Contain(x => x.CompletionText == "pr")
-                        .And.Contain(x => x.CompletionText == "issue")
-                        .And.Contain(x => x.CompletionText == "release");
+        var completions = CommandCompleter.GetCompletions("gh").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "auth");
+        Assert.Contains(completions, x => x.CompletionText == "repo");
+        Assert.Contains(completions, x => x.CompletionText == "pr");
+        Assert.Contains(completions, x => x.CompletionText == "issue");
+        Assert.Contains(completions, x => x.CompletionText == "release");
     }
 
     [Fact]
     public void Gh_Repo()
     {
-        CommandCompleter.GetCompletions("gh repo")
-                        .Should().Contain(x => x.CompletionText == "clone")
-                        .And.Contain(x => x.CompletionText == "create")
-                        .And.Contain(x => x.CompletionText == "list");
+        var completions = CommandCompleter.GetCompletions("gh repo").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "clone");
+        Assert.Contains(completions, x => x.CompletionText == "create");
+        Assert.Contains(completions, x => x.CompletionText == "list");
     }
 
     [Fact]
     public void Gh_Repo_Clone()
     {
-        CommandCompleter.GetCompletions("gh repo cl")
-                        .Should().ContainSingle()
-                        .Which.CompletionText.Should().Be("clone");
+        var completions = CommandCompleter.GetCompletions("gh repo cl").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("clone", item.CompletionText);
     }
 
     [Fact]
     public void Gh_Auth()
     {
-        CommandCompleter.GetCompletions("gh auth")
-                        .Should().Contain(x => x.CompletionText == "login")
-                        .And.Contain(x => x.CompletionText == "logout")
-                        .And.Contain(x => x.CompletionText == "status");
+        var completions = CommandCompleter.GetCompletions("gh auth").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "login");
+        Assert.Contains(completions, x => x.CompletionText == "logout");
+        Assert.Contains(completions, x => x.CompletionText == "status");
     }
 
     [Fact]
     public void Gh_Auth_Login()
     {
-        CommandCompleter.GetCompletions("gh auth login")
-                        .Should().Contain(x => x.CompletionText == "--web")
-                        .And.Contain(x => x.CompletionText == "--hostname");
+        var completions = CommandCompleter.GetCompletions("gh auth login").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--web");
+        Assert.Contains(completions, x => x.CompletionText == "--hostname");
     }
 
     [Fact]
     public void Gh_Pr()
     {
-        CommandCompleter.GetCompletions("gh pr")
-                        .Should().Contain(x => x.CompletionText == "create")
-                        .And.Contain(x => x.CompletionText == "list")
-                        .And.Contain(x => x.CompletionText == "view")
-                        .And.Contain(x => x.CompletionText == "checkout")
-                        .And.Contain(x => x.CompletionText == "checks")
-                        .And.Contain(x => x.CompletionText == "diff");
+        var completions = CommandCompleter.GetCompletions("gh pr").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "create");
+        Assert.Contains(completions, x => x.CompletionText == "list");
+        Assert.Contains(completions, x => x.CompletionText == "view");
+        Assert.Contains(completions, x => x.CompletionText == "checkout");
+        Assert.Contains(completions, x => x.CompletionText == "checks");
+        Assert.Contains(completions, x => x.CompletionText == "diff");
     }
 
     [Fact]
     public void Gh_Pr_View()
     {
-        CommandCompleter.GetCompletions("gh pr v")
-                        .Should().ContainSingle()
-                        .Which.CompletionText.Should().Be("view");
+        var completions = CommandCompleter.GetCompletions("gh pr v").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("view", item.CompletionText);
     }
 
     [Fact]
     public void Gh_Pr_View_Parameters()
     {
-        CommandCompleter.GetCompletions("gh pr view")
-                        .Should().Contain(x => x.CompletionText == "--web")
-                        .And.Contain(x => x.CompletionText == "--comments");
+        var completions = CommandCompleter.GetCompletions("gh pr view").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--web");
+        Assert.Contains(completions, x => x.CompletionText == "--comments");
     }
 
     [Fact]
     public void Gh_Pr_Checks()
     {
-        CommandCompleter.GetCompletions("gh pr checks")
-                        .Should().Contain(x => x.CompletionText == "--web");
+        var completions = CommandCompleter.GetCompletions("gh pr checks").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--web");
     }
 
     [Fact]
     public void Gh_Pr_Diff()
     {
-        CommandCompleter.GetCompletions("gh pr di")
-                        .Should().ContainSingle()
-                        .Which.CompletionText.Should().Be("diff");
+        var completions = CommandCompleter.GetCompletions("gh pr di").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("diff", item.CompletionText);
     }
 
     [Fact]
     public void Tre()
     {
-        CommandCompleter.GetCompletions("tre")
-                        .Should().Contain(x => x.CompletionText == "--all")
-                        .And.Contain(x => x.CompletionText == "--directories")
-                        .And.Contain(x => x.CompletionText == "--json");
+        var completions = CommandCompleter.GetCompletions("tre").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--all");
+        Assert.Contains(completions, x => x.CompletionText == "--directories");
+        Assert.Contains(completions, x => x.CompletionText == "--json");
     }
 
     [Fact]
     public void Tre_All()
     {
-        CommandCompleter.GetCompletions("tre --a")
-                        .Should().ContainSingle()
-                        .Which.CompletionText.Should().Be("--all");
+        var completions = CommandCompleter.GetCompletions("tre --a").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("--all", item.CompletionText);
     }
 
     [Fact]
     public void Tre_Color()
     {
-        CommandCompleter.GetCompletions("tre --color")
-                        .Should().Contain(x => x.CompletionText == "automatic")
-                        .And.Contain(x => x.CompletionText == "always")
-                        .And.Contain(x => x.CompletionText == "never");
+        var completions = CommandCompleter.GetCompletions("tre --color").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "automatic");
+        Assert.Contains(completions, x => x.CompletionText == "always");
+        Assert.Contains(completions, x => x.CompletionText == "never");
     }
 
     [Fact]
     public void Tre_MultipleParameters()
     {
-        CommandCompleter.GetCompletions("tre --all --")
-                        .Should().Contain(x => x.CompletionText == "--directories")
-                        .And.Contain(x => x.CompletionText == "--json")
-                        .And.Contain(x => x.CompletionText == "--limit");
+        var completions = CommandCompleter.GetCompletions("tre --all --").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--directories");
+        Assert.Contains(completions, x => x.CompletionText == "--json");
+        Assert.Contains(completions, x => x.CompletionText == "--limit");
     }
 
     [Fact]
     public void Lsd()
     {
-        CommandCompleter.GetCompletions("lsd")
-            .Should().Contain(x => x.CompletionText == "--all")
-            .And.Contain(x => x.CompletionText == "--long")
-            .And.Contain(x => x.CompletionText == "--tree")
-            .And.Contain(x => x.CompletionText == "--help");
+        var completions = CommandCompleter.GetCompletions("lsd").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--all");
+        Assert.Contains(completions, x => x.CompletionText == "--long");
+        Assert.Contains(completions, x => x.CompletionText == "--tree");
+        Assert.Contains(completions, x => x.CompletionText == "--help");
     }
 
     [Fact]
     public void Lsd_Color()
     {
-        CommandCompleter.GetCompletions("lsd --color")
-            .Should().Contain(x => x.CompletionText == "always")
-            .And.Contain(x => x.CompletionText == "auto")
-            .And.Contain(x => x.CompletionText == "never");
+        var completions = CommandCompleter.GetCompletions("lsd --color").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "always");
+        Assert.Contains(completions, x => x.CompletionText == "auto");
+        Assert.Contains(completions, x => x.CompletionText == "never");
     }
 
     [Fact]
     public void Lsd_Icon()
     {
-        CommandCompleter.GetCompletions("lsd --icon")
-            .Should().Contain(x => x.CompletionText == "always")
-            .And.Contain(x => x.CompletionText == "auto")
-            .And.Contain(x => x.CompletionText == "never");
+        var completions = CommandCompleter.GetCompletions("lsd --icon").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "always");
+        Assert.Contains(completions, x => x.CompletionText == "auto");
+        Assert.Contains(completions, x => x.CompletionText == "never");
     }
 
     [Fact]
     public void Lsd_Sort()
     {
-        CommandCompleter.GetCompletions("lsd --sort")
-            .Should().Contain(x => x.CompletionText == "size")
-            .And.Contain(x => x.CompletionText == "time")
-            .And.Contain(x => x.CompletionText == "version")
-            .And.Contain(x => x.CompletionText == "extension")
-            .And.Contain(x => x.CompletionText == "git")
-            .And.Contain(x => x.CompletionText == "none");
+        var completions = CommandCompleter.GetCompletions("lsd --sort").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "size");
+        Assert.Contains(completions, x => x.CompletionText == "time");
+        Assert.Contains(completions, x => x.CompletionText == "version");
+        Assert.Contains(completions, x => x.CompletionText == "extension");
+        Assert.Contains(completions, x => x.CompletionText == "git");
+        Assert.Contains(completions, x => x.CompletionText == "none");
     }
 
     [Fact]
     public void Lsd_Permission()
     {
-        CommandCompleter.GetCompletions("lsd --permission")
-            .Should().Contain(x => x.CompletionText == "rwx")
-            .And.Contain(x => x.CompletionText == "octal")
-            .And.Contain(x => x.CompletionText == "attributes")
-            .And.Contain(x => x.CompletionText == "disable");
+        var completions = CommandCompleter.GetCompletions("lsd --permission").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "rwx");
+        Assert.Contains(completions, x => x.CompletionText == "octal");
+        Assert.Contains(completions, x => x.CompletionText == "attributes");
+        Assert.Contains(completions, x => x.CompletionText == "disable");
     }
 
     [Fact]
     public void Dust()
     {
-        CommandCompleter.GetCompletions("dust")
-            .Should().Contain(x => x.CompletionText == "--depth")
-            .And.Contain(x => x.CompletionText == "--number-of-lines")
-            .And.Contain(x => x.CompletionText == "--help");
+        var completions = CommandCompleter.GetCompletions("dust").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--depth");
+        Assert.Contains(completions, x => x.CompletionText == "--number-of-lines");
+        Assert.Contains(completions, x => x.CompletionText == "--help");
     }
 
     [Fact]
     public void Dust_OutputFormat()
     {
-        CommandCompleter.GetCompletions("dust --output-format")
-            .Should().Contain(x => x.CompletionText == "si")
-            .And.Contain(x => x.CompletionText == "b")
-            .And.Contain(x => x.CompletionText == "k")
-            .And.Contain(x => x.CompletionText == "m")
-            .And.Contain(x => x.CompletionText == "g")
-            .And.Contain(x => x.CompletionText == "kb")
-            .And.Contain(x => x.CompletionText == "mb")
-            .And.Contain(x => x.CompletionText == "gb");
+        var completions = CommandCompleter.GetCompletions("dust --output-format").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "si");
+        Assert.Contains(completions, x => x.CompletionText == "b");
+        Assert.Contains(completions, x => x.CompletionText == "k");
+        Assert.Contains(completions, x => x.CompletionText == "m");
+        Assert.Contains(completions, x => x.CompletionText == "g");
+        Assert.Contains(completions, x => x.CompletionText == "kb");
+        Assert.Contains(completions, x => x.CompletionText == "mb");
+        Assert.Contains(completions, x => x.CompletionText == "gb");
     }
 
     [Fact]
     public void Dust_Filetime()
     {
-        CommandCompleter.GetCompletions("dust --filetime")
-            .Should().Contain(x => x.CompletionText == "a")
-            .And.Contain(x => x.CompletionText == "c")
-            .And.Contain(x => x.CompletionText == "m");
+        var completions = CommandCompleter.GetCompletions("dust --filetime").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "a");
+        Assert.Contains(completions, x => x.CompletionText == "c");
+        Assert.Contains(completions, x => x.CompletionText == "m");
     }
 
     [SkippableFact]
@@ -369,18 +369,18 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget")
-            .Should().Contain(x => x.CompletionText == "install")
-            .And.Contain(x => x.CompletionText == "search")
-            .And.Contain(x => x.CompletionText == "upgrade")
-            .And.Contain(x => x.CompletionText == "uninstall")
-            .And.Contain(x => x.CompletionText == "list")
-            .And.Contain(x => x.CompletionText == "show")
-            .And.Contain(x => x.CompletionText == "source")
-            .And.Contain(x => x.CompletionText == "pin")
-            .And.Contain(x => x.CompletionText == "export")
-            .And.Contain(x => x.CompletionText == "import")
-            .And.Contain(x => x.CompletionText == "download");
+        var completions = CommandCompleter.GetCompletions("winget").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "install");
+        Assert.Contains(completions, x => x.CompletionText == "search");
+        Assert.Contains(completions, x => x.CompletionText == "upgrade");
+        Assert.Contains(completions, x => x.CompletionText == "uninstall");
+        Assert.Contains(completions, x => x.CompletionText == "list");
+        Assert.Contains(completions, x => x.CompletionText == "show");
+        Assert.Contains(completions, x => x.CompletionText == "source");
+        Assert.Contains(completions, x => x.CompletionText == "pin");
+        Assert.Contains(completions, x => x.CompletionText == "export");
+        Assert.Contains(completions, x => x.CompletionText == "import");
+        Assert.Contains(completions, x => x.CompletionText == "download");
     }
 
     [SkippableFact]
@@ -388,9 +388,9 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget ins")
-            .Should().ContainSingle()
-            .Which.CompletionText.Should().Be("install");
+        var completions = CommandCompleter.GetCompletions("winget ins").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("install", item.CompletionText);
     }
 
     [SkippableFact]
@@ -398,14 +398,14 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget install")
-            .Should().Contain(x => x.CompletionText == "--silent")
-            .And.Contain(x => x.CompletionText == "--interactive")
-            .And.Contain(x => x.CompletionText == "--scope")
-            .And.Contain(x => x.CompletionText == "--architecture")
-            .And.Contain(x => x.CompletionText == "--version")
-            .And.Contain(x => x.CompletionText == "--source")
-            .And.Contain(x => x.CompletionText == "--exact");
+        var completions = CommandCompleter.GetCompletions("winget install").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--silent");
+        Assert.Contains(completions, x => x.CompletionText == "--interactive");
+        Assert.Contains(completions, x => x.CompletionText == "--scope");
+        Assert.Contains(completions, x => x.CompletionText == "--architecture");
+        Assert.Contains(completions, x => x.CompletionText == "--version");
+        Assert.Contains(completions, x => x.CompletionText == "--source");
+        Assert.Contains(completions, x => x.CompletionText == "--exact");
     }
 
     [SkippableFact]
@@ -413,9 +413,9 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget install --scope")
-            .Should().Contain(x => x.CompletionText == "user")
-            .And.Contain(x => x.CompletionText == "machine");
+        var completions = CommandCompleter.GetCompletions("winget install --scope").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "user");
+        Assert.Contains(completions, x => x.CompletionText == "machine");
     }
 
     [SkippableFact]
@@ -423,11 +423,11 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget install --architecture")
-            .Should().Contain(x => x.CompletionText == "x86")
-            .And.Contain(x => x.CompletionText == "x64")
-            .And.Contain(x => x.CompletionText == "arm")
-            .And.Contain(x => x.CompletionText == "arm64");
+        var completions = CommandCompleter.GetCompletions("winget install --architecture").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "x86");
+        Assert.Contains(completions, x => x.CompletionText == "x64");
+        Assert.Contains(completions, x => x.CompletionText == "arm");
+        Assert.Contains(completions, x => x.CompletionText == "arm64");
     }
 
     [SkippableFact]
@@ -435,11 +435,11 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget install --installer-type")
-            .Should().Contain(x => x.CompletionText == "msix")
-            .And.Contain(x => x.CompletionText == "msi")
-            .And.Contain(x => x.CompletionText == "exe")
-            .And.Contain(x => x.CompletionText == "portable");
+        var completions = CommandCompleter.GetCompletions("winget install --installer-type").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "msix");
+        Assert.Contains(completions, x => x.CompletionText == "msi");
+        Assert.Contains(completions, x => x.CompletionText == "exe");
+        Assert.Contains(completions, x => x.CompletionText == "portable");
     }
 
     [SkippableFact]
@@ -447,9 +447,9 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget upg")
-            .Should().ContainSingle()
-            .Which.CompletionText.Should().Be("upgrade");
+        var completions = CommandCompleter.GetCompletions("winget upg").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("upgrade", item.CompletionText);
     }
 
     [SkippableFact]
@@ -457,12 +457,12 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget upgrade")
-            .Should().Contain(x => x.CompletionText == "--all")
-            .And.Contain(x => x.CompletionText == "--silent")
-            .And.Contain(x => x.CompletionText == "--interactive")
-            .And.Contain(x => x.CompletionText == "--include-unknown")
-            .And.Contain(x => x.CompletionText == "--include-pinned");
+        var completions = CommandCompleter.GetCompletions("winget upgrade").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--all");
+        Assert.Contains(completions, x => x.CompletionText == "--silent");
+        Assert.Contains(completions, x => x.CompletionText == "--interactive");
+        Assert.Contains(completions, x => x.CompletionText == "--include-unknown");
+        Assert.Contains(completions, x => x.CompletionText == "--include-pinned");
     }
 
     [SkippableFact]
@@ -470,9 +470,9 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget uni")
-            .Should().ContainSingle()
-            .Which.CompletionText.Should().Be("uninstall");
+        var completions = CommandCompleter.GetCompletions("winget uni").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("uninstall", item.CompletionText);
     }
 
     [SkippableFact]
@@ -480,11 +480,11 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget uninstall")
-            .Should().Contain(x => x.CompletionText == "--silent")
-            .And.Contain(x => x.CompletionText == "--force")
-            .And.Contain(x => x.CompletionText == "--purge")
-            .And.Contain(x => x.CompletionText == "--preserve");
+        var completions = CommandCompleter.GetCompletions("winget uninstall").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--silent");
+        Assert.Contains(completions, x => x.CompletionText == "--force");
+        Assert.Contains(completions, x => x.CompletionText == "--purge");
+        Assert.Contains(completions, x => x.CompletionText == "--preserve");
     }
 
     [SkippableFact]
@@ -492,9 +492,9 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget sea")
-            .Should().ContainSingle()
-            .Which.CompletionText.Should().Be("search");
+        var completions = CommandCompleter.GetCompletions("winget sea").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("search", item.CompletionText);
     }
 
     [SkippableFact]
@@ -502,12 +502,12 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget search")
-            .Should().Contain(x => x.CompletionText == "--name")
-            .And.Contain(x => x.CompletionText == "--id")
-            .And.Contain(x => x.CompletionText == "--tag")
-            .And.Contain(x => x.CompletionText == "--exact")
-            .And.Contain(x => x.CompletionText == "--count");
+        var completions = CommandCompleter.GetCompletions("winget search").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--name");
+        Assert.Contains(completions, x => x.CompletionText == "--id");
+        Assert.Contains(completions, x => x.CompletionText == "--tag");
+        Assert.Contains(completions, x => x.CompletionText == "--exact");
+        Assert.Contains(completions, x => x.CompletionText == "--count");
     }
 
     [SkippableFact]
@@ -515,9 +515,9 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget li")
-            .Should().ContainSingle()
-            .Which.CompletionText.Should().Be("list");
+        var completions = CommandCompleter.GetCompletions("winget li").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("list", item.CompletionText);
     }
 
     [SkippableFact]
@@ -525,10 +525,10 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget list")
-            .Should().Contain(x => x.CompletionText == "--upgrade-available")
-            .And.Contain(x => x.CompletionText == "--include-unknown")
-            .And.Contain(x => x.CompletionText == "--source");
+        var completions = CommandCompleter.GetCompletions("winget list").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--upgrade-available");
+        Assert.Contains(completions, x => x.CompletionText == "--include-unknown");
+        Assert.Contains(completions, x => x.CompletionText == "--source");
     }
 
     [SkippableFact]
@@ -536,9 +536,9 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget sh")
-            .Should().ContainSingle()
-            .Which.CompletionText.Should().Be("show");
+        var completions = CommandCompleter.GetCompletions("winget sh").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("show", item.CompletionText);
     }
 
     [SkippableFact]
@@ -546,11 +546,11 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget show")
-            .Should().Contain(x => x.CompletionText == "--name")
-            .And.Contain(x => x.CompletionText == "--id")
-            .And.Contain(x => x.CompletionText == "--versions")
-            .And.Contain(x => x.CompletionText == "--exact");
+        var completions = CommandCompleter.GetCompletions("winget show").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--name");
+        Assert.Contains(completions, x => x.CompletionText == "--id");
+        Assert.Contains(completions, x => x.CompletionText == "--versions");
+        Assert.Contains(completions, x => x.CompletionText == "--exact");
     }
 
     [SkippableFact]
@@ -558,9 +558,9 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget sou")
-            .Should().ContainSingle()
-            .Which.CompletionText.Should().Be("source");
+        var completions = CommandCompleter.GetCompletions("winget sou").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("source", item.CompletionText);
     }
 
     [SkippableFact]
@@ -568,13 +568,13 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget source")
-            .Should().Contain(x => x.CompletionText == "add")
-            .And.Contain(x => x.CompletionText == "list")
-            .And.Contain(x => x.CompletionText == "update")
-            .And.Contain(x => x.CompletionText == "remove")
-            .And.Contain(x => x.CompletionText == "reset")
-            .And.Contain(x => x.CompletionText == "export");
+        var completions = CommandCompleter.GetCompletions("winget source").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "add");
+        Assert.Contains(completions, x => x.CompletionText == "list");
+        Assert.Contains(completions, x => x.CompletionText == "update");
+        Assert.Contains(completions, x => x.CompletionText == "remove");
+        Assert.Contains(completions, x => x.CompletionText == "reset");
+        Assert.Contains(completions, x => x.CompletionText == "export");
     }
 
     [SkippableFact]
@@ -582,9 +582,9 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget pi")
-            .Should().ContainSingle()
-            .Which.CompletionText.Should().Be("pin");
+        var completions = CommandCompleter.GetCompletions("winget pi").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("pin", item.CompletionText);
     }
 
     [SkippableFact]
@@ -592,11 +592,11 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget pin")
-            .Should().Contain(x => x.CompletionText == "add")
-            .And.Contain(x => x.CompletionText == "remove")
-            .And.Contain(x => x.CompletionText == "list")
-            .And.Contain(x => x.CompletionText == "reset");
+        var completions = CommandCompleter.GetCompletions("winget pin").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "add");
+        Assert.Contains(completions, x => x.CompletionText == "remove");
+        Assert.Contains(completions, x => x.CompletionText == "list");
+        Assert.Contains(completions, x => x.CompletionText == "reset");
     }
 
     [SkippableFact]
@@ -604,9 +604,9 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget exp")
-            .Should().ContainSingle()
-            .Which.CompletionText.Should().Be("export");
+        var completions = CommandCompleter.GetCompletions("winget exp").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("export", item.CompletionText);
     }
 
     [SkippableFact]
@@ -614,10 +614,10 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget export")
-            .Should().Contain(x => x.CompletionText == "--output")
-            .And.Contain(x => x.CompletionText == "--source")
-            .And.Contain(x => x.CompletionText == "--include-versions");
+        var completions = CommandCompleter.GetCompletions("winget export").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--output");
+        Assert.Contains(completions, x => x.CompletionText == "--source");
+        Assert.Contains(completions, x => x.CompletionText == "--include-versions");
     }
 
     [SkippableFact]
@@ -625,9 +625,9 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget imp")
-            .Should().ContainSingle()
-            .Which.CompletionText.Should().Be("import");
+        var completions = CommandCompleter.GetCompletions("winget imp").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("import", item.CompletionText);
     }
 
     [SkippableFact]
@@ -635,10 +635,10 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget import")
-            .Should().Contain(x => x.CompletionText == "--import-file")
-            .And.Contain(x => x.CompletionText == "--ignore-unavailable")
-            .And.Contain(x => x.CompletionText == "--ignore-versions");
+        var completions = CommandCompleter.GetCompletions("winget import").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--import-file");
+        Assert.Contains(completions, x => x.CompletionText == "--ignore-unavailable");
+        Assert.Contains(completions, x => x.CompletionText == "--ignore-versions");
     }
 
     [SkippableFact]
@@ -646,9 +646,9 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget dow")
-            .Should().ContainSingle()
-            .Which.CompletionText.Should().Be("download");
+        var completions = CommandCompleter.GetCompletions("winget dow").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("download", item.CompletionText);
     }
 
     [SkippableFact]
@@ -656,10 +656,10 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget download")
-            .Should().Contain(x => x.CompletionText == "--download-directory")
-            .And.Contain(x => x.CompletionText == "--id")
-            .And.Contain(x => x.CompletionText == "--version");
+        var completions = CommandCompleter.GetCompletions("winget download").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--download-directory");
+        Assert.Contains(completions, x => x.CompletionText == "--id");
+        Assert.Contains(completions, x => x.CompletionText == "--version");
     }
 
     [SkippableFact]
@@ -667,9 +667,9 @@ public class CommandCompleterTests
     {
         Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "winget is Windows-only");
 
-        CommandCompleter.GetCompletions("winget install --silent --")
-            .Should().Contain(x => x.CompletionText == "--scope")
-            .And.Contain(x => x.CompletionText == "--architecture")
-            .And.Contain(x => x.CompletionText == "--exact");
+        var completions = CommandCompleter.GetCompletions("winget install --silent --").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--scope");
+        Assert.Contains(completions, x => x.CompletionText == "--architecture");
+        Assert.Contains(completions, x => x.CompletionText == "--exact");
     }
 }

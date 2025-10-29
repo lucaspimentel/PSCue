@@ -2,7 +2,6 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using FluentAssertions;
 using PSCue.Shared;
 using PSCue.Shared.KnownCompletions;
 using Xunit;
@@ -29,9 +28,9 @@ public class SetLocationCommandTests
     {
         var completions = CommandCompleter.GetCompletions("cd").ToList();
 
-        completions.Should().NotBeEmpty();
-        completions.Should().Contain(x => x.CompletionText == ".");
-        completions.Should().Contain(x => x.CompletionText == "..");
+        Assert.NotEmpty(completions);
+        Assert.Contains(completions, x => x.CompletionText == ".");
+        Assert.Contains(completions, x => x.CompletionText == "..");
     }
 
     [Fact]
@@ -39,9 +38,9 @@ public class SetLocationCommandTests
     {
         var completions = CommandCompleter.GetCompletions("set-location").ToList();
 
-        completions.Should().NotBeEmpty();
-        completions.Should().Contain(x => x.CompletionText == ".");
-        completions.Should().Contain(x => x.CompletionText == "..");
+        Assert.NotEmpty(completions);
+        Assert.Contains(completions, x => x.CompletionText == ".");
+        Assert.Contains(completions, x => x.CompletionText == "..");
     }
 
     [Fact]
@@ -49,9 +48,9 @@ public class SetLocationCommandTests
     {
         var completions = CommandCompleter.GetCompletions("sl").ToList();
 
-        completions.Should().NotBeEmpty();
-        completions.Should().Contain(x => x.CompletionText == ".");
-        completions.Should().Contain(x => x.CompletionText == "..");
+        Assert.NotEmpty(completions);
+        Assert.Contains(completions, x => x.CompletionText == ".");
+        Assert.Contains(completions, x => x.CompletionText == "..");
     }
 
     [Fact]
@@ -59,9 +58,9 @@ public class SetLocationCommandTests
     {
         var completions = CommandCompleter.GetCompletions("chdir").ToList();
 
-        completions.Should().NotBeEmpty();
-        completions.Should().Contain(x => x.CompletionText == ".");
-        completions.Should().Contain(x => x.CompletionText == "..");
+        Assert.NotEmpty(completions);
+        Assert.Contains(completions, x => x.CompletionText == ".");
+        Assert.Contains(completions, x => x.CompletionText == "..");
     }
 
     [Fact]
@@ -69,8 +68,8 @@ public class SetLocationCommandTests
     {
         var suggestions = SetLocationCommand.GetDirectorySuggestions("").ToList();
 
-        suggestions.Should().Contain(".");
-        suggestions.Should().Contain("..");
+        Assert.Contains(".", suggestions);
+        Assert.Contains("..", suggestions);
     }
 
     [Fact]
@@ -79,7 +78,7 @@ public class SetLocationCommandTests
         var suggestions = SetLocationCommand.GetDirectorySuggestions("").ToList();
 
         // Should contain home directory in some form
-        suggestions.Should().NotBeEmpty();
+        Assert.NotEmpty(suggestions);
     }
 
     [Fact]
@@ -92,9 +91,9 @@ public class SetLocationCommandTests
 
             var suggestions = SetLocationCommand.GetDirectorySuggestions("").ToList();
 
-            suggestions.Should().NotBeEmpty();
-            suggestions.Should().Contain(s => s.Contains("subdir1") || s == "subdir1");
-            suggestions.Should().Contain(s => s.Contains("subdir2") || s == "subdir2");
+            Assert.NotEmpty(suggestions);
+            Assert.Contains(suggestions, s => s.Contains("subdir1") || s == "subdir1");
+            Assert.Contains(suggestions, s => s.Contains("subdir2") || s == "subdir2");
         }
         finally
         {
@@ -112,10 +111,10 @@ public class SetLocationCommandTests
 
             var suggestions = SetLocationCommand.GetDirectorySuggestions("sub").ToList();
 
-            suggestions.Should().NotBeEmpty();
-            suggestions.Should().Contain(s => s.Contains("subdir1") || s == "subdir1");
-            suggestions.Should().Contain(s => s.Contains("subdir2") || s == "subdir2");
-            suggestions.Should().NotContain(s => s.Contains("src") || s == "src");
+            Assert.NotEmpty(suggestions);
+            Assert.Contains(suggestions, s => s.Contains("subdir1") || s == "subdir1");
+            Assert.Contains(suggestions, s => s.Contains("subdir2") || s == "subdir2");
+            Assert.DoesNotContain(suggestions, s => s.Contains("src") || s == "src");
         }
         finally
         {
@@ -132,7 +131,7 @@ public class SetLocationCommandTests
 
         // Should enumerate C:\ drive (if it exists and is accessible)
         // Don't assert specific directories as they vary by system
-        suggestions.Should().NotBeNull();
+        Assert.NotNull(suggestions);
     }
 
     [SkippableFact]
@@ -143,7 +142,7 @@ public class SetLocationCommandTests
         var suggestions = SetLocationCommand.GetDirectorySuggestions("/").ToList();
 
         // Should enumerate root directories
-        suggestions.Should().NotBeNull();
+        Assert.NotNull(suggestions);
     }
 
     [Fact]
@@ -152,7 +151,7 @@ public class SetLocationCommandTests
         var suggestions = SetLocationCommand.GetDirectorySuggestions("~").ToList();
 
         // Should suggest home directory subdirectories
-        suggestions.Should().NotBeNull();
+        Assert.NotNull(suggestions);
     }
 
     [Fact]
@@ -168,12 +167,12 @@ public class SetLocationCommandTests
         var suggestions = SetLocationCommand.GetDirectorySuggestions("~/").ToList();
 
         // Should expand ~ and show subdirectories
-        suggestions.Should().NotBeNull();
+        Assert.NotNull(suggestions);
         if (suggestions.Any())
         {
             // On Windows, path separator is \, on Unix it's /
             var expectedStart = IsWindows ? "~\\" : "~/";
-            suggestions.Should().AllSatisfy(s => s.Should().StartWith(expectedStart));
+            Assert.All(suggestions, s => Assert.StartsWith(expectedStart, s));
         }
     }
 
@@ -188,7 +187,7 @@ public class SetLocationCommandTests
             var suggestions = SetLocationCommand.GetDirectorySuggestions("../").ToList();
 
             // Should enumerate parent directory's subdirectories
-            suggestions.Should().NotBeNull();
+            Assert.NotNull(suggestions);
         }
         finally
         {
@@ -206,8 +205,8 @@ public class SetLocationCommandTests
 
             var suggestions = SetLocationCommand.GetDirectorySuggestions("./").ToList();
 
-            suggestions.Should().NotBeEmpty();
-            suggestions.Should().Contain(s => s.Contains("subdir1") || s == "subdir1");
+            Assert.NotEmpty(suggestions);
+            Assert.Contains(suggestions, s => s.Contains("subdir1") || s == "subdir1");
         }
         finally
         {
@@ -225,8 +224,8 @@ public class SetLocationCommandTests
 
             var suggestions = SetLocationCommand.GetDirectorySuggestions("./s").ToList();
 
-            suggestions.Should().NotBeEmpty();
-            suggestions.All(s => s.StartsWith("s", StringComparison.OrdinalIgnoreCase)).Should().BeTrue();
+            Assert.NotEmpty(suggestions);
+            Assert.True(suggestions.All(s => s.StartsWith("s", StringComparison.OrdinalIgnoreCase)));
         }
         finally
         {
@@ -245,9 +244,9 @@ public class SetLocationCommandTests
             var lower = SetLocationCommand.GetDirectorySuggestions("sub").ToList();
             var upper = SetLocationCommand.GetDirectorySuggestions("SUB").ToList();
 
-            lower.Should().NotBeEmpty();
-            upper.Should().NotBeEmpty();
-            lower.Count.Should().Be(upper.Count);
+            Assert.NotEmpty(lower);
+            Assert.NotEmpty(upper);
+            Assert.Equal(upper.Count, lower.Count);
         }
         finally
         {
@@ -275,7 +274,7 @@ public class SetLocationCommandTests
             var suggestions = SetLocationCommand.GetDirectorySuggestions("").ToList();
 
             // Should be limited to 50 results (plus common shortcuts)
-            suggestions.Count.Should().BeLessThanOrEqualTo(60); // 50 + shortcuts
+            Assert.True(suggestions.Count <= 60); // 50 + shortcuts
 
             // Cleanup
             Directory.SetCurrentDirectory(originalDir);
@@ -308,8 +307,8 @@ public class SetLocationCommandTests
             var suggestions = SetLocationCommand.GetDirectorySuggestions("").ToList();
             var elapsed = DateTime.UtcNow - startTime;
 
-            elapsed.TotalMilliseconds.Should().BeLessThan(50);
-            suggestions.Should().NotBeEmpty();
+            Assert.True(elapsed.TotalMilliseconds < 50);
+            Assert.NotEmpty(suggestions);
 
             // Cleanup
             Directory.SetCurrentDirectory(originalDir);
@@ -335,7 +334,7 @@ public class SetLocationCommandTests
             // Second call - should use cache (within 5 second TTL)
             var second = SetLocationCommand.GetDirectorySuggestions("").ToList();
 
-            first.Should().BeEquivalentTo(second);
+            Assert.Equal(first, second);
         }
         finally
         {
@@ -348,7 +347,7 @@ public class SetLocationCommandTests
     {
         var suggestions = SetLocationCommand.GetDirectorySuggestions("/nonexistent/path/that/does/not/exist").ToList();
 
-        suggestions.Should().BeEmpty();
+        Assert.Empty(suggestions);
     }
 
     [Fact]
@@ -358,7 +357,7 @@ public class SetLocationCommandTests
         var suggestions = SetLocationCommand.GetDirectorySuggestions(invalidPath).ToList();
 
         // Should gracefully handle invalid paths
-        suggestions.Should().NotBeNull();
+        Assert.NotNull(suggestions);
     }
 
     [Fact]
@@ -366,13 +365,13 @@ public class SetLocationCommandTests
     {
         var command = SetLocationCommand.Create();
 
-        command.DynamicArguments.Should().NotBeNull();
+        Assert.NotNull(command.DynamicArguments);
 
         var args = command.DynamicArguments!().ToList();
 
-        args.Should().NotBeEmpty();
-        args.Should().Contain(a => a.CompletionText == ".");
-        args.Should().Contain(a => a.CompletionText == "..");
+        Assert.NotEmpty(args);
+        Assert.Contains(args, a => a.CompletionText == ".");
+        Assert.Contains(args, a => a.CompletionText == "..");
     }
 
     [Fact]
@@ -380,9 +379,9 @@ public class SetLocationCommandTests
     {
         var completions = CommandCompleter.GetCompletions("cd ", "").ToList();
 
-        completions.Should().NotBeEmpty();
-        completions.Should().Contain(x => x.CompletionText == ".");
-        completions.Should().Contain(x => x.CompletionText == "..");
+        Assert.NotEmpty(completions);
+        Assert.Contains(completions, x => x.CompletionText == ".");
+        Assert.Contains(completions, x => x.CompletionText == "..");
     }
 
     [Fact]
@@ -390,9 +389,9 @@ public class SetLocationCommandTests
     {
         var completions = CommandCompleter.GetCompletions("Set-Location ", "").ToList();
 
-        completions.Should().NotBeEmpty();
-        completions.Should().Contain(x => x.CompletionText == ".");
-        completions.Should().Contain(x => x.CompletionText == "..");
+        Assert.NotEmpty(completions);
+        Assert.Contains(completions, x => x.CompletionText == ".");
+        Assert.Contains(completions, x => x.CompletionText == "..");
     }
 
     [Fact]
@@ -403,7 +402,7 @@ public class SetLocationCommandTests
         var suggestions = SetLocationCommand.GetDirectorySuggestions("C:").ToList();
 
         // Should handle Windows paths with drive letters
-        suggestions.Should().NotBeNull();
+        Assert.NotNull(suggestions);
     }
 
     [SkippableFact]
@@ -414,7 +413,7 @@ public class SetLocationCommandTests
         var suggestions = SetLocationCommand.GetDirectorySuggestions("/home").ToList();
 
         // Should handle Unix absolute paths
-        suggestions.Should().NotBeNull();
+        Assert.NotNull(suggestions);
     }
 
     [Theory]
@@ -433,9 +432,7 @@ public class SetLocationCommandTests
                 Directory.SetCurrentDirectory(TestDir);
             }
 
-            var act = () => SetLocationCommand.GetDirectorySuggestions(input).ToList();
-
-            act.Should().NotThrow();
+            SetLocationCommand.GetDirectorySuggestions(input).ToList();
         }
         finally
         {
