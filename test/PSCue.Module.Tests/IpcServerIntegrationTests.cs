@@ -292,11 +292,11 @@ public class IpcServerIntegrationTests : IDisposable
 
         // Read response
         var responseLengthBytes = new byte[4];
-        await client.ReadAsync(responseLengthBytes.AsMemory(0, 4));
+        await client.ReadExactlyAsync(responseLengthBytes.AsMemory(0, 4));
         var responseLength = BitConverter.ToInt32(responseLengthBytes);
 
         var responseBytes = new byte[responseLength];
-        await client.ReadAsync(responseBytes.AsMemory(0, responseLength));
+        await client.ReadExactlyAsync(responseBytes.AsMemory(0, responseLength));
 
         var responseJson = Encoding.UTF8.GetString(responseBytes);
         var response = JsonSerializer.Deserialize(responseJson, IpcJsonContext.Default.IpcResponse);
