@@ -70,12 +70,29 @@ public class PersistenceManager : IDisposable
     }
 
     /// <summary>
+    /// Create and configure a new database connection.
+    /// </summary>
+    private SqliteConnection CreateConnection()
+    {
+        var connection = new SqliteConnection(_connectionString);
+        connection.Open();
+
+        // Set busy timeout to handle concurrent access (wait up to 5 seconds)
+        using (var timeoutCommand = connection.CreateCommand())
+        {
+            timeoutCommand.CommandText = "PRAGMA busy_timeout=5000;";
+            timeoutCommand.ExecuteNonQuery();
+        }
+
+        return connection;
+    }
+
+    /// <summary>
     /// Initializes the database schema if it doesn't exist.
     /// </summary>
     private void InitializeDatabase()
     {
-        using var connection = new SqliteConnection(_connectionString);
-        connection.Open();
+        using var connection = CreateConnection();
 
         // Enable WAL mode for better concurrency
         using (var walCommand = connection.CreateCommand())
@@ -152,8 +169,7 @@ public class PersistenceManager : IDisposable
         if (graph == null)
             throw new ArgumentNullException(nameof(graph));
 
-        using var connection = new SqliteConnection(_connectionString);
-        connection.Open();
+        using var connection = CreateConnection();
 
         using var transaction = connection.BeginTransaction();
 
@@ -268,8 +284,7 @@ public class PersistenceManager : IDisposable
         if (history == null)
             throw new ArgumentNullException(nameof(history));
 
-        using var connection = new SqliteConnection(_connectionString);
-        connection.Open();
+        using var connection = CreateConnection();
 
         using var transaction = connection.BeginTransaction();
 
@@ -320,8 +335,7 @@ public class PersistenceManager : IDisposable
     {
         var graph = new ArgumentGraph(maxCommands, maxArgumentsPerCommand, scoreDecayDays);
 
-        using var connection = new SqliteConnection(_connectionString);
-        connection.Open();
+        using var connection = CreateConnection();
 
         // Load commands
         using (var cmd = connection.CreateCommand())
@@ -412,8 +426,7 @@ public class PersistenceManager : IDisposable
     {
         var history = new CommandHistory(maxSize);
 
-        using var connection = new SqliteConnection(_connectionString);
-        connection.Open();
+        using var connection = CreateConnection();
 
         using var cmd = connection.CreateCommand();
         cmd.CommandText = @"
@@ -456,8 +469,7 @@ public class PersistenceManager : IDisposable
     /// </summary>
     public void Clear()
     {
-        using var connection = new SqliteConnection(_connectionString);
-        connection.Open();
+        using var connection = CreateConnection();
 
         using var transaction = connection.BeginTransaction();
 
