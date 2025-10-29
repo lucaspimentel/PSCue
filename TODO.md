@@ -100,7 +100,7 @@ PSCue/
 ### PSCue.psm1 (Module Script)
 - Load and register argument completers (calls the native executable)
 - The Predictor DLL auto-registers via `IModuleAssemblyInitializer`
-- Register completers for: git, code, az, azd, func, chezmoi, gh, tre, lsd, dust, scoop (Windows), winget (Windows), wt (Windows)
+- Register completers for: git, gh, gt, code, az, azd, func, chezmoi, tre, lsd, dust, scoop (Windows), winget (Windows), wt (Windows)
 
 ---
 

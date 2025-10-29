@@ -60,6 +60,7 @@ $SupportedCommands = @(
     # Version Control
     'git'
     'gh'
+    'gt'
 
     # Azure
     'az'

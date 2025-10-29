@@ -40,6 +40,7 @@ PSCue provides detailed completions for these commands:
 
 - **Git**: `git` - branches, tags, remotes, files, subcommands
 - **GitHub CLI**: `gh` - repos, PRs, issues, workflows
+- **Graphite CLI**: `gt` - stacked PRs, branch navigation, workflows
 - **Azure CLI**: `az` - resource groups, subscriptions, commands
 - **Azure Developer CLI**: `azd` - environments, services
 - **Azure Functions**: `func` - function apps, deployment
@@ -123,6 +124,7 @@ Press `Tab` after typing a partial command to cycle through completions:
 
 ```powershell
 git checkout ma<Tab>    # Completes to branch names: main, master, etc.
+gt create <Tab>         # Shows Graphite create options: --all, --message, etc.
 scoop install no<Tab>   # Completes to: nodejs, notepadplusplus, etc.
 az group list --<Tab>   # Shows available flags: --output, --query, etc.
 cd src<Tab>             # Completes to subdirectories: src/, srcBackup/, etc.

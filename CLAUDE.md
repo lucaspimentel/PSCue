@@ -11,7 +11,7 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 
 **Phase 15 Complete**: Test coverage improvements - added 27 new tests for IpcServer (error handling, concurrency, lifecycle). Total: 315 tests, 314 passing (1 skipped: complex timing scenario).
 
-**Supported Commands Update**: Added Windows Terminal (wt) with full Tab completion support for all subcommands and parameters.
+**Supported Commands Update**: Added Graphite CLI (gt) with full Tab completion support for all subcommands (create, modify, submit, sync, log, etc.) and parameters. Also includes Windows Terminal (wt) support.
 
 ## Architecture
 - **ArgumentCompleter** (`pscue-completer.exe`): NativeAOT exe, <10ms startup, computes completions locally with full dynamic arguments support
@@ -102,7 +102,7 @@ dotnet run --project src/PSCue.Debug/ -- cache --filter git
 - Total Tab completion: <50ms
 
 ## Supported Commands
-git, gh, az, azd, func, code, scoop, winget, wt, chezmoi, tre, lsd, dust, cd (Set-Location/sl/chdir)
+git, gh, gt, az, azd, func, code, scoop, winget, wt, chezmoi, tre, lsd, dust, cd (Set-Location/sl/chdir)
 
 **Plus**: Generic learning works for ANY command (kubectl, docker, cargo, npm, etc.)
 
@@ -160,3 +160,4 @@ $env:PSCUE_IGNORE_PATTERNS = "aws *,*secret*,*password*"
 
 ## Platform Support
 Windows x64, macOS arm64, Linux x64 (PowerShell 7.2+, IFeedbackProvider requires 7.4+)
+- when adding support for new commands, add the completer registration in module/PSCue.psm1
