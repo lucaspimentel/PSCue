@@ -37,6 +37,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 
 # ANSI color codes
 $Reset = "`e[0m"
