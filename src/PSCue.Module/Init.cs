@@ -28,11 +28,37 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
     private static PersistenceManager? _persistenceManager;
     private static System.Threading.Timer? _autoSaveTimer;
 
+    // Phase 16: Module state exposed for PowerShell functions
+    private static CompletionCache? _completionCache;
+
+    /// <summary>
+    /// Gets the completion cache instance. Accessible from PowerShell functions.
+    /// </summary>
+    public static CompletionCache? Cache => _completionCache;
+
+    /// <summary>
+    /// Gets the argument graph instance (learned command knowledge). Accessible from PowerShell functions.
+    /// </summary>
+    public static ArgumentGraph? KnowledgeGraph => _argumentGraph;
+
+    /// <summary>
+    /// Gets the command history instance. Accessible from PowerShell functions.
+    /// </summary>
+    public static CommandHistory? CommandHistory => _commandHistory;
+
+    /// <summary>
+    /// Gets the persistence manager instance. Accessible from PowerShell functions.
+    /// </summary>
+    public static PersistenceManager? Persistence => _persistenceManager;
+
     /// <summary>
     /// Gets called when assembly is loaded.
     /// </summary>
     public void OnImport()
     {
+        // Phase 16: Initialize completion cache (used by both IPC and PowerShell functions)
+        _completionCache = new CompletionCache();
+
         // Phase 11: Initialize generic learning system
         // Check if generic learning is enabled (default: true, can be disabled via env var)
         var enableGenericLearning = Environment.GetEnvironmentVariable("PSCUE_DISABLE_LEARNING")?.Equals("true", StringComparison.OrdinalIgnoreCase) != true;

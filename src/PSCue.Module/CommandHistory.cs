@@ -102,6 +102,22 @@ public class CommandHistory
     }
 
     /// <summary>
+    /// Adds a command execution to the history with a custom timestamp (for import).
+    /// </summary>
+    public void AddEntry(string command, string[] arguments, bool success, DateTime timestamp, string? workingDirectory = null)
+    {
+        Add(new CommandHistoryEntry
+        {
+            Command = command,
+            CommandLine = $"{command} {string.Join(" ", arguments)}",
+            Arguments = arguments,
+            Timestamp = timestamp,
+            Success = success,
+            WorkingDirectory = workingDirectory
+        });
+    }
+
+    /// <summary>
     /// Gets recent history entries, most recent first.
     /// Thread-safe. Returns a snapshot copy.
     /// </summary>

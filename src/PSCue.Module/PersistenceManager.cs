@@ -495,6 +495,155 @@ public class PersistenceManager : IDisposable
         }
     }
 
+    /// <summary>
+    /// Exports learned data to a JSON file.
+    /// </summary>
+    /// <param name="path">Path to JSON file to create.</param>
+    /// <param name="argumentGraph">ArgumentGraph to export.</param>
+    /// <param name="commandHistory">CommandHistory to export.</param>
+    public void Export(string path, ArgumentGraph argumentGraph, CommandHistory commandHistory)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            throw new ArgumentException("Path cannot be null or empty", nameof(path));
+
+        // Ensure directory exists
+        var directory = Path.GetDirectoryName(path);
+        if (!string.IsNullOrEmpty(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        // Build export data structure
+        var exportData = new
+        {
+            ExportedAt = DateTime.UtcNow,
+            Version = "1.0",
+            Commands = argumentGraph.GetAllCommands().Select(kvp => new
+            {
+                kvp.Value.Command,
+                kvp.Value.TotalUsageCount,
+                FirstSeen = kvp.Value.FirstSeen.ToString("o"),
+                LastUsed = kvp.Value.LastUsed.ToString("o"),
+                Arguments = kvp.Value.Arguments.Values.Select(arg => new
+                {
+                    arg.Argument,
+                    arg.UsageCount,
+                    FirstSeen = arg.FirstSeen.ToString("o"),
+                    LastUsed = arg.LastUsed.ToString("o"),
+                    arg.IsFlag,
+                    CoOccurrences = arg.CoOccurrences.ToDictionary(co => co.Key, co => co.Value)
+                }).ToList(),
+                FlagCombinations = kvp.Value.FlagCombinations.ToDictionary(fc => fc.Key, fc => fc.Value)
+            }).ToList(),
+            History = commandHistory.GetRecent(100).Select(entry => new
+            {
+                entry.Command,
+                entry.Arguments,
+                Timestamp = entry.Timestamp.ToString("o"),
+                entry.Success
+            }).ToList()
+        };
+
+        // Write JSON
+        var json = System.Text.Json.JsonSerializer.Serialize(exportData, new System.Text.Json.JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+
+        File.WriteAllText(path, json);
+    }
+
+    /// <summary>
+    /// Imports learned data from a JSON file.
+    /// </summary>
+    /// <param name="path">Path to JSON file to import.</param>
+    /// <param name="argumentGraph">ArgumentGraph to import into.</param>
+    /// <param name="commandHistory">CommandHistory to import into.</param>
+    /// <param name="merge">If true, merge with existing data. If false, replace existing data.</param>
+    public void Import(string path, ArgumentGraph argumentGraph, CommandHistory commandHistory, bool merge = false)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            throw new ArgumentException("Path cannot be null or empty", nameof(path));
+
+        if (!File.Exists(path))
+            throw new FileNotFoundException("Import file not found", path);
+
+        // Read JSON
+        var json = File.ReadAllText(path);
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var root = doc.RootElement;
+
+        // If not merging, clear existing data first
+        if (!merge)
+        {
+            Clear();
+        }
+
+        // Import commands and arguments
+        if (root.TryGetProperty("Commands", out var commandsArray))
+        {
+            foreach (var cmdElement in commandsArray.EnumerateArray())
+            {
+                var command = cmdElement.GetProperty("Command").GetString();
+                if (string.IsNullOrWhiteSpace(command))
+                    continue;
+
+                var totalUsage = cmdElement.GetProperty("TotalUsageCount").GetInt32();
+                var firstSeen = DateTime.Parse(cmdElement.GetProperty("FirstSeen").GetString()!);
+                var lastUsed = DateTime.Parse(cmdElement.GetProperty("LastUsed").GetString()!);
+
+                // Initialize command
+                argumentGraph.InitializeCommand(command, totalUsage, firstSeen, lastUsed);
+
+                // Import arguments
+                if (cmdElement.TryGetProperty("Arguments", out var argsArray))
+                {
+                    foreach (var argElement in argsArray.EnumerateArray())
+                    {
+                        var argument = argElement.GetProperty("Argument").GetString();
+                        if (string.IsNullOrWhiteSpace(argument))
+                            continue;
+
+                        var usageCount = argElement.GetProperty("UsageCount").GetInt32();
+                        var argFirstSeen = DateTime.Parse(argElement.GetProperty("FirstSeen").GetString()!);
+                        var argLastUsed = DateTime.Parse(argElement.GetProperty("LastUsed").GetString()!);
+                        var isFlag = argElement.GetProperty("IsFlag").GetBoolean();
+
+                        argumentGraph.InitializeArgument(command, argument, usageCount, argFirstSeen, argLastUsed, isFlag);
+                    }
+                }
+            }
+        }
+
+        // Import command history
+        if (root.TryGetProperty("History", out var historyArray))
+        {
+            foreach (var historyElement in historyArray.EnumerateArray())
+            {
+                var command = historyElement.GetProperty("Command").GetString();
+                if (string.IsNullOrWhiteSpace(command))
+                    continue;
+
+                var arguments = historyElement.GetProperty("Arguments").EnumerateArray()
+                    .Select(a => a.GetString() ?? string.Empty)
+                    .ToArray();
+                var timestamp = DateTime.Parse(historyElement.GetProperty("Timestamp").GetString()!);
+                var success = historyElement.GetProperty("Success").GetBoolean();
+
+                commandHistory.AddEntry(command, arguments, success, timestamp);
+            }
+        }
+
+        // Save imported data to database
+        SaveArgumentGraph(argumentGraph);
+        SaveCommandHistory(commandHistory);
+    }
+
+    /// <summary>
+    /// Gets the path to the database file.
+    /// </summary>
+    public string DatabasePath => _dbPath;
+
     public void Dispose()
     {
         if (!_disposed)

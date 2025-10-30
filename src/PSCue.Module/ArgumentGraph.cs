@@ -246,9 +246,9 @@ public class ArgumentGraph
     }
 
     /// <summary>
-    /// Gets all commands with their knowledge (for persistence).
+    /// Gets all commands with their knowledge (for persistence and PowerShell functions).
     /// </summary>
-    internal IEnumerable<KeyValuePair<string, CommandKnowledge>> GetAllCommands()
+    public IEnumerable<KeyValuePair<string, CommandKnowledge>> GetAllCommands()
     {
         return _commands;
     }
