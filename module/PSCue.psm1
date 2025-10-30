@@ -95,12 +95,12 @@ foreach ($command in $SupportedCommands) {
 # CommandPredictor is loaded as a nested module from the PSD1
 # It auto-registers via IModuleAssemblyInitializer.OnImport()
 
+# Phase 16: Load PowerShell functions for cache & learning management
+. $PSScriptRoot/Functions/CacheManagement.ps1
+
 # Suggest enabling predictions if not already enabled
 $predictionSource = (Get-PSReadLineOption).PredictionSource
 if ($predictionSource -eq 'None' -or $predictionSource -eq 'History') {
     Write-Host "PSCue: To enable inline predictions, run:" -ForegroundColor Cyan
     Write-Host "  Set-PSReadLineOption -PredictionSource HistoryAndPlugin" -ForegroundColor Yellow
 }
-
-# Export nothing (we only register completers and load the predictor)
-Export-ModuleMember -Function @()
