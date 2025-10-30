@@ -44,12 +44,9 @@ function Test-PSCueCompletion {
         # Parse input to extract command and cursor position
         $cursorPosition = $Input.Length
 
-        # Call CommandCompleter directly (this is what ArgumentCompleter does)
-        # Note: Need to convert string to ReadOnlySpan<char> via MemoryExtensions
-        $inputSpan = [System.MemoryExtensions]::AsSpan($Input)
+        # Call CommandCompleter directly (uses string overload for PowerShell compatibility)
         $completions = [PSCue.Shared.CommandCompleter]::GetCompletions(
-            $inputSpan,
-            $null,  # cursorWord (not needed for this test)
+            $Input,
             $true   # includeDynamicArguments
         )
 

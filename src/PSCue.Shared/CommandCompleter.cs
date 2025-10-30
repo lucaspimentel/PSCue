@@ -6,6 +6,10 @@ namespace PSCue.Shared;
 
 public static class CommandCompleter
 {
+    // String-based overload for PowerShell compatibility (PowerShell can't use ReadOnlySpan)
+    public static IEnumerable<ICompletion> GetCompletions(string commandLine, bool includeDynamicArguments = true) =>
+        GetCompletions(commandLine.AsSpan(), default, includeDynamicArguments);
+
     public static IEnumerable<ICompletion> GetCompletions(ReadOnlySpan<char> commandLine) =>
         GetCompletions(commandLine, default, includeDynamicArguments: true);
 
