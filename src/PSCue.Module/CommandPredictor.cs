@@ -155,7 +155,7 @@ public class CommandPredictor : ICommandPredictor
         // "scoop" + "alias" => "scoop alias"
         // "scoop al" + "alias" => "scoop alias"
         // "scoop update" + "*" => "scoop update *"
-        // e.g. "scoop al" + "alias" => "scoop alias"
+        // "cd dotnet" + "D:\path\dotnet\" => "cd D:\path\dotnet\" (navigation paths replace last word)
 
         // Find the last word boundary (space) in input
         var lastSpaceIndex = input.LastIndexOf(' ');
@@ -172,6 +172,37 @@ public class CommandPredictor : ICommandPredictor
             return string.Concat(input[..startIndex], completionText);
         }
 
+        // Special case: If completionText looks like an absolute path and we have a command + word,
+        // replace the last word instead of appending (for navigation commands like cd)
+        if (lastSpaceIndex >= 0 && IsAbsolutePath(completionText))
+        {
+            // Replace the last word with the absolute path
+            // "cd dotnet" + "D:\path\" => "cd D:\path\"
+            return string.Concat(input[..startIndex], completionText);
+        }
+
         return $"{input} {completionText}";
+    }
+
+    /// <summary>
+    /// Checks if a string looks like an absolute path.
+    /// </summary>
+    private static bool IsAbsolutePath(string path)
+    {
+        if (string.IsNullOrEmpty(path) || path.Length < 2)
+            return false;
+
+        // Windows: C:\, D:\, \\server\share
+        if (path.Length >= 2 && char.IsLetter(path[0]) && path[1] == ':')
+            return true;
+
+        if (path.StartsWith("\\\\"))
+            return true;
+
+        // Unix: /home, /var
+        if (path[0] == '/')
+            return true;
+
+        return false;
     }
 }

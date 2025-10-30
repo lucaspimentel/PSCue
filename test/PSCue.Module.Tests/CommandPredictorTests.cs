@@ -29,6 +29,10 @@ public class CommandPredictorTests
     [InlineData("commandex", "example", "commandex example")]                  // Partial match not at word boundary
     [InlineData("git commit --am", "--amend", "git commit --amend")]           // Dash-separated words
     [InlineData("cd /usr/lo", "local", "cd /usr/lo local")]                    // Path completion (/ is word boundary)
+    [InlineData("cd dotnet", "D:\\source\\dd-trace-dotnet\\", "cd D:\\source\\dd-trace-dotnet\\")] // Absolute path replaces word
+    [InlineData("cd proj", "C:\\Users\\test\\projects\\", "cd C:\\Users\\test\\projects\\")] // Windows absolute path
+    [InlineData("cd test", "/home/user/test/", "cd /home/user/test/")]        // Unix absolute path
+    [InlineData("sl mydir", "D:\\temp\\mydir\\", "sl D:\\temp\\mydir\\")]     // Set-Location with absolute path
     public void Combine_VariousScenarios_ProducesExpectedResults(string input, string completionText, string expected)
     {
         var result = CommandPredictor.Combine(input, completionText);
