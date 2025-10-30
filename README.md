@@ -472,10 +472,10 @@ Clear-PSCueCache                  # Interactive confirmation
 Clear-PSCueCache -Confirm:$false  # Skip confirmation
 ```
 
-### Learning System Management
+### Learning System Management (In-Memory)
 
 ```powershell
-# View learned data
+# View learned data (currently in memory)
 Get-PSCueLearning                 # Show all learned commands
 Get-PSCueLearning -Command kubectl # Filter by specific command
 Get-PSCueLearning -AsJson         # Output as JSON
@@ -492,6 +492,39 @@ Save-PSCueLearning
 Clear-PSCueLearning               # Interactive confirmation (ConfirmImpact=High)
 Clear-PSCueLearning -Confirm:$false
 ```
+
+### Database Management (Direct SQLite Queries)
+
+PSCue now includes functions to directly query the SQLite database, allowing you to inspect what's actually persisted on disk vs. what's in memory:
+
+```powershell
+# View database statistics
+Get-PSCueDatabaseStats              # Show totals and top commands
+Get-PSCueDatabaseStats -Detailed    # Show per-command stats with top arguments
+Get-PSCueDatabaseStats -AsJson      # JSON output for scripting
+
+# Query command history
+Get-PSCueDatabaseHistory            # Show last 20 history entries
+Get-PSCueDatabaseHistory -Last 50   # Show last 50 entries
+Get-PSCueDatabaseHistory -Command "git"  # Filter by command name
+Get-PSCueDatabaseHistory -AsJson    # JSON output
+
+# Compare in-memory vs database (useful for debugging)
+$inMemory = (Get-PSCueLearning).Count
+$inDb = (Get-PSCueDatabaseStats).TotalCommands
+Write-Host "In memory: $inMemory | In database: $inDb"
+```
+
+**Why They Might Differ:**
+- Auto-save runs every 5 minutes
+- Module just loaded (data not synced yet)
+- Run `Save-PSCueLearning` to sync immediately
+
+**Database Location:**
+- Windows: `%LOCALAPPDATA%\PSCue\learned-data.db`
+- Linux/macOS: `~/.local/share/PSCue/learned-data.db`
+
+For detailed documentation on database functions, schema, and use cases, see [DATABASE-FUNCTIONS.md](DATABASE-FUNCTIONS.md).
 
 ### Debugging & Diagnostics
 
@@ -576,6 +609,7 @@ Special thanks to the PowerShell team for the `ICommandPredictor` and `IFeedback
   - [TODO.md](TODO.md) - Current work and future plans
   - [COMPLETED.md](COMPLETED.md) - Completed implementation phases (Phases 1-13, 15)
   - [CLAUDE.md](CLAUDE.md) - Quick reference for AI agents
+  - [DATABASE-FUNCTIONS.md](DATABASE-FUNCTIONS.md) - Database query functions and schema
 - **PowerShell API Documentation**:
   - [ICommandPredictor API](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-cmdlet-predictor)
   - [IFeedbackProvider API](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider)

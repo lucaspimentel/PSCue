@@ -503,18 +503,24 @@ git push origin v1.0.0
   - [ ] Verify Get-Help works for each function
   - [ ] Test in fresh PowerShell session
 
-##### Phase 16.6: Documentation (1 hour)
-- [ ] Update CLAUDE.md:
-  - [ ] Document new PowerShell functions
-  - [ ] Update "Common Tasks" section with function examples
-  - [ ] Note PSCue.Debug is deprecated (or removed)
-- [ ] Update README.md:
-  - [ ] Add "Cache Management" section with function examples
-  - [ ] Add "Learning System Management" section
-  - [ ] Show common workflows (export/import, clear cache, etc.)
-- [ ] Add examples to function help:
-  - [ ] Real-world scenarios for each function
-  - [ ] Pipeline examples where applicable
+##### Phase 16.6: Documentation ✅ COMPLETE (1 hour)
+- [x] Update CLAUDE.md:
+  - [x] Document new PowerShell functions (organized by category)
+  - [x] Update "Common Tasks" section with function examples
+  - [x] Add cross-reference to DATABASE-FUNCTIONS.md
+  - [x] Add Function files to "Key Files & Line References"
+  - [x] Note PSCue.Debug is deprecated (will be removed in Phase 16.7)
+- [x] Update README.md:
+  - [x] Add "Database Management" subsection with detailed examples
+  - [x] Update "Learning System Management" section
+  - [x] Add cross-reference to DATABASE-FUNCTIONS.md
+  - [x] Show comparison workflow (in-memory vs database)
+  - [x] Document database locations per platform
+  - [x] Add DATABASE-FUNCTIONS.md to Links section
+- [x] DATABASE-FUNCTIONS.md already has comprehensive examples:
+  - [x] Real-world scenarios for each function
+  - [x] Pipeline examples where applicable
+  - [x] Use cases and troubleshooting
 
 ##### Phase 16.7: Remove IPC Layer + PSCue.Debug (2-3 hours)
 - [ ] **Remove PSCue.Debug project**

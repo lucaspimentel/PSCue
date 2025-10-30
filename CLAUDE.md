@@ -64,6 +64,10 @@ src/
 - `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence (~470 lines)
 - `src/PSCue.Module/Init.cs`: Module lifecycle (load on import, save on remove, auto-save timer)
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
+- `module/Functions/CacheManagement.ps1`: PowerShell functions for cache management (Phase 16)
+- `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system (Phase 16)
+- `module/Functions/DatabaseManagement.ps1`: PowerShell functions for database queries (Phase 16)
+- `module/Functions/Debugging.ps1`: PowerShell functions for testing/diagnostics (Phase 16)
 - `test/PSCue.Module.Tests/CommandPredictorTests.cs`: CommandPredictor.Combine tests (23 tests, Phase 14-15)
 - `test/PSCue.Module.Tests/FeedbackProviderTests.cs`: FeedbackProvider tests (26 tests, Phase 15)
 - `test/PSCue.Module.Tests/IpcServerErrorHandlingTests.cs`: Error handling & edge cases (10 tests, Phase 15)
@@ -96,16 +100,27 @@ dotnet test --filter "FullyQualifiedName~IpcServer"
 ./scripts/install-local.ps1
 
 # PowerShell Module Functions (Phase 16 - replaces PSCue.Debug)
+# Cache Management (in-memory)
 Get-PSCueCache [-Filter <string>] [-AsJson]        # View cached completions
 Clear-PSCueCache [-WhatIf] [-Confirm]              # Clear cache
 Get-PSCueCacheStats [-AsJson]                      # Cache statistics
-Get-PSCueLearning [-Command <string>] [-AsJson]    # View learned data
-Clear-PSCueLearning [-WhatIf] [-Confirm]           # Clear learned data
+
+# Learning Management (in-memory + database)
+Get-PSCueLearning [-Command <string>] [-AsJson]    # View learned data (in-memory)
+Clear-PSCueLearning [-WhatIf] [-Confirm]           # Clear learned data (memory + DB)
 Export-PSCueLearning -Path <path>                  # Export to JSON
 Import-PSCueLearning -Path <path> [-Merge]         # Import from JSON
 Save-PSCueLearning                                 # Force save to disk
+
+# Database Management (direct SQLite queries)
+Get-PSCueDatabaseStats [-Detailed] [-AsJson]       # Database stats (reads DB directly)
+Get-PSCueDatabaseHistory [-Last <n>] [-Command <name>] [-AsJson]  # Query DB history
+
+# Debugging & Testing
 Test-PSCueCompletion -InputString <string>         # Test completions
 Get-PSCueModuleInfo [-AsJson]                      # Module diagnostics
+
+# See DATABASE-FUNCTIONS.md for detailed database query examples
 
 # Debug (Legacy - PSCue.Debug CLI, will be removed in Phase 16.7)
 dotnet run --project src/PSCue.Debug/ -- query-ipc "git checkout ma"
@@ -168,6 +183,7 @@ private async Task<IpcResponse> SendRequest(IpcRequest request) {
 - **Implementation status**:
   - Active work: See `TODO.md`
   - Completed phases: See `COMPLETED.md` (Phases 1-13, 15 archived)
+- **Database functions**: See `DATABASE-FUNCTIONS.md` for detailed SQLite query examples and schema
 - Full details: See `docs/ARCHITECTURE.md` and `docs/TROUBLESHOOTING.md`
 - Bug fix history: See git log and commit messages
 - API docs: [ICommandPredictor](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-cmdlet-predictor), [IFeedbackProvider](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider)
