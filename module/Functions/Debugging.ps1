@@ -32,7 +32,7 @@ function Test-PSCueCompletion {
     [CmdletBinding()]
     param(
         [Parameter(Mandatory, Position = 0)]
-        [string]$Input,
+        [string]$InputString,
 
         [Parameter()]
         [switch]$IncludeTiming
@@ -42,11 +42,11 @@ function Test-PSCueCompletion {
         $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
         # Parse input to extract command and cursor position
-        $cursorPosition = $Input.Length
+        $cursorPosition = $InputString.Length
 
         # Call CommandCompleter directly (uses string overload for PowerShell compatibility)
         $completions = [PSCue.Shared.CommandCompleter]::GetCompletions(
-            $Input,
+            $InputString,
             $true   # includeDynamicArguments
         )
 
@@ -54,7 +54,7 @@ function Test-PSCueCompletion {
         $elapsed = $stopwatch.ElapsedMilliseconds
 
         # Display results
-        Write-Host "Input: $Input" -ForegroundColor Cyan
+        Write-Host "Input: $InputString" -ForegroundColor Cyan
         Write-Host "Completions: $($completions.Count)" -ForegroundColor Yellow
 
         if ($IncludeTiming) {
