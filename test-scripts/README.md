@@ -265,6 +265,41 @@ pwsh -NoProfile -File test-scripts/test-pscue-debug.ps1
 - Timing statistics on all commands
 - Graceful handling when IPC server unavailable
 
+### Module Functions Tests (Phase 16)
+
+**test-module-functions.ps1**
+- Comprehensive test of all PowerShell module functions
+- Checks PowerShell version and experimental features
+- Verifies module initialization (Cache, KnowledgeGraph, CommandHistory, Persistence)
+- Tests all Get- functions (Get-PSCueCache, Get-PSCueLearning, Get-PSCueCacheStats)
+- Checks subsystem registration (CommandPredictor, FeedbackProvider)
+- Provides setup instructions for generating learning data
+
+**test-database-functions.ps1**
+- Tests new database query functions (Get-PSCueDatabaseStats, Get-PSCueDatabaseHistory)
+- Demonstrates reading directly from SQLite database
+- Shows summary statistics vs. detailed per-command statistics
+- Compares in-memory data vs. database-persisted data
+- Helps diagnose sync issues between memory and disk
+
+**test-empty-state.ps1**
+- Validates that Get- functions work correctly with empty data
+- Tests the bug fix for Get-PSCueLearning returning "1 item with empty values"
+- Verifies all functions return proper empty results (0 items, empty arrays)
+- Quick validation test for fresh installations
+
+**Usage:**
+```powershell
+# Test all module functions (comprehensive)
+pwsh -NoProfile -File test-scripts/test-module-functions.ps1
+
+# Test database query functions
+pwsh -NoProfile -File test-scripts/test-database-functions.ps1
+
+# Quick test for empty state bug fix
+pwsh -NoProfile -File test-scripts/test-empty-state.ps1
+```
+
 ## Notes
 
 - All scripts assume PSCue is installed to `~/.local/pwsh-modules/PSCue/`

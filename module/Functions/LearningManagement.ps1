@@ -83,7 +83,16 @@ function Get-PSCueLearning {
             # Get all learned commands
             $commands = [PSCue.Module.PSCueModule]::KnowledgeGraph.GetAllCommands()
 
-            $results = $commands | ForEach-Object {
+            # Check if dictionary is empty
+            if ($commands.Count -eq 0) {
+                if ($AsJson) {
+                    return "[]"
+                } else {
+                    return @()
+                }
+            }
+
+            $results = $commands.GetEnumerator() | ForEach-Object {
                 [PSCustomObject]@{
                     Command = $_.Value.Command
                     TotalUsage = $_.Value.TotalUsageCount

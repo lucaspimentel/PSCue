@@ -71,6 +71,9 @@
         'Export-PSCueLearning',
         'Import-PSCueLearning',
         'Save-PSCueLearning',
+        # Database Management
+        'Get-PSCueDatabaseStats',
+        'Get-PSCueDatabaseHistory',
         # Debugging
         'Test-PSCueCompletion',
         'Get-PSCueModuleInfo'
