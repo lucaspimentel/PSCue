@@ -1174,10 +1174,281 @@ git push origin v1.0.0
 - [ ] Create Scoop manifest
 - [ ] Publish to PowerShell Gallery
 - [ ] Add Homebrew formula (macOS/Linux)
-- [ ] Export/import learned data commands (Export-PSCueLearning, Import-PSCueLearning)
 - [ ] Cloud sync (sync learned data across machines, opt-in)
 - [ ] Advanced learning: command sequences, workflow detection
 - [ ] Semantic argument understanding (detect file paths, URLs, etc.)
+
+---
+
+### Phase 16: PowerShell Module Functions (Cache & Learning Management) + Remove IPC
+
+**Goal**: Replace PSCue.Debug CLI tool with native PowerShell functions for better UX, discoverability, and direct in-process access. **Remove IPC layer entirely** since it's only used by PSCue.Debug.
+
+**Rationale**:
+- Better PowerShell integration (tab completion, pipeline support, Get-Help)
+- No IPC overhead for cache/learning operations (direct in-process access)
+- More discoverable via `Get-Command -Module PSCue`
+- Simpler installation (one less binary to ship)
+- PowerShell-native patterns (objects, not JSON strings)
+- **IPC is obsolete**: ArgumentCompleter doesn't use it (Phase 9), CommandPredictor doesn't use it, only PSCue.Debug uses it
+- **Simpler architecture**: Remove ~500 lines of IPC code (server, protocol, tests)
+- **Faster module loading**: No IPC server startup overhead
+
+**Current State**:
+- PSCue.Debug project provides: stats, cache, clear, ping, query-local, query-ipc
+- All operations go through IPC (slower, more complex)
+- IpcServer runs in Module, serves requests from PSCue.Debug only
+- ArgumentCompleter removed IPC usage in Phase 9 (computes locally now)
+- CommandPredictor never used IPC (calls CommandCompleter directly)
+- IPC exists ONLY for PSCue.Debug - no other consumers!
+- Requires separate binary installation
+- Not discoverable via standard PowerShell commands
+
+**Target State**:
+- Native PowerShell functions exported by PSCue module
+- Direct access to CompletionCache, PersistenceManager, learning system
+- Rich object output (with optional -AsJson for scripting)
+- Standard PowerShell parameters (-WhatIf, -Confirm, -Verbose)
+- Built-in help documentation
+- **IPC completely removed** (IpcServer, IpcProtocol, IpcJsonContext, all tests)
+- Simpler, faster, less code to maintain
+
+#### Proposed Commands
+
+**Cache Management**:
+- `Get-PSCueCache [-Filter <string>] [-AsJson]` - View cached completions
+- `Clear-PSCueCache [-WhatIf] [-Confirm]` - Clear completion cache
+- `Get-PSCueCacheStats [-AsJson]` - Cache statistics (entries, hits, age)
+
+**Learning System**:
+- `Get-PSCueLearning [-Command <string>] [-AsJson]` - View learned data
+- `Clear-PSCueLearning [-WhatIf] [-Confirm]` - Clear learned data
+- `Export-PSCueLearning -Path <string>` - Export learned data to file
+- `Import-PSCueLearning -Path <string> [-Merge]` - Import learned data from file
+- `Save-PSCueLearning` - Force save learned data to disk
+
+**Debugging/Testing**:
+- `Test-PSCueCompletion -Input <string>` - Test completion generation locally
+- `Get-PSCueModuleInfo` - Module version, status, configuration
+
+#### Implementation Plan
+
+##### Phase 16.1: Core Infrastructure (1-2 hours)
+- [ ] Add public API methods to existing classes for PowerShell access:
+  - [ ] `CompletionCache.GetAllEntries()` → returns `List<CacheEntry>`
+  - [ ] `CompletionCache.GetStatistics()` → already exists
+  - [ ] `ArgumentGraph.GetAllCommands()` → returns learned command list
+  - [ ] `ArgumentGraph.GetCommandKnowledge(string command)` → returns learned args
+  - [ ] `PersistenceManager.Export(string path)` → export to JSON
+  - [ ] `PersistenceManager.Import(string path, bool merge)` → import from JSON
+- [ ] Add module-level state tracking in `Init.cs`:
+  - [ ] `public static CompletionCache Cache { get; private set; }`
+  - [ ] `public static ArgumentGraph KnowledgeGraph { get; private set; }`
+  - [ ] `public static PersistenceManager Persistence { get; private set; }`
+  - [ ] Make these accessible to PowerShell functions
+
+##### Phase 16.2: Cache Management Functions (2-3 hours)
+- [ ] Create `module/Functions/CacheManagement.ps1`:
+  - [ ] `Get-PSCueCache` function
+    - [ ] Parameters: `-Filter <string>`, `-AsJson`
+    - [ ] Access `[PSCue.Module.Init]::Cache.GetAllEntries()`
+    - [ ] Filter by command/key if specified
+    - [ ] Return rich objects: `[PSCustomObject]@{Key, Completions, HitCount, Age}`
+    - [ ] Support `-AsJson` for machine-readable output
+  - [ ] `Clear-PSCueCache` function
+    - [ ] Parameters: `-WhatIf`, `-Confirm`
+    - [ ] Call `[PSCue.Module.Init]::Cache.Clear()`
+    - [ ] Return count of removed entries
+  - [ ] `Get-PSCueCacheStats` function
+    - [ ] Parameters: `-AsJson`
+    - [ ] Call `[PSCue.Module.Init]::Cache.GetStatistics()`
+    - [ ] Return object with TotalEntries, TotalHits, OldestEntryAge
+- [ ] Add functions to module exports in `PSCue.psd1`:
+  - [ ] `FunctionsToExport = @('Get-PSCueCache', 'Clear-PSCueCache', 'Get-PSCueCacheStats', ...)`
+- [ ] Add comment-based help for each function:
+  - [ ] `.SYNOPSIS`, `.DESCRIPTION`, `.PARAMETER`, `.EXAMPLE`
+
+##### Phase 16.3: Learning System Functions (2-3 hours)
+- [ ] Create `module/Functions/LearningManagement.ps1`:
+  - [ ] `Get-PSCueLearning` function
+    - [ ] Parameters: `-Command <string>`, `-AsJson`
+    - [ ] Access `[PSCue.Module.Init]::KnowledgeGraph`
+    - [ ] If `-Command` specified, show args for that command
+    - [ ] Otherwise, show all learned commands
+    - [ ] Return objects with Command, Arguments, UsageCount, LastUsed
+  - [ ] `Clear-PSCueLearning` function
+    - [ ] Parameters: `-WhatIf`, `-Confirm`
+    - [ ] Clear `ArgumentGraph` and `CommandHistory`
+    - [ ] Optionally delete persisted database file
+    - [ ] Confirm before clearing (unless `-Confirm:$false`)
+  - [ ] `Export-PSCueLearning` function
+    - [ ] Parameters: `-Path <string>` (mandatory)
+    - [ ] Call `[PSCue.Module.Init]::Persistence.Export($Path)`
+    - [ ] Validate path, create directory if needed
+    - [ ] Return exported file path
+  - [ ] `Import-PSCueLearning` function
+    - [ ] Parameters: `-Path <string>` (mandatory), `-Merge` (switch)
+    - [ ] Call `[PSCue.Module.Init]::Persistence.Import($Path, $Merge)`
+    - [ ] If `-Merge`, combine with existing data (additive)
+    - [ ] Otherwise, replace existing data
+  - [ ] `Save-PSCueLearning` function
+    - [ ] Force immediate save to disk (bypass auto-save timer)
+    - [ ] Call `[PSCue.Module.Init]::Persistence.SaveLearningData(...)`
+- [ ] Add comment-based help for each function
+
+##### Phase 16.4: Debugging Functions (1-2 hours)
+- [ ] Create `module/Functions/Debugging.ps1`:
+  - [ ] `Test-PSCueCompletion` function
+    - [ ] Parameters: `-Input <string>` (mandatory)
+    - [ ] Parse input into command, args, cursor position
+    - [ ] Call `CommandCompleter.GetCompletions(...)` directly
+    - [ ] Return completion objects with Text, Description, Score
+    - [ ] Include timing information
+  - [ ] `Get-PSCueModuleInfo` function
+    - [ ] Return module version, loaded status, IPC server status
+    - [ ] Show configuration (history size, learning enabled, etc.)
+    - [ ] Show database path and size
+    - [ ] Show cache statistics summary
+- [ ] Add comment-based help
+
+##### Phase 16.5: Testing (2-3 hours)
+- [ ] Create test script: `test-scripts/test-module-functions.ps1`
+  - [ ] Test each function with various parameters
+  - [ ] Test pipeline support where applicable
+  - [ ] Test `-WhatIf` and `-Confirm` for destructive operations
+  - [ ] Test `-AsJson` output is valid JSON
+  - [ ] Test error handling (invalid paths, etc.)
+- [ ] Add unit tests: `test/PSCue.Module.Tests/ModuleFunctionsTests.cs`
+  - [ ] Test public APIs added to classes
+  - [ ] Test Export/Import functionality
+  - [ ] Test GetAllEntries, GetStatistics, etc.
+- [ ] Manual testing:
+  - [ ] Load module, run each function
+  - [ ] Verify tab completion works on function parameters
+  - [ ] Verify Get-Help works for each function
+  - [ ] Test in fresh PowerShell session
+
+##### Phase 16.6: Documentation (1 hour)
+- [ ] Update CLAUDE.md:
+  - [ ] Document new PowerShell functions
+  - [ ] Update "Common Tasks" section with function examples
+  - [ ] Note PSCue.Debug is deprecated (or removed)
+- [ ] Update README.md:
+  - [ ] Add "Cache Management" section with function examples
+  - [ ] Add "Learning System Management" section
+  - [ ] Show common workflows (export/import, clear cache, etc.)
+- [ ] Add examples to function help:
+  - [ ] Real-world scenarios for each function
+  - [ ] Pipeline examples where applicable
+
+##### Phase 16.7: Remove IPC Layer + PSCue.Debug (2-3 hours)
+- [ ] **Remove PSCue.Debug project**
+  - [ ] Delete `src/PSCue.Debug/` directory
+  - [ ] Remove from solution file (`PSCue.sln`)
+  - [ ] Remove from CI/CD build (`.github/workflows/`)
+  - [ ] Delete test scripts that use PSCue.Debug (`test-scripts/test-pscue-debug.ps1`)
+- [ ] **Remove IPC infrastructure**
+  - [ ] Delete `src/PSCue.Module/IpcServer.cs` (~400 lines)
+  - [ ] Delete `src/PSCue.Shared/IpcProtocol.cs` (~150 lines)
+  - [ ] Delete `src/PSCue.Shared/IpcJsonContext.cs` (~50 lines)
+  - [ ] Remove IpcServer initialization from `Init.cs:OnImport()` (lines 69-78)
+  - [ ] Remove IpcServer disposal from `Init.cs:OnRemove()`
+  - [ ] Remove IpcServer field from `Init.cs` (line 19)
+  - [ ] Remove IpcServer parameter from `FeedbackProvider` constructor (no longer needed)
+- [ ] **Remove IPC tests** (all passing, but no longer needed)
+  - [ ] Delete `test/PSCue.Module.Tests/IpcServerIntegrationTests.cs` (5 tests)
+  - [ ] Delete `test/PSCue.Module.Tests/IpcServerErrorHandlingTests.cs` (10 tests)
+  - [ ] Delete `test/PSCue.Module.Tests/IpcServerConcurrencyTests.cs` (7 tests)
+  - [ ] Delete `test/PSCue.Module.Tests/IpcServerLifecycleTests.cs` (10 tests)
+  - [ ] Delete `test/PSCue.Module.Tests/IpcFilteringTests.cs` (12 tests)
+  - [ ] **Total removed**: 44 tests (all IPC-related)
+  - [ ] **New test count**: ~252 tests (down from 296)
+- [ ] **Remove IPC-related test scripts**
+  - [ ] Delete or update `test-scripts/test-ipc.ps1`
+  - [ ] Delete or update `test-scripts/test-ipc-simple.ps1`
+  - [ ] Delete or update `test-scripts/test-ipc-path.ps1`
+  - [ ] Delete or update `test-scripts/test-cache-debug.ps1`
+- [ ] **Update documentation**
+  - [ ] Remove IPC references from CLAUDE.md
+  - [ ] Remove IPC references from README.md
+  - [ ] Remove IPC references from TECHNICAL_DETAILS.md
+  - [ ] Update architecture diagrams (no more IPC layer)
+  - [ ] Note in Phase 16 completion: "IPC removed, module functions replace PSCue.Debug"
+- [ ] **Verify build and tests**
+  - [ ] `dotnet build` succeeds
+  - [ ] `dotnet test` passes (all remaining tests)
+  - [ ] Module loads correctly without IPC server
+  - [ ] No references to IpcServer, IpcProtocol, or IpcJsonContext remain
+
+#### Success Criteria
+
+1. [ ] All PSCue.Debug functionality available as PowerShell functions
+2. [ ] Functions are discoverable via `Get-Command -Module PSCue`
+3. [ ] `Get-Help <function>` provides comprehensive documentation
+4. [ ] Functions return rich objects (not strings), with optional `-AsJson`
+5. [ ] Destructive operations support `-WhatIf` and `-Confirm`
+6. [ ] Direct in-process access (no IPC overhead)
+7. [ ] Export/Import functions enable backup and migration scenarios
+8. [ ] All tests pass (~252 tests after removing IPC tests)
+9. [ ] Documentation updated (README, CLAUDE.md, TECHNICAL_DETAILS.md)
+10. [ ] **PSCue.Debug completely removed** (project deleted)
+11. [ ] **IPC layer completely removed** (IpcServer, IpcProtocol, IpcJsonContext deleted)
+12. [ ] **44 IPC tests removed** (no longer needed)
+13. [ ] Module loads faster (no IPC server startup)
+14. [ ] Simpler architecture (fewer moving parts)
+
+#### Implementation Order
+
+1. **Phase 16.1**: Infrastructure (public APIs, module state) - enables everything else
+2. **Phase 16.2**: Cache functions (most commonly used)
+3. **Phase 16.3**: Learning functions (high value for power users)
+4. **Phase 16.4**: Debug functions (lower priority, but useful)
+5. **Phase 16.5**: Testing (validate everything works)
+6. **Phase 16.6**: Documentation (help users discover and use)
+7. **Phase 16.7**: Remove IPC + PSCue.Debug (massive simplification!)
+
+**Note**: Phases 16.1-16.6 can be done BEFORE removing IPC (module functions coexist with IPC temporarily). Phase 16.7 is the final cleanup once module functions are proven to work.
+
+#### Performance Considerations
+
+- **Direct access** is faster than IPC (no serialization, no pipe overhead)
+- **Cache operations**: Should be <5ms (in-memory access)
+- **Learning system queries**: Should be <10ms (in-memory data structures)
+- **Export/Import**: May take longer (disk I/O, serialization), but acceptable
+- **Test completion**: Should match ArgumentCompleter performance (<50ms)
+- **Module loading**: Faster without IPC server startup (saves ~10-20ms)
+
+#### Open Questions ✅ RESOLVED
+
+1. **Module state access pattern**: How should PowerShell functions access module internals?
+   - ✅ **Decision**: Static properties on `Init` class (simpler, direct C# access)
+
+2. **File format for Export/Import**: JSON or SQLite backup?
+   - ✅ **Decision**: JSON (human-readable, easier to edit/merge)
+
+3. **Keep PSCue.Debug?**
+   - ✅ **Decision**: Remove it entirely (all functionality in module functions now)
+   - ✅ **Decision**: Remove IPC entirely (only used by PSCue.Debug)
+
+4. **Should functions be in separate .ps1 files or all in PSCue.psm1?**
+   - ✅ **Decision**: Separate files in `module/Functions/` (better organization)
+   - Dot-source them in PSCue.psm1: `. $PSScriptRoot/Functions/CacheManagement.ps1`
+
+#### Benefits Summary
+
+**Removing IPC saves**:
+- ~600 lines of code (IpcServer, IpcProtocol, IpcJsonContext)
+- 44 test files (~1,500 lines of test code)
+- Named pipe overhead (10-20ms module startup)
+- Cross-process serialization complexity
+- Maintenance burden (fewer moving parts)
+
+**Adding module functions gains**:
+- Native PowerShell integration
+- Better discoverability
+- Pipeline support
+- Rich object output
+- Standard cmdlet patterns
 
 ---
 
