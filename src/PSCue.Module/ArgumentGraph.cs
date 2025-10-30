@@ -145,12 +145,27 @@ public class ArgumentGraph
     /// Records a command execution with its arguments.
     /// Updates usage counts, co-occurrence data, and timestamps.
     /// </summary>
-    public void RecordUsage(string command, string[] arguments)
+    /// <param name="command">The command name (e.g., "git", "cd").</param>
+    /// <param name="arguments">The command arguments.</param>
+    /// <param name="workingDirectory">The working directory when command was executed (optional, for path normalization).</param>
+    public void RecordUsage(string command, string[] arguments, string? workingDirectory = null)
     {
         if (string.IsNullOrWhiteSpace(command) || arguments == null || arguments.Length == 0)
             return;
 
         var now = DateTime.UtcNow;
+
+        // Check if this is a navigation command that needs path normalization
+        var isNavigationCommand = command.Equals("cd", StringComparison.OrdinalIgnoreCase)
+            || command.Equals("Set-Location", StringComparison.OrdinalIgnoreCase)
+            || command.Equals("sl", StringComparison.OrdinalIgnoreCase)
+            || command.Equals("chdir", StringComparison.OrdinalIgnoreCase);
+
+        // Normalize paths for navigation commands
+        if (isNavigationCommand && arguments.Length > 0 && !string.IsNullOrWhiteSpace(workingDirectory))
+        {
+            arguments = NormalizeNavigationPaths(arguments, workingDirectory);
+        }
 
         // Get or create command knowledge
         var knowledge = _commands.GetOrAdd(command, cmd => new CommandKnowledge
@@ -200,6 +215,69 @@ public class ArgumentGraph
         // Enforce limits
         EnforceLimits(knowledge);
         EnforceCommandLimit();
+    }
+
+    /// <summary>
+    /// Normalizes paths in navigation command arguments to absolute paths.
+    /// This allows learning to work across different contexts (e.g., "cd ~/projects" and "cd ../projects" both normalize to the same path).
+    /// </summary>
+    private string[] NormalizeNavigationPaths(string[] arguments, string workingDirectory)
+    {
+        var normalized = new string[arguments.Length];
+
+        for (int i = 0; i < arguments.Length; i++)
+        {
+            var arg = arguments[i];
+
+            // Skip flags and empty arguments
+            if (string.IsNullOrWhiteSpace(arg) || arg.StartsWith("-"))
+            {
+                normalized[i] = arg;
+                continue;
+            }
+
+            // Try to normalize the path
+            var normalizedPath = NormalizePath(arg, workingDirectory);
+            normalized[i] = normalizedPath ?? arg; // Fall back to original if normalization fails
+        }
+
+        return normalized;
+    }
+
+    /// <summary>
+    /// Normalizes a single path to absolute form.
+    /// Handles ~, relative paths (., .., no prefix), and absolute paths.
+    /// Returns null if the path is invalid.
+    /// </summary>
+    private static string? NormalizePath(string path, string workingDirectory)
+    {
+        try
+        {
+            // Expand ~ to home directory
+            if (path.StartsWith("~/") || path == "~")
+            {
+                var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                if (string.IsNullOrEmpty(homeDir))
+                    return null;
+
+                path = path == "~" ? homeDir : path.Replace("~", homeDir);
+            }
+
+            // If already absolute, just clean it up
+            if (Path.IsPathRooted(path))
+            {
+                return Path.GetFullPath(path);
+            }
+
+            // Relative path - resolve against working directory
+            var combined = Path.Combine(workingDirectory, path);
+            return Path.GetFullPath(combined);
+        }
+        catch
+        {
+            // Path normalization failed - return null
+            return null;
+        }
     }
 
     /// <summary>

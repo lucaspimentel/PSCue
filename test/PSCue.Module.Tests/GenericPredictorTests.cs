@@ -311,4 +311,167 @@ public class GenericPredictorTests
         Assert.Throws<ArgumentNullException>(() => new GenericPredictor(history, null!, analyzer));
         Assert.Throws<ArgumentNullException>(() => new GenericPredictor(history, graph, null!));
     }
+
+    [Fact]
+    public void GetSuggestions_CdCommand_FiltersOutCurrentDirectory()
+    {
+        // Arrange
+        var predictor = CreatePredictor(out _, out var graph);
+        var currentDir = Directory.GetCurrentDirectory();
+
+        // Record the current directory (should be filtered out)
+        graph.RecordUsage("cd", new[] { currentDir }, currentDir);
+
+        // Record other directories (should appear)
+        var otherDir = Path.Combine(Path.GetTempPath(), "pscue-test-other");
+        Directory.CreateDirectory(otherDir);
+
+        try
+        {
+            graph.RecordUsage("cd", new[] { otherDir }, currentDir);
+
+            // Act
+            var suggestions = predictor.GetSuggestions("cd ");
+
+            // Assert - should not suggest "." (current directory shortcut)
+            Assert.DoesNotContain(suggestions, s => s.Text == ".");
+
+            // Assert - should not suggest learned current directory as absolute path
+            Assert.DoesNotContain(suggestions, s =>
+                s.Source == "learned" && s.Text.Equals(currentDir, StringComparison.OrdinalIgnoreCase));
+
+            // Should suggest other directory (check Text field for absolute path with trailing separator)
+            var otherDirWithSeparator = otherDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            Assert.Contains(suggestions, s => s.Text.Equals(otherDirWithSeparator, StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            // Cleanup
+            try { Directory.Delete(otherDir); } catch { }
+        }
+    }
+
+    [Fact]
+    public void GetSuggestions_CdCommand_BoostsFrequentlyVisitedPaths()
+    {
+        // Arrange
+        var predictor = CreatePredictor(out _, out var graph);
+        var workingDir = Path.GetTempPath();
+        var frequentDir = Path.Combine(workingDir, "frequent");
+        var rareDir = Path.Combine(workingDir, "rare");
+
+        Directory.CreateDirectory(frequentDir);
+        Directory.CreateDirectory(rareDir);
+
+        try
+        {
+            // Record frequent directory 10 times
+            for (int i = 0; i < 10; i++)
+            {
+                graph.RecordUsage("cd", new[] { frequentDir }, workingDir);
+            }
+
+            // Record rare directory once
+            graph.RecordUsage("cd", new[] { rareDir }, workingDir);
+
+            // Act
+            var suggestions = predictor.GetSuggestions("cd ");
+
+            // Assert - frequent should have higher score than rare
+            var frequentSuggestion = suggestions.FirstOrDefault(s => s.Text.Contains("frequent", StringComparison.OrdinalIgnoreCase));
+            var rareSuggestion = suggestions.FirstOrDefault(s => s.Text.Contains("rare", StringComparison.OrdinalIgnoreCase));
+
+            Assert.NotNull(frequentSuggestion);
+            Assert.NotNull(rareSuggestion);
+            Assert.True(frequentSuggestion.Score > rareSuggestion.Score,
+                $"Frequent dir score ({frequentSuggestion.Score}) should be higher than rare dir score ({rareSuggestion.Score})");
+
+            // Frequent should appear first when sorted
+            var sortedSuggestions = suggestions.OrderByDescending(s => s.Score).ToList();
+            var frequentIndex = sortedSuggestions.FindIndex(s => s.Text.Contains("frequent", StringComparison.OrdinalIgnoreCase));
+            var rareIndex = sortedSuggestions.FindIndex(s => s.Text.Contains("rare", StringComparison.OrdinalIgnoreCase));
+
+            Assert.True(frequentIndex >= 0 && rareIndex >= 0);
+            Assert.True(frequentIndex < rareIndex, "Frequent directory should appear before rare directory");
+        }
+        finally
+        {
+            // Cleanup
+            try { Directory.Delete(frequentDir); } catch { }
+            try { Directory.Delete(rareDir); } catch { }
+        }
+    }
+
+    [Fact]
+    public void GetSuggestions_SetLocationCommand_NormalizesAndFilters()
+    {
+        // Arrange
+        var predictor = CreatePredictor(out _, out var graph);
+        var currentDir = Directory.GetCurrentDirectory();
+        var targetDir = Path.Combine(Path.GetTempPath(), "test-sl");
+
+        Directory.CreateDirectory(targetDir);
+
+        try
+        {
+            // Record Set-Location to target directory
+            graph.RecordUsage("Set-Location", new[] { targetDir }, currentDir);
+
+            // Record Set-Location to current directory (should be filtered)
+            graph.RecordUsage("Set-Location", new[] { currentDir }, currentDir);
+
+            // Act
+            var suggestions = predictor.GetSuggestions("Set-Location ");
+
+            // Assert - should not suggest "." (current directory shortcut)
+            Assert.DoesNotContain(suggestions, s => s.Text == ".");
+
+            // Assert - should not suggest learned current directory as absolute path
+            Assert.DoesNotContain(suggestions, s =>
+                s.Source == "learned" && s.Text.Equals(currentDir, StringComparison.OrdinalIgnoreCase));
+
+            // Should suggest target directory (check Text field for absolute path with trailing separator)
+            var targetDirWithSeparator = targetDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            Assert.Contains(suggestions, s => s.Text.Equals(targetDirWithSeparator, StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            // Cleanup
+            try { Directory.Delete(targetDir); } catch { }
+        }
+    }
+
+    [Fact]
+    public void GetSuggestions_CdCommand_ShowsVisitCount()
+    {
+        // Arrange
+        var predictor = CreatePredictor(out _, out var graph);
+        var workingDir = Path.GetTempPath();
+        var targetDir = Path.Combine(workingDir, "test-visits");
+
+        Directory.CreateDirectory(targetDir);
+
+        try
+        {
+            // Record directory 5 times
+            for (int i = 0; i < 5; i++)
+            {
+                graph.RecordUsage("cd", new[] { targetDir }, workingDir);
+            }
+
+            // Act
+            var suggestions = predictor.GetSuggestions("cd ");
+
+            // Assert - description should show visit count
+            var targetDirWithSeparator = targetDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            var suggestion = suggestions.FirstOrDefault(s => s.Text.Equals(targetDirWithSeparator, StringComparison.OrdinalIgnoreCase));
+            Assert.NotNull(suggestion);
+            Assert.Contains("visited 5x", suggestion.Description, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            // Cleanup
+            try { Directory.Delete(targetDir); } catch { }
+        }
+    }
 }

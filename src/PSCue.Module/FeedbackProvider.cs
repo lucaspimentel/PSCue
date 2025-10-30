@@ -1,5 +1,6 @@
 using System.Management.Automation.Subsystem.Feedback;
 using System.Management.Automation.Language;
+using System.IO;
 
 namespace PSCue.Module;
 
@@ -384,13 +385,24 @@ public class FeedbackProvider : IFeedbackProvider
             // Extract arguments (everything after the command)
             var arguments = commandElements.Skip(1).ToArray();
 
-            // Add to command history
-            _commandHistory?.Add(command, commandLine, arguments, success);
+            // Get current working directory for path normalization
+            string? workingDirectory = null;
+            try
+            {
+                workingDirectory = Directory.GetCurrentDirectory();
+            }
+            catch
+            {
+                // Ignore errors getting working directory
+            }
+
+            // Add to command history (with working directory)
+            _commandHistory?.Add(command, commandLine, arguments, success, workingDirectory);
 
             // Update argument graph (only for successful commands to avoid learning bad patterns)
             if (success && _argumentGraph != null && arguments.Length > 0)
             {
-                _argumentGraph.RecordUsage(command, arguments);
+                _argumentGraph.RecordUsage(command, arguments, workingDirectory);
             }
         }
         catch (Exception ex)

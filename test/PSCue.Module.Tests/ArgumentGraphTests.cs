@@ -363,4 +363,237 @@ public class ArgumentGraphTests
         Assert.Equal(2, knowledge.Arguments["commit"].UsageCount);
         Assert.Equal(2, knowledge.Arguments["-m"].UsageCount);
     }
+
+    [Fact]
+    public void RecordUsage_NormalizesRelativePathsForCd()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        var workingDir = Path.Combine(Path.GetTempPath(), "test-dir");
+        Directory.CreateDirectory(workingDir);
+        var targetDir = Path.Combine(workingDir, "subdir");
+        Directory.CreateDirectory(targetDir);
+
+        try
+        {
+            // Act - record relative path
+            graph.RecordUsage("cd", new[] { "subdir" }, workingDir);
+
+            // Assert - should store absolute path
+            var knowledge = graph.GetCommandKnowledge("cd");
+            Assert.NotNull(knowledge);
+            Assert.Single(knowledge.Arguments);
+
+            var storedPath = knowledge.Arguments.Keys.First();
+            Assert.Equal(targetDir, storedPath, ignoreCase: true);
+        }
+        finally
+        {
+            // Cleanup
+            try { Directory.Delete(workingDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public void RecordUsage_NormalizesTildePathsForCd()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var workingDir = Path.GetTempPath();
+
+        // Act - record ~ path
+        graph.RecordUsage("cd", new[] { "~" }, workingDir);
+
+        // Assert - should store home directory
+        var knowledge = graph.GetCommandKnowledge("cd");
+        Assert.NotNull(knowledge);
+        Assert.Single(knowledge.Arguments);
+
+        var storedPath = knowledge.Arguments.Keys.First();
+        Assert.Equal(homeDir, storedPath, ignoreCase: true);
+    }
+
+    [Fact]
+    public void RecordUsage_NormalizesTildeSlashPathsForCd()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var workingDir = Path.GetTempPath();
+
+        // Act - record ~/subdir path
+        graph.RecordUsage("cd", new[] { "~/Documents" }, workingDir);
+
+        // Assert - should store expanded path
+        var knowledge = graph.GetCommandKnowledge("cd");
+        Assert.NotNull(knowledge);
+        Assert.Single(knowledge.Arguments);
+
+        var expected = Path.Combine(homeDir, "Documents");
+        var storedPath = knowledge.Arguments.Keys.First();
+        Assert.Equal(expected, storedPath, ignoreCase: true);
+    }
+
+    [Fact]
+    public void RecordUsage_NormalizesParentPathsForCd()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        var tempDir = Path.GetTempPath();
+        var workingDir = Path.Combine(tempDir, "test-subdir");
+        Directory.CreateDirectory(workingDir);
+
+        try
+        {
+            // Act - record ../
+            graph.RecordUsage("cd", new[] { ".." }, workingDir);
+
+            // Assert - should store parent directory
+            var knowledge = graph.GetCommandKnowledge("cd");
+            Assert.NotNull(knowledge);
+            Assert.Single(knowledge.Arguments);
+
+            var storedPath = knowledge.Arguments.Keys.First();
+            Assert.Equal(tempDir.TrimEnd(Path.DirectorySeparatorChar), storedPath.TrimEnd(Path.DirectorySeparatorChar), ignoreCase: true);
+        }
+        finally
+        {
+            // Cleanup
+            try { Directory.Delete(workingDir); } catch { }
+        }
+    }
+
+    [Fact]
+    public void RecordUsage_NormalizesAbsolutePathsForCd()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        var workingDir = Path.GetTempPath();
+        var targetPath = Path.Combine(Path.GetTempPath(), "target");
+
+        // Act - record absolute path
+        graph.RecordUsage("cd", new[] { targetPath }, workingDir);
+
+        // Assert - should store normalized absolute path
+        var knowledge = graph.GetCommandKnowledge("cd");
+        Assert.NotNull(knowledge);
+        Assert.Single(knowledge.Arguments);
+
+        var storedPath = knowledge.Arguments.Keys.First();
+        Assert.Equal(Path.GetFullPath(targetPath), storedPath, ignoreCase: true);
+    }
+
+    [Fact]
+    public void RecordUsage_MergesSameDirectoryFromDifferentPaths()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        var tempDir = Path.GetTempPath();
+        var targetDir = Path.Combine(tempDir, "test-target");
+        Directory.CreateDirectory(targetDir);
+
+        try
+        {
+            // Act - record same directory via different paths
+            graph.RecordUsage("cd", new[] { targetDir }, tempDir); // Absolute
+            graph.RecordUsage("cd", new[] { "test-target" }, tempDir); // Relative
+            graph.RecordUsage("cd", new[] { "./test-target" }, tempDir); // Explicit relative
+
+            // Assert - should all merge to same normalized path
+            var knowledge = graph.GetCommandKnowledge("cd");
+            Assert.NotNull(knowledge);
+            Assert.Single(knowledge.Arguments); // Only one entry despite 3 calls
+
+            var storedPath = knowledge.Arguments.Keys.First();
+            var stats = knowledge.Arguments.Values.First();
+            Assert.Equal(3, stats.UsageCount); // Merged usage count
+            Assert.Equal(targetDir, storedPath, ignoreCase: true);
+        }
+        finally
+        {
+            // Cleanup
+            try { Directory.Delete(targetDir); } catch { }
+        }
+    }
+
+    [Fact]
+    public void RecordUsage_DoesNotNormalizeNonNavigationCommands()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        var workingDir = Path.GetTempPath();
+
+        // Act - record git with relative path
+        graph.RecordUsage("git", new[] { "add", "." }, workingDir);
+
+        // Assert - should store as-is (not normalized)
+        var knowledge = graph.GetCommandKnowledge("git");
+        Assert.NotNull(knowledge);
+        Assert.Equal(2, knowledge.Arguments.Count);
+        Assert.True(knowledge.Arguments.ContainsKey("add"));
+        Assert.True(knowledge.Arguments.ContainsKey(".")); // Stored as ".", not normalized
+    }
+
+    [Fact]
+    public void RecordUsage_NormalizesSetLocationCommand()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        var workingDir = Path.Combine(Path.GetTempPath(), "test-dir");
+        Directory.CreateDirectory(workingDir);
+        var targetDir = Path.Combine(workingDir, "subdir");
+        Directory.CreateDirectory(targetDir);
+
+        try
+        {
+            // Act - record Set-Location with relative path
+            graph.RecordUsage("Set-Location", new[] { "subdir" }, workingDir);
+
+            // Assert - should normalize
+            var knowledge = graph.GetCommandKnowledge("Set-Location");
+            Assert.NotNull(knowledge);
+            var storedPath = knowledge.Arguments.Keys.First();
+            Assert.Equal(targetDir, storedPath, ignoreCase: true);
+        }
+        finally
+        {
+            // Cleanup
+            try { Directory.Delete(workingDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public void RecordUsage_NormalizesSlAliasCommand()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var workingDir = Path.GetTempPath();
+
+        // Act - record sl (alias) with ~ path
+        graph.RecordUsage("sl", new[] { "~" }, workingDir);
+
+        // Assert - should normalize
+        var knowledge = graph.GetCommandKnowledge("sl");
+        Assert.NotNull(knowledge);
+        var storedPath = knowledge.Arguments.Keys.First();
+        Assert.Equal(homeDir, storedPath, ignoreCase: true);
+    }
+
+    [Fact]
+    public void RecordUsage_SkipsNormalizationWhenNoWorkingDirectory()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+
+        // Act - record cd without working directory
+        graph.RecordUsage("cd", new[] { "subdir" }, workingDirectory: null);
+
+        // Assert - should store as-is
+        var knowledge = graph.GetCommandKnowledge("cd");
+        Assert.NotNull(knowledge);
+        var storedPath = knowledge.Arguments.Keys.First();
+        Assert.Equal("subdir", storedPath); // Not normalized
+    }
 }

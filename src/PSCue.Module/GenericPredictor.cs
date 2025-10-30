@@ -83,13 +83,40 @@ public class GenericPredictor
 
         if (isNavigationCommand)
         {
+            // Get current directory to filter suggestions
+            string? currentDirectory = null;
+            try
+            {
+                currentDirectory = System.IO.Directory.GetCurrentDirectory();
+            }
+            catch
+            {
+                // Ignore errors getting current directory
+            }
+
             // Get directory suggestions from filesystem with full paths for descriptions
             var directorySuggestions = PSCue.Shared.KnownCompletions.SetLocationCommand.GetDirectorySuggestionsWithPaths(wordToComplete);
 
-            // Get learned directory paths from ArgumentGraph
+            // Get learned directory paths from ArgumentGraph (normalized to absolute paths)
             var learnedPaths = _argumentGraph.GetSuggestions(command, arguments.ToArray(), maxResults * 2)
                 .Where(s => System.IO.Directory.Exists(s.Argument))
                 .ToList();
+
+            // Filter out current directory from learned paths
+            if (!string.IsNullOrEmpty(currentDirectory))
+            {
+                learnedPaths = learnedPaths
+                    .Where(s => !IsSamePath(s.Argument, currentDirectory))
+                    .ToList();
+            }
+
+            // Filter learned paths by wordToComplete if provided
+            if (!string.IsNullOrEmpty(wordToComplete))
+            {
+                learnedPaths = learnedPaths
+                    .Where(s => MatchesPartialPath(s.Argument, wordToComplete))
+                    .ToList();
+            }
 
             // Merge suggestions: filesystem dirs + learned paths that still exist
             var navSuggestions = new List<PredictionSuggestion>();
@@ -97,6 +124,11 @@ public class GenericPredictor
             // Add filesystem directory suggestions (base score based on relevance)
             foreach (var (completionText, fullPath) in directorySuggestions.Take(maxResults))
             {
+                // Skip current directory (includes "." and exact path match)
+                if (!string.IsNullOrEmpty(currentDirectory) &&
+                    (completionText == "." || IsSamePath(fullPath, currentDirectory)))
+                    continue;
+
                 navSuggestions.Add(new PredictionSuggestion
                 {
                     Text = completionText,
@@ -110,12 +142,24 @@ public class GenericPredictor
             // Add learned paths with boosted scores (frequency + recency)
             foreach (var learned in learnedPaths)
             {
-                var existing = navSuggestions.FirstOrDefault(s => s.Text.Equals(learned.Argument, StringComparison.OrdinalIgnoreCase));
+                // Try to find a matching filesystem suggestion (by comparing absolute paths)
+                PredictionSuggestion? existing = null;
+                foreach (var nav in navSuggestions)
+                {
+                    // Extract full path from description
+                    var descPath = nav.Description?.Replace("Directory: ", "").Trim();
+                    if (!string.IsNullOrEmpty(descPath) && IsSamePath(descPath, learned.Argument))
+                    {
+                        existing = nav;
+                        break;
+                    }
+                }
+
                 if (existing != null)
                 {
                     // Boost score for frequently visited directories
                     var learnedScore = learned.GetScore(_argumentGraph.GetCommandKnowledge(command)?.TotalUsageCount ?? 1);
-                    existing.Score = Math.Max(existing.Score, 0.7) + (learnedScore * 0.3); // Boost to 0.7-1.0 range
+                    existing.Score = 0.85 + (learnedScore * 0.15); // Boost to 0.85-1.0 range for learned paths
                     existing.Score = Math.Min(1.0, existing.Score);
                     existing.Description = $"visited {learned.UsageCount}x";
                     existing.Source = "learned+filesystem";
@@ -123,20 +167,26 @@ public class GenericPredictor
                 else
                 {
                     // Add learned path not in filesystem suggestions
+                    // Use the absolute path as the completion text - CommandPredictor.Combine will handle it
+                    // Add trailing directory separator to match PowerShell's native behavior
+                    var pathWithSeparator = learned.Argument.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)
+                        + System.IO.Path.DirectorySeparatorChar;
+
                     navSuggestions.Add(new PredictionSuggestion
                     {
-                        Text = learned.Argument,
+                        Text = pathWithSeparator,
                         Description = $"visited {learned.UsageCount}x",
-                        Score = 0.8 + (learned.GetScore(_argumentGraph.GetCommandKnowledge(command)?.TotalUsageCount ?? 1) * 0.2),
+                        Score = 0.85 + (learned.GetScore(_argumentGraph.GetCommandKnowledge(command)?.TotalUsageCount ?? 1) * 0.15),
                         IsFlag = false,
                         Source = "learned"
                     });
                 }
             }
 
-            // Sort by score and return
+            // Sort by score (highest first), then by usage count, then alphabetically
             return navSuggestions
                 .OrderByDescending(s => s.Score)
+                .ThenBy(s => s.Text, StringComparer.OrdinalIgnoreCase)
                 .Take(maxResults)
                 .ToList();
         }
@@ -290,6 +340,62 @@ public class GenericPredictor
             MostCommonCommand = historyStats.MostCommonCommand ?? graphStats.MostUsedCommand,
             MostCommonCommandCount = Math.Max(historyStats.MostCommonCommandCount, graphStats.MostUsedCommandCount)
         };
+    }
+
+    /// <summary>
+    /// Compares two paths for equality, handling case sensitivity based on OS.
+    /// </summary>
+    private static bool IsSamePath(string path1, string path2)
+    {
+        try
+        {
+            var fullPath1 = System.IO.Path.GetFullPath(path1);
+            var fullPath2 = System.IO.Path.GetFullPath(path2);
+
+            // Windows is case-insensitive, Unix is case-sensitive
+            var comparison = Environment.OSVersion.Platform == PlatformID.Win32NT
+                ? StringComparison.OrdinalIgnoreCase
+                : StringComparison.Ordinal;
+
+            return string.Equals(fullPath1, fullPath2, comparison);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Checks if a full path matches a partial path input (e.g., "dotnet" matches "D:\source\datadog\dd-trace-dotnet").
+    /// Matches against: directory name, path segments, or full path.
+    /// </summary>
+    private static bool MatchesPartialPath(string fullPath, string partial)
+    {
+        if (string.IsNullOrEmpty(partial))
+            return true;
+
+        var comparison = Environment.OSVersion.Platform == PlatformID.Win32NT
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+
+        // Check if the full path contains the partial string
+        if (fullPath.Contains(partial, comparison))
+            return true;
+
+        // Check if the directory name starts with the partial
+        var dirName = System.IO.Path.GetFileName(fullPath);
+        if (!string.IsNullOrEmpty(dirName) && dirName.StartsWith(partial, comparison))
+            return true;
+
+        // Check if any path segment starts with the partial
+        var segments = fullPath.Split(new[] { System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var segment in segments)
+        {
+            if (segment.StartsWith(partial, comparison))
+                return true;
+        }
+
+        return false;
     }
 }
 
