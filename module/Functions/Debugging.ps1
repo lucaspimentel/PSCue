@@ -45,8 +45,10 @@ function Test-PSCueCompletion {
         $cursorPosition = $Input.Length
 
         # Call CommandCompleter directly (this is what ArgumentCompleter does)
+        # Note: Need to convert string to ReadOnlySpan<char> via MemoryExtensions
+        $inputSpan = [System.MemoryExtensions]::AsSpan($Input)
         $completions = [PSCue.Shared.CommandCompleter]::GetCompletions(
-            $Input.AsSpan(),
+            $inputSpan,
             $null,  # cursorWord (not needed for this test)
             $true   # includeDynamicArguments
         )
