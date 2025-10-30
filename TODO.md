@@ -1233,83 +1233,91 @@ git push origin v1.0.0
 
 #### Implementation Plan
 
-##### Phase 16.1: Core Infrastructure (1-2 hours)
-- [ ] Add public API methods to existing classes for PowerShell access:
-  - [ ] `CompletionCache.GetAllEntries()` → returns `List<CacheEntry>`
-  - [ ] `CompletionCache.GetStatistics()` → already exists
-  - [ ] `ArgumentGraph.GetAllCommands()` → returns learned command list
-  - [ ] `ArgumentGraph.GetCommandKnowledge(string command)` → returns learned args
-  - [ ] `PersistenceManager.Export(string path)` → export to JSON
-  - [ ] `PersistenceManager.Import(string path, bool merge)` → import from JSON
-- [ ] Add module-level state tracking in `Init.cs`:
-  - [ ] `public static CompletionCache Cache { get; private set; }`
-  - [ ] `public static ArgumentGraph KnowledgeGraph { get; private set; }`
-  - [ ] `public static PersistenceManager Persistence { get; private set; }`
-  - [ ] Make these accessible to PowerShell functions
+##### Phase 16.1: Core Infrastructure ✅ COMPLETE
+- [x] Add public API methods to existing classes for PowerShell access:
+  - [x] `CompletionCache.GetAllEntries()` → already existed
+  - [x] `CompletionCache.GetStatistics()` → already existed
+  - [x] `ArgumentGraph.GetAllCommands()` → made public (was internal)
+  - [x] `ArgumentGraph.GetCommandKnowledge(string command)` → already existed
+  - [x] `PersistenceManager.Export(string path)` → added
+  - [x] `PersistenceManager.Import(string path, bool merge)` → added
+  - [x] `CommandHistory.AddEntry()` with custom timestamp → added
+  - [x] `PersistenceManager.DatabasePath` property → added
+- [x] Created PSCueModule static class (split from Init)
+  - [x] `public static CompletionCache Cache { get; internal set; }`
+  - [x] `public static ArgumentGraph KnowledgeGraph { get; internal set; }`
+  - [x] `public static CommandHistory CommandHistory { get; internal set; }`
+  - [x] `public static PersistenceManager Persistence { get; internal set; }`
+- [x] Refactored Init → ModuleInitializer + PSCueModule for better separation
+- [x] Added string overload to CommandCompleter for PowerShell compatibility
+- [x] All tests pass (325 tests)
 
-##### Phase 16.2: Cache Management Functions (2-3 hours)
-- [ ] Create `module/Functions/CacheManagement.ps1`:
-  - [ ] `Get-PSCueCache` function
-    - [ ] Parameters: `-Filter <string>`, `-AsJson`
-    - [ ] Access `[PSCue.Module.Init]::Cache.GetAllEntries()`
-    - [ ] Filter by command/key if specified
-    - [ ] Return rich objects: `[PSCustomObject]@{Key, Completions, HitCount, Age}`
-    - [ ] Support `-AsJson` for machine-readable output
-  - [ ] `Clear-PSCueCache` function
-    - [ ] Parameters: `-WhatIf`, `-Confirm`
-    - [ ] Call `[PSCue.Module.Init]::Cache.Clear()`
-    - [ ] Return count of removed entries
-  - [ ] `Get-PSCueCacheStats` function
-    - [ ] Parameters: `-AsJson`
-    - [ ] Call `[PSCue.Module.Init]::Cache.GetStatistics()`
-    - [ ] Return object with TotalEntries, TotalHits, OldestEntryAge
-- [ ] Add functions to module exports in `PSCue.psd1`:
-  - [ ] `FunctionsToExport = @('Get-PSCueCache', 'Clear-PSCueCache', 'Get-PSCueCacheStats', ...)`
-- [ ] Add comment-based help for each function:
-  - [ ] `.SYNOPSIS`, `.DESCRIPTION`, `.PARAMETER`, `.EXAMPLE`
+##### Phase 16.2: Cache Management Functions ✅ COMPLETE
+- [x] Created `module/Functions/CacheManagement.ps1` (181 lines)
+- [x] `Get-PSCueCache` function - view cached completions
+  - [x] Parameters: `-Filter <string>`, `-AsJson`
+  - [x] Returns rich objects with Key, CompletionCount, HitCount, Age
+  - [x] Pipeline-friendly
+- [x] `Clear-PSCueCache` function - clear cache
+  - [x] Parameters: `-WhatIf`, `-Confirm`
+  - [x] Shows count of removed entries
+- [x] `Get-PSCueCacheStats` function - cache statistics
+  - [x] Returns TotalEntries, TotalHits, AverageHits, OldestEntry
+  - [x] Optional `-AsJson` output
+- [x] Added functions to `PSCue.psd1` FunctionsToExport
+- [x] Dot-sourced in `PSCue.psm1`
+- [x] Comprehensive comment-based help with examples
+- [x] Updated install script to copy Functions directory
+- [x] Tested and working
 
-##### Phase 16.3: Learning System Functions (2-3 hours)
-- [ ] Create `module/Functions/LearningManagement.ps1`:
-  - [ ] `Get-PSCueLearning` function
-    - [ ] Parameters: `-Command <string>`, `-AsJson`
-    - [ ] Access `[PSCue.Module.Init]::KnowledgeGraph`
-    - [ ] If `-Command` specified, show args for that command
-    - [ ] Otherwise, show all learned commands
-    - [ ] Return objects with Command, Arguments, UsageCount, LastUsed
-  - [ ] `Clear-PSCueLearning` function
-    - [ ] Parameters: `-WhatIf`, `-Confirm`
-    - [ ] Clear `ArgumentGraph` and `CommandHistory`
-    - [ ] Optionally delete persisted database file
-    - [ ] Confirm before clearing (unless `-Confirm:$false`)
-  - [ ] `Export-PSCueLearning` function
-    - [ ] Parameters: `-Path <string>` (mandatory)
-    - [ ] Call `[PSCue.Module.Init]::Persistence.Export($Path)`
-    - [ ] Validate path, create directory if needed
-    - [ ] Return exported file path
-  - [ ] `Import-PSCueLearning` function
-    - [ ] Parameters: `-Path <string>` (mandatory), `-Merge` (switch)
-    - [ ] Call `[PSCue.Module.Init]::Persistence.Import($Path, $Merge)`
-    - [ ] If `-Merge`, combine with existing data (additive)
-    - [ ] Otherwise, replace existing data
-  - [ ] `Save-PSCueLearning` function
-    - [ ] Force immediate save to disk (bypass auto-save timer)
-    - [ ] Call `[PSCue.Module.Init]::Persistence.SaveLearningData(...)`
-- [ ] Add comment-based help for each function
+##### Phase 16.3: Learning System Functions ✅ COMPLETE
+- [x] Created `module/Functions/LearningManagement.ps1` (327 lines)
+- [x] `Get-PSCueLearning` function - view learned data
+  - [x] Parameters: `-Command <string>`, `-AsJson`
+  - [x] Shows all commands or filter by specific command
+  - [x] Returns usage counts, scores, top arguments
+- [x] `Clear-PSCueLearning` function - clear learned data
+  - [x] Parameters: `-WhatIf`, `-Confirm` (ConfirmImpact=High)
+  - [x] Clears database and in-memory state
+  - [x] Shows counts of cleared data
+- [x] `Export-PSCueLearning` function - export to JSON
+  - [x] Parameters: `-Path <string>` (mandatory)
+  - [x] Creates directory if needed
+  - [x] Shows file size
+- [x] `Import-PSCueLearning` function - import from JSON
+  - [x] Parameters: `-Path <string>` (mandatory), `-Merge` (switch)
+  - [x] Replace or merge modes
+  - [x] Validates file exists
+- [x] `Save-PSCueLearning` function - force immediate save
+  - [x] Bypasses auto-save timer
+  - [x] Shows database path and size
+- [x] Added to PSCue.psd1 and PSCue.psm1
+- [x] Comprehensive comment-based help with examples
 
-##### Phase 16.4: Debugging Functions (1-2 hours)
-- [ ] Create `module/Functions/Debugging.ps1`:
-  - [ ] `Test-PSCueCompletion` function
-    - [ ] Parameters: `-Input <string>` (mandatory)
-    - [ ] Parse input into command, args, cursor position
-    - [ ] Call `CommandCompleter.GetCompletions(...)` directly
-    - [ ] Return completion objects with Text, Description, Score
-    - [ ] Include timing information
-  - [ ] `Get-PSCueModuleInfo` function
-    - [ ] Return module version, loaded status, IPC server status
-    - [ ] Show configuration (history size, learning enabled, etc.)
-    - [ ] Show database path and size
-    - [ ] Show cache statistics summary
-- [ ] Add comment-based help
+##### Phase 16.4: Debugging Functions ✅ COMPLETE
+- [x] Created `module/Functions/Debugging.ps1` (220 lines)
+- [x] `Test-PSCueCompletion` function - test completion generation
+  - [x] Parameters: `-InputString <string>` (mandatory), `-IncludeTiming`
+  - [x] Shows up to 20 completions with descriptions
+  - [x] Returns objects for pipeline use
+  - [x] Optional timing information
+- [x] `Get-PSCueModuleInfo` function - module diagnostics
+  - [x] Module version and path
+  - [x] Configuration settings (learning, history size, etc.)
+  - [x] Component status (cache, knowledge graph, etc.)
+  - [x] Database info (path, size, exists)
+  - [x] Cache, learning, and history statistics
+  - [x] Optional `-AsJson` output
+- [x] Added to PSCue.psd1 and PSCue.psm1
+- [x] Comprehensive comment-based help
+- [x] Fixed PowerShell compatibility issues (ReadOnlySpan, $Input variable)
+- [x] Added string overload to CommandCompleter for PowerShell
+- [x] Tested and working
+
+**Total Functions Implemented: 10**
+- 3 Cache Management
+- 5 Learning Management
+- 2 Debugging
 
 ##### Phase 16.5: Testing (2-3 hours)
 - [ ] Create test script: `test-scripts/test-module-functions.ps1`
