@@ -11,45 +11,16 @@ namespace PSCue.Module;
 // https://learn.microsoft.com/en-us/powershell/scripting/dev-cross-plat/create-feedback-provider
 
 /// <summary>
-/// Register the predictor on module loading and unregister it on module un-loading.
+/// Handles module lifecycle: initialization and cleanup.
+/// Registers predictors and feedback providers with PowerShell.
 /// </summary>
-public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
+public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyCleanup
 {
     private readonly List<(SubsystemKind Kind, Guid Id)> _subsystems = [];
     private static IpcServer? _ipcServer;
-
-    // Phase 11: Generic learning components
-    private static CommandHistory? _commandHistory;
-    private static ArgumentGraph? _argumentGraph;
     private static ContextAnalyzer? _contextAnalyzer;
     private static GenericPredictor? _genericPredictor;
-
-    // Phase 12: Cross-session persistence
-    private static PersistenceManager? _persistenceManager;
     private static System.Threading.Timer? _autoSaveTimer;
-
-    // Phase 16: Module state exposed for PowerShell functions
-    private static CompletionCache? _completionCache;
-
-    /// <summary>
-    /// Gets the completion cache instance. Accessible from PowerShell functions.
-    /// </summary>
-    public static CompletionCache? Cache => _completionCache;
-
-    /// <summary>
-    /// Gets the argument graph instance (learned command knowledge). Accessible from PowerShell functions.
-    /// </summary>
-    public static ArgumentGraph? KnowledgeGraph => _argumentGraph;
-
-    /// <summary>
-    /// Gets the command history instance. Accessible from PowerShell functions.
-    /// </summary>
-    public static CommandHistory? CommandHistory => _commandHistory;
-
-    /// <summary>
-    /// Gets the persistence manager instance. Accessible from PowerShell functions.
-    /// </summary>
-    public static PersistenceManager? Persistence => _persistenceManager;
 
     /// <summary>
     /// Gets called when assembly is loaded.
@@ -57,7 +28,7 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
     public void OnImport()
     {
         // Phase 16: Initialize completion cache (used by both IPC and PowerShell functions)
-        _completionCache = new CompletionCache();
+        PSCueModule.Cache = new CompletionCache();
 
         // Phase 11: Initialize generic learning system
         // Check if generic learning is enabled (default: true, can be disabled via env var)
@@ -74,12 +45,12 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
                 var decayDays = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_DECAY_DAYS"), out var dd) ? dd : 30;
 
                 // Phase 12: Initialize persistence manager and load learned data
-                _persistenceManager = new PersistenceManager();
-                _argumentGraph = _persistenceManager.LoadArgumentGraph(maxCommands, maxArgs, decayDays);
-                _commandHistory = _persistenceManager.LoadCommandHistory(historySize);
+                PSCueModule.Persistence = new PersistenceManager();
+                PSCueModule.KnowledgeGraph = PSCueModule.Persistence.LoadArgumentGraph(maxCommands, maxArgs, decayDays);
+                PSCueModule.CommandHistory = PSCueModule.Persistence.LoadCommandHistory(historySize);
 
                 _contextAnalyzer = new ContextAnalyzer();
-                _genericPredictor = new GenericPredictor(_commandHistory, _argumentGraph, _contextAnalyzer);
+                _genericPredictor = new GenericPredictor(PSCueModule.CommandHistory, PSCueModule.KnowledgeGraph, _contextAnalyzer);
 
                 // Set up auto-save timer (every 5 minutes)
                 var autoSaveInterval = TimeSpan.FromMinutes(5);
@@ -109,7 +80,7 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
 
         // Register feedback provider (requires PowerShell 7.4+ with PSFeedbackProvider experimental feature)
         // This will fail gracefully on older PowerShell versions
-        RegisterFeedbackProvider(new FeedbackProvider(_ipcServer, _commandHistory, _argumentGraph));
+        RegisterFeedbackProvider(new FeedbackProvider(_ipcServer, PSCueModule.CommandHistory, PSCueModule.KnowledgeGraph));
     }
 
     private void RegisterCommandPredictor(ICommandPredictor commandPredictor)
@@ -160,10 +131,10 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
     {
         try
         {
-            if (_persistenceManager != null && _argumentGraph != null && _commandHistory != null)
+            if (PSCueModule.Persistence != null && PSCueModule.KnowledgeGraph != null && PSCueModule.CommandHistory != null)
             {
-                _persistenceManager.SaveArgumentGraph(_argumentGraph);
-                _persistenceManager.SaveCommandHistory(_commandHistory);
+                PSCueModule.Persistence.SaveArgumentGraph(PSCueModule.KnowledgeGraph);
+                PSCueModule.Persistence.SaveCommandHistory(PSCueModule.CommandHistory);
             }
         }
         catch (Exception ex)
@@ -181,10 +152,10 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
         // Phase 12: Save learned data before unloading
         try
         {
-            if (_persistenceManager != null && _argumentGraph != null && _commandHistory != null)
+            if (PSCueModule.Persistence != null && PSCueModule.KnowledgeGraph != null && PSCueModule.CommandHistory != null)
             {
-                _persistenceManager.SaveArgumentGraph(_argumentGraph);
-                _persistenceManager.SaveCommandHistory(_commandHistory);
+                PSCueModule.Persistence.SaveArgumentGraph(PSCueModule.KnowledgeGraph);
+                PSCueModule.Persistence.SaveCommandHistory(PSCueModule.CommandHistory);
             }
         }
         catch (Exception ex)
@@ -197,8 +168,13 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
         _autoSaveTimer = null;
 
         // Cleanup persistence manager
-        _persistenceManager?.Dispose();
-        _persistenceManager = null;
+        PSCueModule.Persistence?.Dispose();
+        PSCueModule.Persistence = null;
+
+        // Clear module state
+        PSCueModule.Cache = null;
+        PSCueModule.KnowledgeGraph = null;
+        PSCueModule.CommandHistory = null;
 
         // Unregister all subsystems (predictors and feedback providers)
         foreach (var (kind, id) in _subsystems)
@@ -224,20 +200,10 @@ public class Init : IModuleAssemblyInitializer, IModuleAssemblyCleanup
     /// <summary>
     /// Get the IPC server instance for testing or feedback provider access.
     /// </summary>
-    public static IpcServer? GetIpcServer() => _ipcServer;
-
-    /// <summary>
-    /// Get the command history instance for testing or debugging.
-    /// </summary>
-    public static CommandHistory? GetCommandHistory() => _commandHistory;
-
-    /// <summary>
-    /// Get the argument graph instance for testing or debugging.
-    /// </summary>
-    public static ArgumentGraph? GetArgumentGraph() => _argumentGraph;
+    internal static IpcServer? GetIpcServer() => _ipcServer;
 
     /// <summary>
     /// Get the generic predictor instance for testing or debugging.
     /// </summary>
-    public static GenericPredictor? GetGenericPredictor() => _genericPredictor;
+    internal static GenericPredictor? GetGenericPredictor() => _genericPredictor;
 }
