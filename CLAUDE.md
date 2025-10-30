@@ -9,7 +9,9 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 
 **Phase 13 Complete**: Directory-aware navigation suggestions for cd/Set-Location with smart caching and learning integration.
 
-**Phase 15 Complete**: Test coverage improvements - added 27 new tests for IpcServer (error handling, concurrency, lifecycle). Total: 315 tests, 314 passing (1 skipped: complex timing scenario).
+**Phase 15 Complete**: Test coverage improvements - added 67 new tests (CommandPredictor, FeedbackProvider, IpcServer). Total: 296 tests, 295 passing (1 skipped: complex timing scenario).
+
+**Phase 16 In Progress**: PowerShell module functions replacing PSCue.Debug CLI. Phases 16.1-16.4 complete (10 functions implemented), 16.5-16.7 remaining (testing, docs, IPC removal).
 
 **Supported Commands Update**: Added Graphite CLI (gt) with full Tab completion support for all subcommands (create, modify, submit, sync, log, etc.) and parameters. Also includes Windows Terminal (wt) support.
 
@@ -67,7 +69,7 @@ src/
 dotnet build src/PSCue.Module/ -c Release -f net9.0
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
-# Test (319 tests total: 115 ArgumentCompleter + 205 Module including Phases 11-15)
+# Test (296 tests total: 91 ArgumentCompleter + 205 Module including Phases 11-15)
 dotnet test test/PSCue.ArgumentCompleter.Tests/
 dotnet test test/PSCue.Module.Tests/
 
@@ -80,7 +82,19 @@ dotnet test --filter "FullyQualifiedName~IpcServer"
 # Install locally
 ./scripts/install-local.ps1
 
-# Debug
+# PowerShell Module Functions (Phase 16 - replaces PSCue.Debug)
+Get-PSCueCache [-Filter <string>] [-AsJson]        # View cached completions
+Clear-PSCueCache [-WhatIf] [-Confirm]              # Clear cache
+Get-PSCueCacheStats [-AsJson]                      # Cache statistics
+Get-PSCueLearning [-Command <string>] [-AsJson]    # View learned data
+Clear-PSCueLearning [-WhatIf] [-Confirm]           # Clear learned data
+Export-PSCueLearning -Path <path>                  # Export to JSON
+Import-PSCueLearning -Path <path> [-Merge]         # Import from JSON
+Save-PSCueLearning                                 # Force save to disk
+Test-PSCueCompletion -InputString <string>         # Test completions
+Get-PSCueModuleInfo [-AsJson]                      # Module diagnostics
+
+# Debug (Legacy - PSCue.Debug CLI, will be removed in Phase 16.7)
 dotnet run --project src/PSCue.Debug/ -- query-ipc "git checkout ma"
 dotnet run --project src/PSCue.Debug/ -- stats
 dotnet run --project src/PSCue.Debug/ -- cache --filter git
@@ -138,8 +152,10 @@ private async Task<IpcResponse> SendRequest(IpcRequest request) {
 4. **NativeAOT reference errors**: Put shared code in PSCue.Shared, not ArgumentCompleter
 
 ## Documentation
+- **Implementation status**:
+  - Active work: See `TODO.md`
+  - Completed phases: See `COMPLETED.md` (Phases 1-13, 15 archived)
 - Full details: See `docs/ARCHITECTURE.md` and `docs/TROUBLESHOOTING.md`
-- Implementation status: See `TODO.md`
 - Bug fix history: See git log and commit messages
 - API docs: [ICommandPredictor](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-cmdlet-predictor), [IFeedbackProvider](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider)
 

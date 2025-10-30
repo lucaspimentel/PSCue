@@ -277,10 +277,10 @@ pwsh -NoProfile -File test-scripts/test-pscue-debug.ps1
 
 ## Automated Tests
 
-PSCue has **319 unit tests** covering ArgumentCompleter logic, IPC server behavior, cache filtering, learning system, persistence, and integration scenarios.
+PSCue has **296 unit tests** covering ArgumentCompleter logic, IPC server behavior, cache filtering, learning system, persistence, and integration scenarios.
 
 For automated unit and integration tests, see:
-- `test/PSCue.ArgumentCompleter.Tests/` - **115 tests**
+- `test/PSCue.ArgumentCompleter.Tests/` - **91 tests**
   - CommandCompleter logic tests
   - Completion generation for all supported commands
   - **Windows Terminal (wt)**: 24 tests including alias support, partial matching, tooltip verification
@@ -299,5 +299,5 @@ For automated unit and integration tests, see:
 
 Run all tests:
 ```powershell
-dotnet test  # All 319 tests
+dotnet test  # All 296 tests
 ```

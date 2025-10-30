@@ -452,6 +452,65 @@ To add completions for a new command:
 
 See existing completions like `GitCommand.cs` or `ScoopCommand.cs` for examples in `src/PSCue.Shared/KnownCompletions/`.
 
+## Cache & Learning Management
+
+PSCue includes PowerShell functions for managing the completion cache and learning system:
+
+### Cache Management
+
+```powershell
+# View cached completions
+Get-PSCueCache                    # Show all cached completions
+Get-PSCueCache -Filter git        # Filter by command
+Get-PSCueCache -AsJson            # Output as JSON
+
+# Cache statistics
+Get-PSCueCacheStats               # Show cache stats (entries, hits, age)
+
+# Clear cache
+Clear-PSCueCache                  # Interactive confirmation
+Clear-PSCueCache -Confirm:$false  # Skip confirmation
+```
+
+### Learning System Management
+
+```powershell
+# View learned data
+Get-PSCueLearning                 # Show all learned commands
+Get-PSCueLearning -Command kubectl # Filter by specific command
+Get-PSCueLearning -AsJson         # Output as JSON
+
+# Export/Import learned data (for backup or migration)
+Export-PSCueLearning -Path ~/pscue-backup.json
+Import-PSCueLearning -Path ~/pscue-backup.json          # Replace current data
+Import-PSCueLearning -Path ~/pscue-backup.json -Merge   # Merge with current data
+
+# Force save to disk (bypasses auto-save timer)
+Save-PSCueLearning
+
+# Clear all learned data
+Clear-PSCueLearning               # Interactive confirmation (ConfirmImpact=High)
+Clear-PSCueLearning -Confirm:$false
+```
+
+### Debugging & Diagnostics
+
+```powershell
+# Test completion generation
+Test-PSCueCompletion -InputString "git checkout ma"
+Test-PSCueCompletion -InputString "kubectl get " -IncludeTiming
+
+# Module diagnostics
+Get-PSCueModuleInfo               # Show version, config, statistics
+Get-PSCueModuleInfo -AsJson       # JSON output for scripting
+```
+
+All functions support:
+- **Tab completion** on parameters
+- **`Get-Help`** for detailed documentation and examples
+- **Pipeline support** where applicable
+- **`-WhatIf` and `-Confirm`** for destructive operations
+
 ## Troubleshooting
 
 ### Tab completions not working
@@ -513,7 +572,11 @@ Special thanks to the PowerShell team for the `ICommandPredictor` and `IFeedback
 - **Repository**: https://github.com/lucaspimentel/PSCue
 - **Issues**: https://github.com/lucaspimentel/PSCue/issues
 - **Releases**: https://github.com/lucaspimentel/PSCue/releases
-- **Documentation**:
+- **Project Documentation**:
+  - [TODO.md](TODO.md) - Current work and future plans
+  - [COMPLETED.md](COMPLETED.md) - Completed implementation phases (Phases 1-13, 15)
+  - [CLAUDE.md](CLAUDE.md) - Quick reference for AI agents
+- **PowerShell API Documentation**:
   - [ICommandPredictor API](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-cmdlet-predictor)
   - [IFeedbackProvider API](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider)
   - [Register-ArgumentCompleter](https://learn.microsoft.com/powershell/module/microsoft.powershell.core/register-argumentcompleter)
