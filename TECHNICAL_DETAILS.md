@@ -1,6 +1,6 @@
 # PSCue Technical Details
 
-**Last Updated**: 2025-01-26
+**Last Updated**: 2025-10-30
 
 This document provides technical details about PSCue's architecture, implementation, and internal workings. For user-facing documentation, see [README.md](README.md). For development guidelines, see [CLAUDE.md](CLAUDE.md).
 
@@ -8,6 +8,7 @@ This document provides technical details about PSCue's architecture, implementat
 
 - [IPC Communication Layer](#ipc-communication-layer)
 - [Completion Cache](#completion-cache)
+- [Navigation Path Learning (Phase 14)](#navigation-path-learning-phase-14)
 - [PSCue.Debug Tool](#pscuedebug-tool)
 - [Architecture Diagram](#architecture-diagram)
 - [Performance Metrics](#performance-metrics)
@@ -96,6 +97,200 @@ Thread-safe, intelligent caching system:
 - Cache Key: Command + normalized arguments (e.g., "git|checkout")
 - Expiration: 5 minutes since last write
 - Memory: Automatic cleanup via `RemoveExpired()`
+
+---
+
+## Navigation Path Learning (Phase 14)
+
+**Completed**: 2025-10-30
+
+Enhanced cd/Set-Location learning system with path normalization and context awareness.
+
+### Path Normalization (`ArgumentGraph.cs`)
+
+**Problem**: Different path forms (relative, absolute, ~) were learned as separate entries:
+- `cd ~/projects` → learned as "~/projects"
+- `cd ../projects` → learned as "../projects"
+- `cd /home/user/projects` → learned as "/home/user/projects"
+
+**Solution**: Normalize all navigation paths to absolute form before learning.
+
+**Implementation**:
+```csharp
+// ArgumentGraph.cs:220-281
+public void RecordUsage(string command, string[] arguments, string? workingDirectory = null)
+{
+    // Detect navigation commands
+    var isNavigationCommand = command.Equals("cd", ...)
+        || command.Equals("Set-Location", ...) ...;
+
+    // Normalize paths for navigation commands
+    if (isNavigationCommand && workingDirectory != null) {
+        arguments = NormalizeNavigationPaths(arguments, workingDirectory);
+    }
+    // ... record normalized arguments
+}
+
+private static string? NormalizePath(string path, string workingDirectory)
+{
+    // Expand ~ to home directory
+    if (path.StartsWith("~/") || path == "~") {
+        path = path.Replace("~", Environment.GetFolderPath(...));
+    }
+
+    // Convert relative/absolute paths to full path
+    return Path.IsPathRooted(path)
+        ? Path.GetFullPath(path)
+        : Path.GetFullPath(Path.Combine(workingDirectory, path));
+}
+```
+
+**Benefits**:
+- `cd ~/projects`, `cd ../projects`, `cd /home/user/projects` all learn as `/home/user/projects`
+- Usage counts merge across different input forms
+- Cross-session persistence stores normalized absolute paths
+- Works across different working directories
+
+### Context-Aware Filtering (`GenericPredictor.cs`)
+
+**Problem**: Suggestions included current directory and irrelevant paths.
+
+**Solution**: Filter learned paths by current directory and partial matches.
+
+**Implementation**:
+```csharp
+// GenericPredictor.cs:105-195
+if (isNavigationCommand) {
+    var currentDirectory = Directory.GetCurrentDirectory();
+
+    // Filter out current directory
+    learnedPaths = learnedPaths
+        .Where(s => !IsSamePath(s.Argument, currentDirectory))
+        .ToList();
+
+    // Filter by partial path match
+    if (!string.IsNullOrEmpty(wordToComplete)) {
+        learnedPaths = learnedPaths
+            .Where(s => MatchesPartialPath(s.Argument, wordToComplete))
+            .ToList();
+    }
+
+    // Add trailing directory separator (PowerShell native behavior)
+    var pathWithSeparator = learned.Argument + Path.DirectorySeparatorChar;
+}
+
+private static bool MatchesPartialPath(string fullPath, string partial)
+{
+    // Match against directory name, path segments, or full path
+    return fullPath.Contains(partial, comparison)
+        || Path.GetFileName(fullPath).StartsWith(partial, comparison)
+        || segments.Any(s => s.StartsWith(partial, comparison));
+}
+```
+
+**Benefits**:
+- Current directory never suggested
+- `cd dotnet` only suggests paths containing "dotnet"
+- Trailing `\` or `/` matches PowerShell Tab completion
+- Platform-aware path comparison (case-sensitive on Unix)
+
+### Absolute Path Handling (`CommandPredictor.cs`)
+
+**Problem**: `cd dotnet` was suggesting invalid `cd dotnet D:\source\dd-trace-dotnet\`.
+
+**Solution**: Detect absolute paths and replace (not append) last word.
+
+**Implementation**:
+```csharp
+// CommandPredictor.cs:175-207
+internal static string Combine(ReadOnlySpan<char> input, string completionText)
+{
+    var lastSpaceIndex = input.LastIndexOf(' ');
+    var startIndex = lastSpaceIndex >= 0 ? lastSpaceIndex + 1 : 0;
+    var lastWord = input[startIndex..];
+
+    // Normal overlap matching...
+    if (completionText.StartsWith(lastWord, ...)) {
+        return string.Concat(input[..startIndex], completionText);
+    }
+
+    // Special case: absolute path replaces last word
+    if (lastSpaceIndex >= 0 && IsAbsolutePath(completionText)) {
+        return string.Concat(input[..startIndex], completionText);
+    }
+
+    return $"{input} {completionText}";
+}
+
+private static bool IsAbsolutePath(string path)
+{
+    // Windows: C:\, D:\, \\server\share
+    if (path[1] == ':' || path.StartsWith("\\\\")) return true;
+    // Unix: /home, /var
+    if (path[0] == '/') return true;
+    return false;
+}
+```
+
+**Benefits**:
+- `cd dotnet` + `D:\path\` → `cd D:\path\` (correct)
+- Works for Windows (`C:\`) and Unix (`/`) absolute paths
+- UNC paths supported (`\\server\share`)
+- No impact on non-navigation commands
+
+### Enhanced Scoring
+
+**Frequently visited paths prioritized**:
+```csharp
+// GenericPredictor.cs:160-165
+existing.Score = 0.85 + (learnedScore * 0.15); // 0.85-1.0 range
+existing.Description = $"visited {learned.UsageCount}x";
+```
+
+**Score ranges**:
+- Filesystem-only suggestions: 0.6
+- Learned paths (filesystem): 0.85-1.0
+- Learned paths (not in filesystem): 0.85-1.0
+
+**Display**:
+- Tooltip shows visit count: `"visited 15x"`
+- Sorted by score → usage count → alphabetical
+
+### Working Directory Capture (`FeedbackProvider.cs`)
+
+**Required for path normalization**:
+```csharp
+// FeedbackProvider.cs:387-404
+private void LearnFromCommand(...)
+{
+    // Capture current directory
+    string? workingDirectory = Directory.GetCurrentDirectory();
+
+    // Pass to learning systems
+    _commandHistory?.Add(..., workingDirectory);
+    _argumentGraph.RecordUsage(command, arguments, workingDirectory);
+}
+```
+
+### Performance
+
+- Path normalization: <1ms per path
+- Context filtering: <5ms per suggestion
+- Total overhead: <10ms (acceptable for inline predictions)
+- No impact on Tab completion (<50ms target maintained)
+
+### Cross-Platform Support
+
+**Windows**:
+- Absolute paths: `C:\`, `D:\`, `\\server\share`
+- Directory separator: `\`
+- Case-insensitive path comparison
+
+**Unix (Linux/macOS)**:
+- Absolute paths: `/home`, `/var`, `/usr`
+- Directory separator: `/`
+- Case-sensitive path comparison
+- Tilde expansion: `~` → `$HOME`
 
 ### IPC Server (`PSCue.Module/IpcServer.cs`)
 

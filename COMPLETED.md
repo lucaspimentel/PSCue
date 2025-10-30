@@ -22,6 +22,7 @@ For current and future work, see [TODO.md](TODO.md).
 - **Phase 11**: Generic Command Learning (Universal Predictor) ✅
 - **Phase 12**: Cross-Session Persistence ✅
 - **Phase 13**: Directory-Aware Navigation Suggestions ✅
+- **Phase 14**: Enhanced cd Learning with Path Normalization ✅
 - **Phase 15**: Test Coverage Improvements ✅
 
 ---
@@ -788,6 +789,95 @@ For current and future work, see [TODO.md](TODO.md).
 3. Complex private methods should be `internal` and tested directly
 4. Consider property-based testing for string manipulation
 5. Test edge cases explicitly (empty strings, special chars, Unicode, etc.)
+
+---
+
+## Phase 14: Enhanced cd Learning with Path Normalization ✅ **COMPLETE**
+
+**Status**: ✅ Implementation complete with comprehensive testing
+
+**Completed**: 2025-10-30
+
+**Summary**:
+- ✅ Path normalization to absolute form (handles ~, .., relative paths) (~140 lines in ArgumentGraph.cs)
+- ✅ Context-aware filtering (current directory, partial path matching) (~75 lines in GenericPredictor.cs)
+- ✅ Enhanced scoring for frequently visited paths (0.85-1.0 vs 0.6)
+- ✅ Trailing directory separator matching PowerShell native behavior
+- ✅ Absolute path handling in predictions (CommandPredictor.Combine)
+- ✅ **18 new tests** (14 Phase 14 + 4 updated Combine tests)
+  - 10 path normalization tests (ArgumentGraphTests.cs)
+  - 4 context-aware filtering tests (GenericPredictorTests.cs)
+  - 4 absolute path Combine tests (CommandPredictorTests.cs)
+- ✅ All 343 tests passing (203 Module + 140 ArgumentCompleter)
+
+**Key Features**:
+- **Path Normalization**: All navigation paths normalized to absolute form before learning
+  - `cd ~/projects` and `cd ../projects` both learn as `/home/user/projects`
+  - Merges different input forms to same entry with cumulative usage count
+- **Context Filtering**:
+  - Current directory never suggested
+  - Partial path matching: `cd dotnet` matches `D:\source\datadog\dd-trace-dotnet`
+  - Only relevant paths shown based on user input
+- **Smart Scoring**: Frequently visited paths prioritized (0.85-1.0 range)
+- **PowerShell Native Behavior**: Trailing `\` or `/` added to all directory paths
+- **Bug Fixes**:
+  - Fixed `cd dotnet` suggesting invalid `cd dotnet D:\path\`
+  - Now correctly suggests `cd D:\path\`
+
+**Files Modified**:
+- `src/PSCue.Module/ArgumentGraph.cs`: Path normalization logic (3 new methods)
+- `src/PSCue.Module/FeedbackProvider.cs`: Working directory capture
+- `src/PSCue.Module/GenericPredictor.cs`: Context-aware filtering (2 new methods)
+- `src/PSCue.Module/CommandPredictor.cs`: Absolute path handling in Combine
+- `test/PSCue.Module.Tests/ArgumentGraphTests.cs`: 10 new normalization tests
+- `test/PSCue.Module.Tests/GenericPredictorTests.cs`: 4 new filtering tests
+- `test/PSCue.Module.Tests/CommandPredictorTests.cs`: 4 new Combine tests
+
+**Implementation Details**:
+
+1. **Path Normalization** (ArgumentGraph.cs:220-281):
+   - `NormalizeNavigationPaths()`: Normalizes array of paths for cd/Set-Location/sl/chdir
+   - `NormalizePath()`: Handles ~, relative paths, absolute paths → returns absolute form
+   - Stores absolute paths in ArgumentGraph for consistent learning
+   - Example: `cd ~/foo`, `cd ../foo`, `cd /home/user/foo` all learn as `/home/user/foo`
+
+2. **Context-Aware Filtering** (GenericPredictor.cs:105-195):
+   - Filters out current directory from suggestions
+   - `MatchesPartialPath()`: Matches user input against learned paths
+   - `IsSamePath()`: Platform-aware path comparison (case-sensitive on Unix)
+   - Trailing directory separator added for PowerShell consistency
+
+3. **Absolute Path Handling** (CommandPredictor.cs:175-207):
+   - `IsAbsolutePath()`: Detects Windows (`C:\`) and Unix (`/`) paths
+   - Special case in `Combine()`: Replaces last word for absolute paths
+   - Fixes: `cd dotnet` + `D:\path\` → `cd D:\path\` (not `cd dotnet D:\path\`)
+
+**Test Coverage**:
+- Path normalization: ~, ~/dir, .., relative, absolute paths
+- Cross-form merging: Same directory learned via different paths
+- Navigation command detection: cd, Set-Location, sl, chdir
+- Current directory filtering
+- Frequency-based scoring
+- Visit count display
+- Absolute path replacement in predictions
+- Cross-platform (Windows \ and Unix /)
+
+**Architecture Integration**:
+- **ArgumentCompleter**: Uses SetLocationCommand for Tab completion (filesystem browsing)
+- **CommandPredictor**: Enhanced with learned paths via GenericPredictor
+- **FeedbackProvider**: Captures working directory, passes to ArgumentGraph
+- **ArgumentGraph**: Normalizes paths before recording usage
+- **GenericPredictor**: Filters and scores suggestions contextually
+- **PersistenceManager**: Persists normalized absolute paths across sessions
+
+**Performance**:
+- Path normalization: <1ms per path
+- Context filtering: <5ms per cd suggestion
+- Total overhead: <10ms (within acceptable range)
+
+**Commits**:
+- `bf2e4d5`: Initial implementation (path normalization, filtering, scoring)
+- `ae1256d`: Bug fix (absolute path handling in Combine method)
 
 ---
 

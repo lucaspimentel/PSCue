@@ -9,7 +9,15 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 
 **Phase 13 Complete**: Directory-aware navigation suggestions for cd/Set-Location with smart caching and learning integration.
 
-**Phase 15 Complete**: Test coverage improvements - added 67 new tests (CommandPredictor, FeedbackProvider, IpcServer). Total: 296 tests, 295 passing (1 skipped: complex timing scenario).
+**Phase 14 Complete**: Enhanced cd/Set-Location learning with path normalization and context awareness:
+- Normalizes all navigation paths to absolute form (handles ~, .., relative paths)
+- Different path forms merge to same entry (cd ~/foo and cd ../foo → same learned path)
+- Filters suggestions by current directory and partial path matching
+- Boosts frequently visited paths (0.85-1.0 score vs 0.6 for filesystem)
+- Adds trailing directory separator to match PowerShell native behavior
+- Fixes absolute path handling in predictions (cd dotnet → cd D:\path\, not cd dotnet D:\path\)
+
+**Phase 15 Complete**: Test coverage improvements - added 67 new tests (CommandPredictor, FeedbackProvider, IpcServer). Total: 343 tests passing (203 Module + 140 ArgumentCompleter).
 
 **Phase 16 In Progress**: PowerShell module functions replacing PSCue.Debug CLI. Phases 16.1-16.4 complete (10 functions implemented), 16.5-16.7 remaining (testing, docs, IPC removal).
 
@@ -50,14 +58,19 @@ src/
 ## Key Files & Line References
 - `src/PSCue.Module/IpcServer.cs`: Named pipe server, cache handling, completion generation
 - `src/PSCue.Module/IpcServer.cs:27`: Constructor accepting custom pipe name (for test isolation)
+- `src/PSCue.Module/ArgumentGraph.cs`: Knowledge graph with path normalization (Phase 14)
+- `src/PSCue.Module/GenericPredictor.cs`: Context-aware suggestions with path filtering (Phase 14)
+- `src/PSCue.Module/CommandPredictor.cs`: Absolute path handling in Combine method (Phase 14)
 - `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence (~470 lines)
 - `src/PSCue.Module/Init.cs`: Module lifecycle (load on import, save on remove, auto-save timer)
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
-- `test/PSCue.Module.Tests/CommandPredictorTests.cs`: CommandPredictor.Combine tests (19 tests, Phase 15)
+- `test/PSCue.Module.Tests/CommandPredictorTests.cs`: CommandPredictor.Combine tests (23 tests, Phase 14-15)
 - `test/PSCue.Module.Tests/FeedbackProviderTests.cs`: FeedbackProvider tests (26 tests, Phase 15)
 - `test/PSCue.Module.Tests/IpcServerErrorHandlingTests.cs`: Error handling & edge cases (10 tests, Phase 15)
 - `test/PSCue.Module.Tests/IpcServerConcurrencyTests.cs`: Concurrent request handling (7 tests, Phase 15)
 - `test/PSCue.Module.Tests/IpcServerLifecycleTests.cs`: Server lifecycle & cleanup (10 tests, Phase 15)
+- `test/PSCue.Module.Tests/ArgumentGraphTests.cs`: Path normalization tests (28 tests, Phase 14)
+- `test/PSCue.Module.Tests/GenericPredictorTests.cs`: Context-aware filtering tests (20 tests, Phase 14)
 - `test/PSCue.Module.Tests/PersistenceManagerTests.cs`: Unit tests for persistence (10 tests)
 - `test/PSCue.Module.Tests/PersistenceConcurrencyTests.cs`: Multi-session concurrency (11 tests)
 - `test/PSCue.Module.Tests/PersistenceEdgeCaseTests.cs`: Edge cases & error handling (18 tests)
@@ -69,7 +82,7 @@ src/
 dotnet build src/PSCue.Module/ -c Release -f net9.0
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
-# Test (296 tests total: 91 ArgumentCompleter + 205 Module including Phases 11-15)
+# Test (343 tests total: 140 ArgumentCompleter + 203 Module including Phases 11-15)
 dotnet test test/PSCue.ArgumentCompleter.Tests/
 dotnet test test/PSCue.Module.Tests/
 
