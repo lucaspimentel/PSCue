@@ -208,6 +208,14 @@ Copy-Item -Path "$ModuleSource/PSCue.psm1" -Destination $InstallDir -Force
 Write-Info "  Installed: PSCue.psd1"
 Write-Info "  Installed: PSCue.psm1"
 
+# Copy Functions directory (Phase 16: PowerShell functions)
+$FunctionsSource = Join-Path $ModuleSource "Functions"
+if (Test-Path $FunctionsSource) {
+    $FunctionsDest = Join-Path $InstallDir "Functions"
+    Copy-Item -Path $FunctionsSource -Destination $FunctionsDest -Recurse -Force
+    Write-Info "  Installed: Functions/ (PowerShell module functions)"
+}
+
 # Success!
 Write-Host ""
 Write-Status "PSCue installation complete!"
