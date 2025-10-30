@@ -1,5 +1,5 @@
 # Cache Management Functions for PSCue
-# Phase 16.2: PowerShell functions for cache operations
+# PowerShell functions for cache operations
 
 function Get-PSCueCache {
     <#

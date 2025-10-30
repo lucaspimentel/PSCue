@@ -61,10 +61,16 @@
 
     # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
     FunctionsToExport = @(
-        # Phase 16.2: Cache Management
+        # Cache Management
         'Get-PSCueCache',
         'Clear-PSCueCache',
-        'Get-PSCueCacheStats'
+        'Get-PSCueCacheStats',
+        # Learning Management
+        'Get-PSCueLearning',
+        'Clear-PSCueLearning',
+        'Export-PSCueLearning',
+        'Import-PSCueLearning',
+        'Save-PSCueLearning'
     )
 
     # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.

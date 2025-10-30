@@ -95,8 +95,9 @@ foreach ($command in $SupportedCommands) {
 # CommandPredictor is loaded as a nested module from the PSD1
 # It auto-registers via IModuleAssemblyInitializer.OnImport()
 
-# Phase 16: Load PowerShell functions for cache & learning management
+# Load PowerShell functions for cache & learning management
 . $PSScriptRoot/Functions/CacheManagement.ps1
+. $PSScriptRoot/Functions/LearningManagement.ps1
 
 # Suggest enabling predictions if not already enabled
 $predictionSource = (Get-PSReadLineOption).PredictionSource
