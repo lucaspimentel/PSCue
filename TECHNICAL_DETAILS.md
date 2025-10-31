@@ -492,17 +492,36 @@ cherry-pick     Apply the changes introduced by some existing commits
 
 ## Performance Metrics
 
-| Metric | Target | Achieved |
-|--------|--------|----------|
-| ArgumentCompleter Startup | <10ms | <10ms ✅ |
-| Tab Completion Response | <50ms | 11-15ms ✅ |
-| Cache Access | <1ms | <1ms ✅ |
-| Module Function Calls | <5ms | <5ms ✅ |
-| Module Loading | <100ms | <80ms ✅ |
-| Build Time | <5s | 1.3s ✅ |
-| Test Execution (252 tests) | <5s | <3s ✅ |
-| Module Installation | <60s | ~30s ✅ |
-| NativeAOT Warnings | 0 | 0 ✅ |
+| Metric | Target | Achieved | Notes |
+|--------|--------|----------|-------|
+| ArgumentCompleter Startup | <10ms | <10ms ✅ | NativeAOT critical for responsiveness |
+| Tab Completion Response | <50ms | 11-15ms ✅ | No hard timeout enforced by PowerShell |
+| **Inline Prediction Response** | **<20ms** | **Varies** ⚠️ | **Hard limit enforced by PowerShell** |
+| Cache Access | <1ms | <1ms ✅ | |
+| Module Function Calls | <5ms | <5ms ✅ | |
+| Module Loading | <100ms | <80ms ✅ | |
+| Build Time | <5s | 1.3s ✅ | |
+| Test Execution (252 tests) | <5s | <3s ✅ | |
+| Module Installation | <60s | ~30s ✅ | |
+| NativeAOT Warnings | 0 | 0 ✅ | |
+
+### Critical Performance Constraint: ICommandPredictor 20ms Timeout
+
+**PowerShell enforces a hardcoded 20ms timeout for `ICommandPredictor.GetSuggestion()`**:
+
+- **Source**: `PowerShell/src/System.Management.Automation/engine/Subsystem/PredictionSubsystem/CommandPrediction.cs`
+- **Mechanism**: `Task.WhenAny(predictorTask, Task.Delay(20))` - any predictor not responding in 20ms is silently ignored
+- **Not configurable**: Cannot be changed without recompiling PowerShell (as of 7.5, 2025)
+- **Impact**: Any expensive computation (ML inference, database queries) MUST complete in <20ms or be pre-computed asynchronously
+
+**Implications**:
+- ✅ **Tab completion** (`Register-ArgumentCompleter`): No hard timeout, 50-100ms acceptable
+- ⚠️ **Inline predictions** (`ICommandPredictor`): **20ms hard limit**, predictions discarded if slower
+- 🔧 **ML features**: Must use background pre-computation + caching to stay under 20ms
+
+**References**:
+- [PSReadLine #4029](https://github.com/PowerShell/PSReadLine/issues/4029) - Feature request to make timeout configurable
+- See `ML-PREDICTIONS.md` for architectural strategies to handle this constraint
 
 **Note:** Simplified architecture provides faster, more reliable performance.
 
@@ -577,9 +596,32 @@ PSCue works seamlessly across platforms:
    - ArgumentCompleter: Launched per-completion (short-lived process)
    - CommandPredictor: Loaded once with module (long-lived)
 
-3. **Clear separation of concerns**:
+3. **Different performance constraints**:
+   - ArgumentCompleter: No hard timeout, 50-100ms acceptable for Tab completion
+   - CommandPredictor: **20ms hard timeout** enforced by PowerShell for inline predictions
+
+4. **Clear separation of concerns**:
    - ArgumentCompleter: Handles `Register-ArgumentCompleter` (Tab completion)
    - CommandPredictor: Handles `ICommandPredictor` (inline suggestions)
+
+### Database Access Architecture
+
+**ArgumentCompleter (Tab completion)**:
+- ❌ **No SQLite access** - NativeAOT executable, no database dependency
+- ✅ Computes completions from static/dynamic sources only
+- ✅ Can include dynamic arguments (git branches, scoop packages, etc.)
+- ✅ No 20ms timeout constraint
+
+**CommandPredictor (Inline predictions)**:
+- ✅ **Has SQLite access** via `PersistenceManager`
+- ✅ Loads learned data from database on startup
+- ✅ Provides inline suggestions via `ICommandPredictor`
+- ⚠️ **20ms hard timeout** - expensive queries must be pre-cached
+
+**Implication for ML Features**:
+- ML predictions in inline suggestions require background pre-computation
+- ML predictions in Tab completion can be synchronous (no timeout)
+- See `ML-PREDICTIONS.md` for detailed architectural strategies
 
 ### Project References
 
