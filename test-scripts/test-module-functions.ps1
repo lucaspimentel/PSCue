@@ -411,10 +411,8 @@ try {
 Write-TestHeader "Registered Subsystems"
 
 try {
-    # Try to get registered predictors (this is internal PowerShell stuff)
-    $predictors = [System.Management.Automation.Subsystem.SubsystemManager]::GetSubsystems(
-        [System.Management.Automation.Subsystem.SubsystemKind]::CommandPredictor
-    )
+    # Use Get-PSSubsystem cmdlet (available in PS 7.4+)
+    $predictors = Get-PSSubsystem -Kind CommandPredictor -ErrorAction SilentlyContinue
 
     $pscuePredictor = $predictors | Where-Object { $_.Name -eq 'PSCue' }
     if ($pscuePredictor) {
@@ -428,9 +426,7 @@ try {
 }
 
 try {
-    $feedbackProviders = [System.Management.Automation.Subsystem.SubsystemManager]::GetSubsystems(
-        [System.Management.Automation.Subsystem.SubsystemKind]::FeedbackProvider
-    )
+    $feedbackProviders = Get-PSSubsystem -Kind FeedbackProvider -ErrorAction SilentlyContinue
 
     $pscueFeedback = $feedbackProviders | Where-Object { $_.Name -eq 'PSCue.FeedbackProvider' }
     if ($pscueFeedback) {
