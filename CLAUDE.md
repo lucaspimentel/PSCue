@@ -7,8 +7,8 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 - **Generic Learning**: Learns from ALL commands (not just predefined ones) with context-aware suggestions
 - **Cross-Session Persistence**: SQLite database stores learned data across sessions
 - **Directory-Aware Navigation**: Smart cd/Set-Location suggestions with path normalization
-- **PowerShell Module Functions**: 10 functions for cache, learning, database management (no IPC overhead)
-- **296 Tests**: Comprehensive test coverage (140 ArgumentCompleter + 156 Module)
+- **PowerShell Module Functions**: 7 functions for learning and database management (no IPC overhead)
+- **323 Tests**: Comprehensive test coverage (140 ArgumentCompleter + 183 Module)
 
 **Supported Commands**: git, gh, gt (Graphite), az, azd, func, code, scoop, winget, wt (Windows Terminal), chezmoi, tre, lsd, dust, cd/Set-Location
 
@@ -52,7 +52,6 @@ src/
 - `src/PSCue.Module/CommandPredictor.cs`: Absolute path handling in Combine method (Phase 14)
 - `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence (~470 lines)
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
-- `module/Functions/CacheManagement.ps1`: PowerShell functions for cache management (Phase 16)
 - `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system (Phase 16)
 - `module/Functions/DatabaseManagement.ps1`: PowerShell functions for database queries (Phase 16)
 - `module/Functions/Debugging.ps1`: PowerShell functions for testing/diagnostics (Phase 16)
@@ -71,7 +70,7 @@ src/
 dotnet build src/PSCue.Module/ -c Release -f net9.0
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
-# Test (296 tests total: 140 ArgumentCompleter + 156 Module including Phases 11-15)
+# Test (323 tests total: 140 ArgumentCompleter + 183 Module including Phases 11-15)
 dotnet test test/PSCue.ArgumentCompleter.Tests/
 dotnet test test/PSCue.Module.Tests/
 
@@ -84,11 +83,6 @@ dotnet test --filter "FullyQualifiedName~CommandPredictor"
 ./scripts/install-local.ps1
 
 # PowerShell Module Functions (Phase 16 - replaces PSCue.Debug)
-# Cache Management (in-memory)
-Get-PSCueCache [-Filter <string>] [-AsJson]        # View cached completions
-Clear-PSCueCache [-WhatIf] [-Confirm]              # Clear cache
-Get-PSCueCacheStats [-AsJson]                      # Cache statistics
-
 # Learning Management (in-memory + database)
 Get-PSCueLearning [-Command <string>] [-AsJson]    # View learned data (in-memory)
 Clear-PSCueLearning [-WhatIf] [-Confirm]           # Clear learned data (memory + DB)
@@ -117,9 +111,9 @@ Get-PSCueModuleInfo [-AsJson]                      # Module diagnostics
 
 ## Performance Targets
 - ArgumentCompleter startup: <10ms
-- Cache hit: <1ms
 - Total Tab completion: <50ms
 - Module function calls: <5ms
+- Database queries: <10ms
 
 ## Supported Commands
 git, gh, gt, az, azd, func, code, scoop, winget, wt, chezmoi, tre, lsd, dust, cd (Set-Location/sl/chdir)
@@ -129,7 +123,7 @@ git, gh, gt, az, azd, func, code, scoop, winget, wt, chezmoi, tre, lsd, dust, cd
 ## When Adding Features
 - Put shared completion logic in `PSCue.Shared`
 - DynamicArguments (git branches, scoop packages) are computed locally by ArgumentCompleter
-- Update cache scores via `CompletionCache.IncrementUsage()` in `IFeedbackProvider`
+- Learning happens automatically via `FeedbackProvider` - no manual tracking needed
 - **Command aliases**: Use `Alias` property on `Command` class, include in tooltip like `"Create a new tab (alias: nt)"`
 - **Parameter aliases**: Use `Alias` property on `CommandParameter` class, include in tooltip like `"Only list directories (-d)"`
 
@@ -137,22 +131,22 @@ git, gh, gt, az, azd, func, code, scoop, winget, wt, chezmoi, tre, lsd, dust, cd
 ```csharp
 // Test module functions directly using PSCueModule static properties
 [Fact]
-public void TestCacheAccess()
+public void TestLearningAccess()
 {
-    var cache = PSCueModule.Cache;
-    Assert.NotNull(cache);
+    var graph = PSCueModule.KnowledgeGraph;
+    Assert.NotNull(graph);
 
-    // Test cache operations
-    cache.IncrementUsage("git|checkout", "main");
-    var stats = cache.GetStatistics();
-    Assert.True(stats.TotalHits > 0);
+    // Test learning operations
+    graph.RecordUsage("git", new[] { "status" }, null);
+    var suggestions = graph.GetSuggestions("git", Array.Empty<string>());
+    Assert.Contains(suggestions, s => s.Argument == "status");
 }
 ```
 
 ## Common Pitfalls
 1. **ArgumentCompleter slow**: DynamicArguments (git branches, scoop packages) are computed on every Tab press. This is expected and fast (<50ms).
 2. **NativeAOT reference errors**: Put shared code in PSCue.Shared, not ArgumentCompleter
-3. **Module functions return null**: Module may not be fully initialized. Check PSCueModule.Cache != null before use.
+3. **Module functions return null**: Module may not be fully initialized. Check PSCueModule.KnowledgeGraph != null before use.
 
 ## Documentation
 - **Implementation status**:

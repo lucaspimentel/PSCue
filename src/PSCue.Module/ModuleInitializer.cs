@@ -26,9 +26,6 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
     /// </summary>
     public void OnImport()
     {
-        // Initialize completion cache (used by PowerShell functions)
-        PSCueModule.Cache = new CompletionCache();
-
         // Initialize generic learning system
         // Check if generic learning is enabled (default: true, can be disabled via env var)
         var enableGenericLearning = Environment.GetEnvironmentVariable("PSCUE_DISABLE_LEARNING")?.Equals("true", StringComparison.OrdinalIgnoreCase) != true;
@@ -161,7 +158,6 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
         PSCueModule.Persistence = null;
 
         // Clear module state
-        PSCueModule.Cache = null;
         PSCueModule.KnowledgeGraph = null;
         PSCueModule.CommandHistory = null;
 

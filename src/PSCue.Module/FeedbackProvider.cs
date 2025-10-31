@@ -94,12 +94,6 @@ public class FeedbackProvider : IFeedbackProvider
                 // Learn from ALL commands (generic learning)
                 LearnFromCommand(mainCommand, commandLine, commandElements, success: true);
 
-                // Also update cache for supported commands (backward compatibility)
-                if (IsSupportedCommand(mainCommand))
-                {
-                    UpdateCacheFromUsage(mainCommand, commandLine, commandElements);
-                }
-
                 return null; // Silent learning
             }
             else if (context.Trigger == FeedbackTrigger.Error)
@@ -152,11 +146,11 @@ public class FeedbackProvider : IFeedbackProvider
     }
 
     /// <summary>
-    /// Checks if the command is supported by PSCue.
+    /// Checks if the command is supported by PSCue for error suggestions.
     /// </summary>
     private static bool IsSupportedCommand(string command)
     {
-        // List of commands we provide completions for
+        // List of commands we provide error suggestions for
         var supportedCommands = new[]
         {
             "git", "gh", "az", "azd", "func", "code",
@@ -164,80 +158,6 @@ public class FeedbackProvider : IFeedbackProvider
         };
 
         return supportedCommands.Contains(command, StringComparer.OrdinalIgnoreCase);
-    }
-
-    /// <summary>
-    /// Updates the completion cache based on observed command usage.
-    /// </summary>
-    private void UpdateCacheFromUsage(string mainCommand, string commandLine, List<string> commandElements)
-    {
-        var cache = PSCueModule.Cache;
-        if (cache == null)
-        {
-            return;
-        }
-
-        try
-        {
-            // Generate cache key from the command context
-            // For example: "git|checkout" for "git checkout main"
-            var cacheKey = CompletionCache.GetCacheKey(mainCommand, commandLine);
-
-            // Find the specific completion item that was used
-            // For example, if user typed "git checkout -b feature", we want to increment usage of "-b"
-            var completionText = ExtractCompletionText(commandElements);
-            if (!string.IsNullOrEmpty(completionText))
-            {
-                cache.IncrementUsage(cacheKey, completionText);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.Error.WriteLine($"Error updating cache from usage: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Extracts the specific completion text that was used from command elements.
-    /// </summary>
-    private static string? ExtractCompletionText(List<string> commandElements)
-    {
-        if (commandElements.Count < 2)
-        {
-            return null;
-        }
-
-        // Return the last meaningful element (subcommand or flag)
-        // Examples:
-        // - "git checkout main" → "checkout" (subcommand)
-        // - "git commit -am 'msg'" → "-am" (flag)
-        // - "git checkout -b feature" → "-b" (flag)
-
-        // Look for the last flag or subcommand (skip arguments that look like values)
-        for (int i = commandElements.Count - 1; i > 0; i--)
-        {
-            var element = commandElements[i];
-
-            // Skip quoted strings (likely values)
-            if (element.StartsWith('"') || element.StartsWith('\''))
-            {
-                continue;
-            }
-
-            // Return flags (start with -)
-            if (element.StartsWith('-'))
-            {
-                return element;
-            }
-
-            // Return subcommands (at position 1, not starting with -)
-            if (i == 1 && !element.StartsWith('-'))
-            {
-                return element;
-            }
-        }
-
-        return null;
     }
 
     /// <summary>

@@ -7,12 +7,6 @@ namespace PSCue.Module;
 public static class PSCueModule
 {
     /// <summary>
-    /// Gets the completion cache instance.
-    /// Used for caching completion suggestions and tracking usage.
-    /// </summary>
-    public static CompletionCache? Cache { get; internal set; }
-
-    /// <summary>
     /// Gets the argument graph instance.
     /// Contains learned command knowledge (command → arguments with usage statistics).
     /// </summary>

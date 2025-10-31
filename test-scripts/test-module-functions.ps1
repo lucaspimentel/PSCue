@@ -92,16 +92,9 @@ try {
 # Test 3: Check module initialization
 Write-TestHeader "Module Initialization"
 
-$cacheInit = [PSCue.Module.PSCueModule]::Cache -ne $null
 $graphInit = [PSCue.Module.PSCueModule]::KnowledgeGraph -ne $null
 $historyInit = [PSCue.Module.PSCueModule]::CommandHistory -ne $null
 $persistInit = [PSCue.Module.PSCueModule]::Persistence -ne $null
-
-if ($cacheInit) {
-    Write-TestSuccess "CompletionCache initialized"
-} else {
-    Write-TestFailure "CompletionCache NOT initialized"
-}
 
 if ($graphInit) {
     Write-TestSuccess "ArgumentGraph (KnowledgeGraph) initialized"
@@ -134,34 +127,7 @@ if ($learningDisabled) {
     Write-TestSuccess "Learning is enabled"
 }
 
-# Test 5: Test Get-PSCueCacheStats
-Write-TestHeader "Get-PSCueCacheStats"
-
-try {
-    $stats = Get-PSCueCacheStats
-    Write-TestSuccess "Get-PSCueCacheStats works"
-    $stats | Format-Table -AutoSize
-} catch {
-    Write-TestFailure "Get-PSCueCacheStats failed: $_"
-}
-
-# Test 6: Test Get-PSCueCache
-Write-TestHeader "Get-PSCueCache"
-
-try {
-    $cacheEntries = @(Get-PSCueCache)
-    Write-TestSuccess "Get-PSCueCache works"
-    Write-TestInfo "Cache entries: $($cacheEntries.Count)"
-    if ($cacheEntries.Count -gt 0) {
-        $cacheEntries | Select-Object -First 3 | Format-Table -AutoSize
-    } else {
-        Write-TestInfo "Cache is empty (expected for fresh installation)"
-    }
-} catch {
-    Write-TestFailure "Get-PSCueCache failed: $_"
-}
-
-# Test 7: Test Get-PSCueLearning
+# Test 5: Test Get-PSCueLearning
 Write-TestHeader "Get-PSCueLearning"
 
 try {
@@ -209,22 +175,6 @@ try {
 Write-TestHeader "Testing -AsJson Parameters"
 
 try {
-    $jsonStats = Get-PSCueCacheStats -AsJson
-    $null = ConvertFrom-Json $jsonStats
-    Write-TestSuccess "Get-PSCueCacheStats -AsJson produces valid JSON"
-} catch {
-    Write-TestFailure "Get-PSCueCacheStats -AsJson failed: $_"
-}
-
-try {
-    $jsonCache = Get-PSCueCache -AsJson
-    $null = ConvertFrom-Json $jsonCache
-    Write-TestSuccess "Get-PSCueCache -AsJson produces valid JSON"
-} catch {
-    Write-TestFailure "Get-PSCueCache -AsJson failed: $_"
-}
-
-try {
     $jsonLearning = Get-PSCueLearning -AsJson
     $null = ConvertFrom-Json $jsonLearning
     Write-TestSuccess "Get-PSCueLearning -AsJson produces valid JSON"
@@ -240,18 +190,7 @@ try {
     Write-TestFailure "Get-PSCueModuleInfo -AsJson failed: $_"
 }
 
-# Test 9b: Test Get-PSCueCache with -Filter parameter
-Write-TestHeader "Testing Get-PSCueCache -Filter"
-
-try {
-    $filtered = @(Get-PSCueCache -Filter "git")
-    Write-TestSuccess "Get-PSCueCache -Filter works"
-    Write-TestInfo "Filtered entries: $($filtered.Count)"
-} catch {
-    Write-TestFailure "Get-PSCueCache -Filter failed: $_"
-}
-
-# Test 9c: Test Get-PSCueLearning with -Command parameter
+# Test 9b: Test Get-PSCueLearning with -Command parameter
 Write-TestHeader "Testing Get-PSCueLearning -Command"
 
 try {
@@ -262,7 +201,7 @@ try {
     Write-TestFailure "Get-PSCueLearning -Command failed: $_"
 }
 
-# Test 9d: Test Get-PSCueDatabaseStats
+# Test 9c: Test Get-PSCueDatabaseStats
 Write-TestHeader "Get-PSCueDatabaseStats"
 
 try {
@@ -290,7 +229,7 @@ try {
     Write-TestFailure "Get-PSCueDatabaseStats -AsJson failed: $_"
 }
 
-# Test 9e: Test Get-PSCueDatabaseHistory
+# Test 9d: Test Get-PSCueDatabaseHistory
 Write-TestHeader "Get-PSCueDatabaseHistory"
 
 try {
@@ -380,14 +319,6 @@ try {
 
 # Test 9i: Test WhatIf/Confirm for destructive operations
 Write-TestHeader "WhatIf/Confirm Support"
-
-try {
-    # Test Clear-PSCueCache with -WhatIf
-    Clear-PSCueCache -WhatIf
-    Write-TestSuccess "Clear-PSCueCache supports -WhatIf"
-} catch {
-    Write-TestFailure "Clear-PSCueCache -WhatIf failed: $_"
-}
 
 try {
     # Test Clear-PSCueLearning with -WhatIf
