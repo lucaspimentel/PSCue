@@ -8,7 +8,7 @@
 
 - **🚀 Fast Tab Completion**: Native AOT executable for <10ms startup time
 - **💡 Inline Predictions**: Smart command suggestions as you type using `ICommandPredictor`
-- **⚡ IPC Communication**: ArgumentCompleter and CommandPredictor share state via Named Pipes for intelligent caching
+- **⚡ PowerShell Module Functions**: Native PowerShell functions for cache and learning management
 - **🧠 Universal Learning System**: Learns from ALL commands (not just pre-configured ones) and adapts to your workflow patterns
 - **💾 Cross-Session Persistence**: Learning data persists across PowerShell sessions using SQLite
 - **🎯 Context-Aware Suggestions**: Detects command sequences and boosts relevant suggestions based on recent activity
@@ -25,12 +25,11 @@ PSCue uses a dual-architecture approach for optimal performance:
 
 This architecture enables:
 - Sub-10ms Tab completion response time
-- IPC-based communication for state sharing and intelligent caching
 - Persistent cache across Tab completion requests
 - Consistent suggestions between Tab completion and inline predictions
-- Graceful fallback to local logic when IPC unavailable
 - Learning feedback loop via `IFeedbackProvider` (PowerShell 7.4+)
 - Error recovery suggestions when commands fail
+- Native PowerShell functions for direct module access (no external tools needed)
 
 ## Supported Commands
 
@@ -163,7 +162,7 @@ git checkout nonexistent-branch
 
 PSCue uses a two-component architecture optimized for both speed and intelligence.
 
-> **For detailed technical information**, including IPC protocol details, caching strategy, and implementation notes, see [TECHNICAL_DETAILS.md](TECHNICAL_DETAILS.md).
+> **For detailed technical information**, including caching strategy and implementation notes, see [TECHNICAL_DETAILS.md](TECHNICAL_DETAILS.md).
 
 ### ArgumentCompleter (Short-lived)
 - **Binary**: `pscue-completer.exe` (NativeAOT)
@@ -175,7 +174,7 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 - **Binary**: `PSCue.Module.dll` (Managed)
 - **Purpose**: Provides inline suggestions via `ICommandPredictor`
 - **Lifetime**: Loaded once with PowerShell module
-- **Features**: IPC server for self-communication, intelligent cache, shared completion logic, skips dynamic arguments for speed
+- **Features**: Intelligent cache, shared completion logic, PowerShell module functions, skips dynamic arguments for speed
 
 ### Shared Completion Logic
 - **Binary**: `PSCue.Shared.dll` (Managed)
@@ -190,7 +189,7 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 │  PSCue.Module.dll                   │
 │  - ICommandPredictor (suggestions)  │
 │  - IFeedbackProvider (learning)     │
-│  - IPC Server (for self/debug)      │
+│  - PowerShell Functions             │
 │  - CompletionCache (5-min TTL)      │
 │  - Uses PSCue.Shared.dll            │
 │  - Skips dynamic args (fast)        │
@@ -296,15 +295,15 @@ dotnet test
 
 ### Running Tests
 
-PSCue has **269 unit tests** covering ArgumentCompleter logic, CommandPredictor, FeedbackProvider, IPC server behavior, cache filtering, generic learning components, persistence, navigation, and integration scenarios.
+PSCue has **252 unit tests** covering ArgumentCompleter logic, CommandPredictor, FeedbackProvider, cache filtering, generic learning components, persistence, navigation, and integration scenarios.
 
 ```powershell
-# All tests (269 total: 91 ArgumentCompleter + 178 Module including Phases 11-15)
+# All tests (252 total: 140 ArgumentCompleter + 112 Module including Phases 11-16)
 dotnet test
 
 # Specific project
-dotnet test test/PSCue.ArgumentCompleter.Tests/  # 91 tests
-dotnet test test/PSCue.Module.Tests/             # 178 tests
+dotnet test test/PSCue.ArgumentCompleter.Tests/  # 140 tests
+dotnet test test/PSCue.Module.Tests/             # 112 tests
 
 # With verbose output
 dotnet test --logger "console;verbosity=detailed"
@@ -315,49 +314,22 @@ pwsh -NoProfile -File test-scripts/test-completion-filtering.ps1 all
 
 ### Testing Completions Manually
 
-Use the **PSCue.Debug** tool for testing and debugging:
-
-```powershell
-# Test local completion logic (no IPC)
-dotnet run --project src/PSCue.Debug/ -- query-local "git checkout ma"
-
-# Test IPC completion request (requires PSCue loaded in PowerShell)
-dotnet run --project src/PSCue.Debug/ -- query-ipc "git checkout ma"
-
-# Test IPC connectivity and measure round-trip time
-dotnet run --project src/PSCue.Debug/ -- ping
-
-# Show cache statistics
-dotnet run --project src/PSCue.Debug/ -- stats
-
-# Show cache statistics in JSON format
-dotnet run --project src/PSCue.Debug/ -- stats --json
-
-# Inspect cached completions (optionally filtered)
-dotnet run --project src/PSCue.Debug/ -- cache --filter git
-
-# Inspect cache in JSON format
-dotnet run --project src/PSCue.Debug/ -- cache --filter git --json
-
-# Clear all cached completions
-dotnet run --project src/PSCue.Debug/ -- clear
-
-# Show help with all commands
-dotnet run --project src/PSCue.Debug/ -- help
-```
-
-**Features**:
-- All commands show timing statistics (e.g., `Time: 11.69ms`)
-- JSON output support for scripting (`--json` flag on stats/cache commands)
-- Automatic PowerShell process discovery (finds PSCue-loaded sessions)
-- Filter support for cache inspection (`--filter` flag)
-- Clear cache command for testing
-- Comprehensive test script: `test-scripts/test-pscue-debug.ps1`
-
-Or test in PowerShell directly:
+Use the **PowerShell module functions** for testing and debugging:
 
 ```powershell
 Import-Module ./module/PSCue.psd1
+
+# Test completion generation
+Test-PSCueCompletion -InputString "git checkout ma"
+
+# View cache and learning data
+Get-PSCueCache -Filter git
+Get-PSCueLearning -Command git
+
+# Get module diagnostics
+Get-PSCueModuleInfo
+
+# Or test Tab completion directly
 TabExpansion2 'git checkout ma' 15
 ```
 
@@ -370,23 +342,21 @@ TabExpansion2 'git checkout ma' 15
 - [x] Shared completion logic (PSCue.Shared)
 - [x] Multi-platform CI/CD
 - [x] Comprehensive documentation
-- [x] **IPC Communication Layer** (simplified in 2025-01-27)
-  - Named Pipe server in Module for CommandPredictor self-communication
-  - IPC used only for inline predictions (fast cache access)
-  - ArgumentCompleter simplified: always computes locally with full dynamic arguments
-  - Clear separation: Tab = local, Inline predictions = IPC cache
+- [x] **Simplified Architecture** (Phase 16, completed 2025-01-30)
+  - Removed IPC layer entirely (no longer needed)
+  - ArgumentCompleter computes locally with full dynamic arguments
+  - CommandPredictor uses direct in-process access
+  - Simpler, faster, less code to maintain
 - [x] **Learning System & Error Suggestions**
   - Full `IFeedbackProvider` implementation (PowerShell 7.4+)
   - Usage tracking and priority scoring
   - Personalized completions based on command history
   - Error recovery suggestions for git commands
-- [x] **Enhanced Debugging Tool (PSCue.Debug)**
-  - Commands: query-local, query-ipc, stats, cache, clear, ping, help
-  - JSON output support for automation (--json flag)
-  - PowerShell process auto-discovery
-  - Filter support for cache inspection (--filter flag)
-  - Timing statistics on all commands
-  - Comprehensive test script: test-scripts/test-pscue-debug.ps1
+- [x] **PowerShell Module Functions** (Phase 16)
+  - 10 native PowerShell functions for cache, learning, and database management
+  - Direct in-process access (no external tools needed)
+  - Pipeline support, tab completion, comprehensive help
+  - Functions: Get-PSCueCache, Clear-PSCueCache, Get-PSCueCacheStats, Get-PSCueLearning, Clear-PSCueLearning, Export-PSCueLearning, Import-PSCueLearning, Save-PSCueLearning, Get-PSCueDatabaseStats, Get-PSCueDatabaseHistory, Test-PSCueCompletion, Get-PSCueModuleInfo
 
 - [x] **Generic Command Learning** ✅ **COMPLETE**
   - Universal command learning (learns from ALL commands, not just pre-configured ones)
@@ -398,12 +368,13 @@ TabExpansion2 'git checkout ma' 15
   - Components: CommandHistory (ring buffer), ArgumentGraph (knowledge graph), ContextAnalyzer, GenericPredictor, Hybrid CommandPredictor
 
 - **Test Coverage Improvements**
-  - Added 45 comprehensive tests for critical components (CommandPredictor, FeedbackProvider)
-  - **269 total tests passing** (91 ArgumentCompleter + 178 Module)
-  - Fixed the "pluginstall" bug with 19 CommandPredictor.Combine tests
+  - Added 67 comprehensive tests for critical components (CommandPredictor, FeedbackProvider)
+  - **252 total tests passing** (140 ArgumentCompleter + 112 Module)
+  - Fixed the "pluginstall" bug with 23 CommandPredictor.Combine tests
   - Added 26 FeedbackProvider tests covering command parsing, privacy filtering, and learning integration
   - Uses reflection to properly test internal PowerShell SDK components
   - All critical gaps addressed: CommandPredictor (95% coverage), FeedbackProvider (90% coverage)
+  - Removed 44 IPC tests (Phase 16.7 - IPC layer removed)
 
 ### Configuration
 
@@ -570,14 +541,11 @@ All functions support:
    Get-PSSubsystem -Kind CommandPredictor | Select-Object -ExpandProperty Implementations
    # Should show: PSCue (01a1e2c5-fbc1-4cf3-8178-ac2e55232434)
    ```
-3. Test IPC connectivity (used only for inline predictions):
+3. Test predictor manually using module functions:
    ```powershell
-   $env:PSCUE_PID = $PID
-   dotnet run --project src/PSCue.Debug/ -- ping
-   ```
-4. Test predictor manually:
-   ```powershell
-   pwsh -NoProfile -File test-inline-predictions.ps1  # If running from source
+   Import-Module PSCue
+   Test-PSCueCompletion -InputString "git checkout main"
+   Get-PSCueModuleInfo  # Check module status
    ```
 
 ### Platform-specific issues

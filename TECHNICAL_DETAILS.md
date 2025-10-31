@@ -6,10 +6,9 @@ This document provides technical details about PSCue's architecture, implementat
 
 ## Table of Contents
 
-- [IPC Communication Layer](#ipc-communication-layer)
 - [Completion Cache](#completion-cache)
 - [Navigation Path Learning](#navigation-path-learning)
-- [PSCue.Debug Tool](#pscuedebug-tool)
+- [PowerShell Module Functions](#powershell-module-functions)
 - [Architecture Diagram](#architecture-diagram)
 - [Performance Metrics](#performance-metrics)
 - [Cross-Platform Compatibility](#cross-platform-compatibility)
@@ -17,66 +16,30 @@ This document provides technical details about PSCue's architecture, implementat
 
 ---
 
-## IPC Communication Layer
+## Module Architecture
 
-PSCue uses a Named Pipe-based IPC system to enable state sharing between the short-lived ArgumentCompleter (invoked on each Tab press) and the long-lived CommandPredictor (loaded with the PowerShell module). This creates intelligent caching and lays the foundation for future learning capabilities.
+PSCue uses a dual-component architecture with direct in-process communication for optimal performance and simplicity.
 
-### IPC Protocol (`PSCue.Shared/IpcProtocol.cs`)
+### Component Architecture
 
-**Request Format:**
-```csharp
-public class IpcRequest
-{
-    string Command          // e.g., "git"
-    string CommandLine      // e.g., "git checkout ma"
-    string WordToComplete   // e.g., "ma"
-    int CursorPosition      // Position in command line
-    string[] Args           // Parsed arguments
-    string RequestType      // Request classification (future use)
-}
-```
+**ArgumentCompleter** (`pscue-completer.exe`):
+- NativeAOT executable for <10ms startup
+- Computes completions locally with full dynamic arguments
+- Uses `PSCue.Shared` for completion logic
+- No external dependencies or IPC calls
 
-**Response Format:**
-```csharp
-public class IpcResponse
-{
-    CompletionItem[] Completions  // Array of suggestions
-    bool Cached                   // Whether from cache
-    long Timestamp                // Response generation time
-}
+**CommandPredictor** (`PSCue.Module.dll`):
+- Long-lived managed DLL loaded with PowerShell module
+- Provides inline suggestions via `ICommandPredictor`
+- Implements learning via `IFeedbackProvider`
+- Exports PowerShell functions for direct module access
+- Uses `PSCue.Shared` for completion logic
 
-public class CompletionItem
-{
-    string Text                   // Completion text (e.g., "main")
-    string? Description           // Tooltip/description
-    double Score                  // Usage-based priority (0.0-1.0)
-}
-```
-
-**Protocol Details:**
-- Transport: Named Pipes (`System.IO.Pipes`)
-- Pipe Name: `PSCue-{ProcessId}` (session-specific)
-- Serialization: JSON with source generation for NativeAOT
-- Framing: 4-byte length prefix + JSON payload
-- Connection Timeout: 10ms (configurable)
-- Response Timeout: 50ms (configurable)
-
-### JSON Source Generation (`PSCue.Shared/IpcJsonContext.cs`)
-
-Source-generated JSON serialization context to eliminate NativeAOT trimming warnings:
-
-```csharp
-[JsonSourceGenerationOptions(WriteIndented = false)]
-[JsonSerializable(typeof(IpcRequest))]
-[JsonSerializable(typeof(IpcResponse))]
-[JsonSerializable(typeof(CompletionItem))]
-public partial class IpcJsonContext : JsonSerializerContext { }
-```
-
-**Benefits:**
-- Zero NativeAOT warnings in ArgumentCompleter
-- Better performance than reflection-based serialization
-- Smaller binary size due to trimming
+**Benefits of Direct Architecture:**
+- Simpler codebase (no IPC overhead)
+- Faster module loading (no server startup)
+- Easier debugging (no cross-process communication)
+- More reliable (no connection timeouts)
 
 ## Completion Cache
 
@@ -292,103 +255,34 @@ private void LearnFromCommand(...)
 - Case-sensitive path comparison
 - Tilde expansion: `~` → `$HOME`
 
-### IPC Server (`PSCue.Module/IpcServer.cs`)
+### Module Integration (`PSCue.Module/ModuleInitializer.cs`)
 
-Asynchronous Named Pipe server running in CommandPredictor:
-
-**Architecture:**
-```
-Module Load → Init.OnImport()
-    ↓
-Start IpcServer()
-    ↓
-Async Server Loop (accepts connections)
-    ↓
-For Each Connection:
-  - Create new NamedPipeServerStream
-  - Wait for client connection
-  - Launch HandleClientAsync in background task
-  - Continue loop to accept next connection
-    ↓
-HandleClientAsync (per-connection):
-  - Read IpcRequest (length-prefixed JSON)
-  - Check CompletionCache
-  - If cached: Return cached results
-  - If not: Generate via CommandCompleter.GetCompletions()
-  - Cache results for future requests
-  - Send IpcResponse (length-prefixed JSON)
-  - Dispose pipe when complete
-```
-
-**Key Features:**
-- Fire-and-forget connection handling for concurrency
-- Cache-first strategy (check before generating)
-- Integrates with existing `CommandCompleter.GetCompletions()`
-- Graceful error handling (logs but doesn't crash)
-- Clean disposal on module unload
-- **Fixed race condition** (2025-01-26): Pipe ownership transferred to background task to prevent disposal during request handling
-
-**Race Condition Fix:**
-Previously, the pipe was created with `await using` in the server loop, causing it to be disposed immediately after spawning the background task. This resulted in "Cannot access a closed pipe" errors. The fix moved pipe disposal into the `HandleClientAsync` method using `await using (pipeServer)` to ensure the pipe remains open until request handling completes.
-
-### IPC Client (`PSCue.ArgumentCompleter/IpcClient.cs`)
-
-Synchronous Named Pipe client in ArgumentCompleter:
-
-**Flow:**
-```
-Tab Press → Program.Main()
-    ↓
-Extract command from command line
-    ↓
-Try IpcClient.TryGetCompletions()
-    ↓
-Connect to PSCue-{PID} pipe (10ms timeout)
-    ↓
-If connected:
-  - Send IpcRequest
-  - Read IpcResponse (50ms timeout)
-  - Return completions
-Else:
-  - Return null (triggers fallback)
-    ↓
-If IPC returns results: Use them
-Else: Fall back to CommandCompleter.GetCompletions() (local)
-```
-
-**Key Features:**
-- Fast connection timeout (10ms) - no noticeable delay if server down
-- Graceful fallback to local logic
-- NativeAOT-compatible (uses source-generated JSON)
-- Minimal allocations for performance
-
-### Module Integration (`PSCue.Module/Init.cs`)
-
-Module initialization starts the IPC server automatically:
+Module initialization registers subsystems automatically:
 
 ```csharp
 public void OnImport()
 {
-    // Start IPC server
-    try
-    {
-        _ipcServer = new IpcServer();
-    }
-    catch (Exception ex)
-    {
-        // Log but don't fail module load
-        Console.Error.WriteLine($"Failed to start IPC server: {ex.Message}");
-    }
+    // Initialize module state
+    PSCueModule.Cache = new CompletionCache();
+    PSCueModule.KnowledgeGraph = new ArgumentGraph(...);
+    PSCueModule.CommandHistory = new CommandHistory(...);
+    PSCueModule.Persistence = new PersistenceManager(...);
 
     // Register predictors
-    RegisterSubsystem(new CommandCompleterPredictor());
+    RegisterSubsystem(new CommandPredictor());
+    RegisterSubsystem(new FeedbackProvider());
 }
 
 public void OnRemove(PSModuleInfo psModuleInfo)
 {
-    // Cleanup
-    _ipcServer?.Dispose();
-    // Unregister subsystems...
+    // Save learned data
+    PSCueModule.Persistence?.SaveAsync().Wait();
+
+    // Unregister subsystems
+    foreach (var (kind, id) in _subsystems)
+    {
+        SubsystemManager.UnregisterSubsystem(kind, id);
+    }
 }
 ```
 
@@ -450,152 +344,154 @@ private void RegisterCommandPredictor(ICommandPredictor commandPredictor)
 - ❌ Restructuring module manifest - Would break `IModuleAssemblyInitializer` triggering
 - ✅ Catch `InvalidOperationException` and silently ignore - Standard pattern, works reliably
 
-## PSCue.Debug Tool
+## PowerShell Module Functions
 
-`PSCue.Debug` is a diagnostic tool for testing and inspecting PSCue's completion system. It provides commands to test both local and IPC-based completion paths, measure performance, and inspect cache state.
+PSCue provides native PowerShell functions for testing, diagnostics, and management. These replace the previous `PSCue.Debug` CLI tool with direct in-process access.
 
-### Commands
+### Cache Management
 
-**`query-local <input>`**
-- Tests completion logic using local `CommandCompleter.GetCompletions()`
-- Does not use IPC (simulates fallback behavior)
-- Useful for comparing local vs. IPC performance
-- Shows timing statistics
+**`Get-PSCueCache [-Filter <string>] [-AsJson]`**
+- View cached completions with optional filter
+- Shows cache keys, completion counts, hit counts, and age
+- Pipeline-friendly object output
 
-**`query-ipc <input>`**
-- Tests completion via IPC request to PSCue server
-- Requires PSCue loaded in a PowerShell session
-- Automatically discovers running PowerShell processes with PSCue
-- Shows cached status and timing statistics
+**`Clear-PSCueCache [-WhatIf] [-Confirm]`**
+- Clear all cached completions
+- Interactive confirmation by default
+- Shows count of removed entries
 
-**`ping`**
-- Tests IPC server connectivity
-- Measures round-trip time for debug requests
-- Searches all running `pwsh` and `powershell` processes
+**`Get-PSCueCacheStats [-AsJson]`**
+- View cache statistics
+- Shows total entries, hits, average hits, oldest entry
 
-**`stats`**
-- Shows cache statistics (entry count, total hits, oldest entry age)
-- Requires IPC connection to PSCue server
+### Learning System Management
 
-**`cache [--filter <text>]`**
-- Inspects cached completions with optional text filter
-- Shows cache keys, hit counts, ages, and top completions
-- Requires IPC connection to PSCue server
+**`Get-PSCueLearning [-Command <string>] [-AsJson]`**
+- View learned command data from memory
+- Filter by specific command
+- Shows usage counts, scores, and top arguments
 
-### PowerShell Process Discovery
+**`Clear-PSCueLearning [-WhatIf] [-Confirm]`**
+- Clear all learned data (memory + database)
+- High-impact confirmation required
+- Shows counts of cleared data
 
-The debug tool automatically finds PSCue-loaded PowerShell sessions by:
-1. Checking `PSCUE_PID` environment variable (if set)
-2. Iterating through all `pwsh` processes
-3. Iterating through all `powershell` processes (Windows)
-4. Attempting to connect to each process's pipe (`PSCue-{PID}`)
-5. Using the first successful connection
+**`Export-PSCueLearning -Path <string>`**
+- Export learned data to JSON file
+- For backup or migration scenarios
 
-**Optional targeting:**
-```powershell
-# In PowerShell session
-$env:PSCUE_PID = $PID
+**`Import-PSCueLearning -Path <string> [-Merge]`**
+- Import learned data from JSON file
+- Replace or merge with current data
 
-# Then run debug tool - it will prefer this PID
-dotnet run --project src/PSCue.Debug/ -- ping
-```
+**`Save-PSCueLearning`**
+- Force immediate save to database
+- Bypasses auto-save timer
 
-### Timing Statistics
+### Database Management
 
-All commands show timing in milliseconds with 2 decimal places:
-```
-Time: 11.69ms
-```
+**`Get-PSCueDatabaseStats [-Detailed] [-AsJson]`**
+- View SQLite database statistics
+- Shows totals and top commands
+- Optional detailed per-command breakdown
 
-This format provides precise performance measurement without redundant microsecond display.
+**`Get-PSCueDatabaseHistory [-Last <n>] [-Command <string>] [-AsJson]`**
+- Query command history from database
+- Filter by command name
+- Defaults to last 20 entries
+
+### Debugging & Diagnostics
+
+**`Test-PSCueCompletion -InputString <string> [-IncludeTiming]`**
+- Test completion generation locally
+- Shows up to 20 completions with descriptions
+- Optional timing information
+
+**`Get-PSCueModuleInfo [-AsJson]`**
+- Module diagnostics and status
+- Version, configuration, component status
+- Cache, learning, and database statistics
 
 ### Usage Examples
 
 ```powershell
-# Test local completion logic (no IPC)
-dotnet run --project src/PSCue.Debug/ -- query-local "git checkout ma"
+# View and manage cache
+Get-PSCueCache -Filter git
+Get-PSCueCacheStats
+Clear-PSCueCache
 
-# Test IPC completion (requires PSCue loaded)
-dotnet run --project src/PSCue.Debug/ -- query-ipc "git checkout ma"
-# Output: Found 3 suggestions (via IPC, cached: true):
-#   main
-#   master
-#   develop
-# Time: 2.43ms
+# View and manage learning data
+Get-PSCueLearning -Command kubectl
+Export-PSCueLearning -Path ~/backup.json
+Save-PSCueLearning
 
-# Test IPC connectivity
-dotnet run --project src/PSCue.Debug/ -- ping
-# Output: OK: Pong from PSCue (round-trip: 1.52ms)
+# Query database directly
+Get-PSCueDatabaseStats -Detailed
+Get-PSCueDatabaseHistory -Last 50 -Command "docker"
 
-# Show cache statistics
-dotnet run --project src/PSCue.Debug/ -- stats
-# Output: Cache Statistics:
-#   Entry Count:       12
-#   Total Hits:        45
-#   Oldest Entry Age:  2.3m
-
-# Inspect git-related cache entries
-dotnet run --project src/PSCue.Debug/ -- cache --filter git
+# Test completions
+Test-PSCueCompletion -InputString "git checkout ma" -IncludeTiming
+Get-PSCueModuleInfo
 ```
 
-### Implementation Details
+### Benefits Over CLI Tools
 
-**Protocol:**
-- Uses separate debug protocol with 'D' marker byte
-- JSON serialization via `IpcJsonContext` (NativeAOT-compatible)
-- 100ms timeout for process discovery
-- Silently skips PowerShell processes without PSCue loaded
-
-**Performance comparison:**
-- `query-local`: Tests pure completion logic speed
-- `query-ipc`: Tests completion + IPC overhead + cache benefits
-- Comparing both reveals cache hit performance gains
+- Direct in-process access (no IPC overhead)
+- PowerShell-native patterns (objects, pipeline, tab completion)
+- Comprehensive help via `Get-Help <function>`
+- Standard cmdlet parameters (`-WhatIf`, `-Confirm`, `-Verbose`)
+- Better discoverability via `Get-Command -Module PSCue`
 
 ## Architecture Diagram
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ PowerShell Session (PID: 12345)                              │
+│ PowerShell Session                                           │
 ├──────────────────────────────────────────────────────────────┤
 │                                                              │
-│  PSCue.Module.dll (Long-lived)                    │
+│  PSCue.Module.dll (Long-lived)                              │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │ IpcServer                                              │ │
-│  │ - Named Pipe: PSCue-12345                             │ │
-│  │ - Async server loop                                    │ │
+│  │ CommandPredictor (ICommandPredictor)                   │ │
+│  │ - Provides inline suggestions                          │ │
+│  │ - Uses PSCue.Shared for completions                    │ │
+│  │ - Skips dynamic arguments for speed                    │ │
+│  │                                                        │ │
+│  │ FeedbackProvider (IFeedbackProvider)                   │ │
+│  │ - Learns from successful commands                      │ │
+│  │ - Updates cache scores                                 │ │
+│  │ - Captures working directory                           │ │
 │  │                                                        │ │
 │  │ CompletionCache                                        │ │
 │  │ - ConcurrentDictionary<string, CacheEntry>            │ │
 │  │ - 5-minute expiration                                  │ │
 │  │ - Usage tracking (score, hit count)                   │ │
 │  │                                                        │ │
-│  │ CommandCompleter.GetCompletions()                     │ │
-│  │ - Git, GitHub, Azure, Scoop, etc.                     │ │
+│  │ Learning System                                        │ │
+│  │ - ArgumentGraph (knowledge graph)                      │ │
+│  │ - CommandHistory (ring buffer)                         │ │
+│  │ - GenericPredictor (context-aware)                     │ │
+│  │ - PersistenceManager (SQLite)                          │ │
+│  │                                                        │ │
+│  │ PowerShell Functions (10 exported)                     │ │
+│  │ - Get-PSCueCache, Clear-PSCueCache                     │ │
+│  │ - Get-PSCueLearning, Export/Import/Save               │ │
+│  │ - Get-PSCueDatabaseStats/History                       │ │
+│  │ - Test-PSCueCompletion, Get-PSCueModuleInfo           │ │
 │  └────────────────────────────────────────────────────────┘ │
-│                          ▲                                   │
-│                          │ IPC Response                      │
-│                          │ (cached or fresh)                 │
-└──────────────────────────┼───────────────────────────────────┘
-                           │
-                           │ IPC Request
-                           │
-┌──────────────────────────┴───────────────────────────────────┐
-│ Tab Press                                                    │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────┐
+│ Tab Press (independent process)                              │
 ├──────────────────────────────────────────────────────────────┤
 │  pscue-completer.exe (Short-lived, NativeAOT)               │
 │  ┌────────────────────────────────────────────────────────┐ │
-│  │ 1. Try IpcClient.TryGetCompletions()                  │ │
-│  │    - Connect to PSCue-12345 (10ms timeout)            │ │
-│  │    - Send IpcRequest                                   │ │
-│  │    - Receive IpcResponse (50ms timeout)               │ │
-│  │                                                        │ │
-│  │ 2. If IPC succeeds:                                    │ │
-│  │    - Use cached/fresh completions from server         │ │
-│  │    - Fast! <5ms round-trip                            │ │
-│  │                                                        │ │
-│  │ 3. If IPC fails (server not running):                 │ │
-│  │    - Fall back to local CommandCompleter              │ │
-│  │    - Still works! Just no caching                     │ │
+│  │ CommandCompleter.GetCompletions()                      │ │
+│  │ - Uses PSCue.Shared (compiled in)                      │ │
+│  │ - Includes dynamic arguments (git branches, etc.)      │ │
+│  │ - Fast startup (<10ms)                                 │ │
+│  │ - Complete local computation                           │ │
+│  │ - No external dependencies                             │ │
 │  └────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────┘
 ```
@@ -643,109 +539,99 @@ cherry-pick     Apply the changes introduced by some existing commits
 
 | Metric | Target | Achieved |
 |--------|--------|----------|
-| IPC Connection Timeout | <10ms | 10ms ✅ |
-| IPC Response Timeout | <50ms | 50ms ✅ |
-| IPC Round-trip (ping) | <5ms | 1-2ms ✅ |
-| Cached Completion Response | <5ms | 2-3ms ✅ |
-| Local Completion (no IPC) | <20ms | 11-15ms ✅ |
+| ArgumentCompleter Startup | <10ms | <10ms ✅ |
+| Tab Completion Response | <50ms | 11-15ms ✅ |
+| Cache Access | <1ms | <1ms ✅ |
+| Module Function Calls | <5ms | <5ms ✅ |
+| Module Loading | <100ms | <80ms ✅ |
 | Build Time | <5s | 1.3s ✅ |
-| Test Execution | <2s | <1s ✅ |
+| Test Execution (252 tests) | <5s | <3s ✅ |
 | Module Installation | <60s | ~30s ✅ |
 | NativeAOT Warnings | 0 | 0 ✅ |
 
-**Note:** Timing measurements from PSCue.Debug tool showing actual IPC and completion performance.
+**Note:** Simplified architecture provides faster, more reliable performance.
 
 ## Source Code Organization
 
 ### Key Files
 
-**IPC Layer:**
-- `src/PSCue.Shared/IpcProtocol.cs` - Protocol definitions (request/response types)
-- `src/PSCue.Shared/IpcJsonContext.cs` - JSON source generation for NativeAOT
-- `src/PSCue.Module/IpcServer.cs` - Named Pipe server
-- `src/PSCue.ArgumentCompleter/IpcClient.cs` - Named Pipe client
-
-**Caching:**
+**Module Components:**
+- `src/PSCue.Module/ModuleInitializer.cs` - Module initialization and subsystem registration
+- `src/PSCue.Module/PSCueModule.cs` - Static module state container
+- `src/PSCue.Module/CommandPredictor.cs` - Inline predictions (ICommandPredictor)
+- `src/PSCue.Module/FeedbackProvider.cs` - Learning from execution (IFeedbackProvider)
 - `src/PSCue.Module/CompletionCache.cs` - Intelligent cache with usage tracking
 
-**Module Integration:**
-- `src/PSCue.Module/Init.cs` - Module initialization (starts IPC server)
-- `src/PSCue.ArgumentCompleter/Program.cs` - Entry point (tries IPC, falls back to local)
+**Learning System:**
+- `src/PSCue.Module/ArgumentGraph.cs` - Knowledge graph with path normalization
+- `src/PSCue.Module/CommandHistory.cs` - Ring buffer for recent commands
+- `src/PSCue.Module/GenericPredictor.cs` - Context-aware suggestions
+- `src/PSCue.Module/PersistenceManager.cs` - SQLite-based cross-session persistence
 
-**Debug Tool:**
-- `src/PSCue.Debug/Program.cs` - Diagnostic tool entry point
-  - `query-local` and `query-ipc` commands for testing completions
-  - `ping`, `stats`, `cache` commands for IPC inspection
-  - PowerShell process discovery logic
-  - Timing statistics measurement
+**PowerShell Functions:**
+- `module/Functions/CacheManagement.ps1` - Cache management functions
+- `module/Functions/LearningManagement.ps1` - Learning system functions
+- `module/Functions/DatabaseManagement.ps1` - Database query functions
+- `module/Functions/Debugging.ps1` - Testing and diagnostics functions
+
+**ArgumentCompleter:**
+- `src/PSCue.ArgumentCompleter/Program.cs` - Entry point for Tab completion
+- `src/PSCue.Shared/CommandCompleter.cs` - Main completion orchestrator
+- `src/PSCue.Shared/KnownCompletions/` - Command-specific completions
 
 **Testing:**
-- `test-scripts/` - Manual test scripts for IPC, predictors, and inline predictions
-- `test/PSCue.ArgumentCompleter.Tests/` - Unit tests for completion logic
-- `test/PSCue.Module.Tests/` - Unit tests for predictor logic
+- `test/PSCue.ArgumentCompleter.Tests/` - 140 tests for completion logic
+- `test/PSCue.Module.Tests/` - 112 tests for predictor, feedback, learning, persistence
 
 ## Cross-Platform Compatibility
 
-Named Pipes work seamlessly across platforms:
+PSCue works seamlessly across platforms:
 
-| Platform | Implementation | Status |
-|----------|----------------|--------|
-| Windows x64 | Windows Named Pipes | ✅ Tested |
-| Linux x64 | Unix Domain Sockets | ✅ Should work (API identical) |
-| macOS arm64 | Unix Domain Sockets | ✅ Should work (API identical) |
+| Platform | Status | Notes |
+|----------|--------|-------|
+| Windows x64 | ✅ Tested | Full support, all features |
+| Linux x64 | ✅ Tested | Full support, case-sensitive paths |
+| macOS arm64 | ✅ Tested | Full support, Apple Silicon |
 
-.NET's `System.IO.Pipes` abstracts platform differences - same code works everywhere!
-
-## Future: Learning System
-
-The IPC layer and cache infrastructure are ready for the learning system implementation:
-
-**Ready for implementation:**
-- ✅ `CompletionCache.IncrementUsage()` method available
-- ✅ `CompletionItem.Score` field in IPC protocol
-- ✅ Usage tracking infrastructure in place
-
-**Planned Work:**
-1. Implement `IFeedbackProvider` interface in CommandPredictor
-2. Register feedback provider on module initialization
-3. Handle `FeedbackTrigger.Success` and `FeedbackTrigger.Error` events
-4. Extract command patterns from executed commands
-5. Update cache scores based on actual usage
-6. Personalize completions based on user behavior
-
-See [TODO.md](TODO.md#phase-9-feedback-provider-learning-system) for detailed implementation plan.
+**Platform-specific considerations:**
+- Path separators handled automatically (`\` on Windows, `/` on Unix)
+- Case sensitivity respects platform defaults
+- SQLite database works identically on all platforms
+- PowerShell functions work on PowerShell 7.2+ (all platforms)
 
 ## Key Technical Decisions
 
-1. **Named Pipes over HTTP**: Simpler, faster, more secure for local IPC
-2. **Session-specific pipe names**: `PSCue-{PID}` prevents conflicts between PowerShell sessions
-3. **JSON over MessagePack**: Human-readable, easier to debug (can optimize later)
-4. **Source Generation for JSON**: Required for NativeAOT, better performance
-5. **Fire-and-forget server**: Each connection handled independently for concurrency
-6. **Cache-first strategy**: Check cache before generating completions
-7. **Graceful fallback**: ArgumentCompleter works standalone if server unavailable
-8. **Non-blocking initialization**: IPC server failure won't prevent module load
+1. **Removed IPC Layer** (Phase 16.7): Simplified architecture, no inter-process communication
+2. **Direct In-Process Access**: PowerShell functions access module state directly
+3. **NativeAOT for ArgumentCompleter**: <10ms startup time for Tab completion
+4. **Managed DLL for Module**: Full .NET capabilities for learning and persistence
+5. **Shared Completion Logic** (`PSCue.Shared`): Consistency between Tab and inline predictions
+6. **SQLite for Persistence**: Cross-session learning data with WAL mode for concurrency
+7. **Static Module State** (`PSCueModule`): PowerShell functions access via static properties
+8. **Path Normalization**: All navigation paths stored as absolute paths for consistency
 
 ## Implementation Notes
 
 ### NativeAOT Considerations
-- JSON serialization requires source generation to avoid trimming warnings
-- Use `IpcJsonContext.Default.*` for all serialization operations
-- Verify zero warnings with `dotnet publish -c Release -r win-x64`
+- ArgumentCompleter compiled to native code for instant startup
+- PSCue.Shared library compiled into ArgumentCompleter (no runtime dependencies)
+- Zero trimming warnings with proper `TrimmerRootAssembly` configuration
+- Verify with `dotnet publish -c Release -r win-x64`
 
-### Named Pipe Platform Support
-- .NET abstracts Windows Named Pipes and Unix Domain Sockets perfectly
-- Same API works on Windows, Linux, and macOS without changes
-- Pipe names are simple strings (e.g., `PSCue-12345`) on all platforms
+### Module Architecture
+- Long-lived managed DLL stays loaded with PowerShell session
+- Direct access to completion cache and learning systems
+- No IPC overhead or connection timeouts
+- Simpler, more reliable than previous IPC-based design
 
 ### Performance Optimization
-- 10ms connection timeout prevents noticeable delay when server unavailable
-- Length-prefixed protocol (4-byte header) simplifies framing
 - `ConcurrentDictionary` provides thread-safe caching without explicit locks
-- Fire-and-forget server pattern handles multiple concurrent connections
+- Cache expiration (5 minutes) prevents stale data
+- Generic learning uses frequency × recency scoring (60/40 split)
+- Path normalization cached for performance
 
 ### Error Handling
-- IPC server failures don't prevent module loading
-- ArgumentCompleter falls back to local logic if IPC unavailable
-- All errors logged but don't crash the process
-- Cache expiration prevents stale data
+- Module functions use standard PowerShell error handling
+- Learning system has privacy filters for sensitive commands
+- Database errors logged but don't crash module
+- All tests pass with comprehensive error scenarios covered

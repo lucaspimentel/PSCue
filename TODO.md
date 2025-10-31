@@ -543,7 +543,7 @@ git push origin v1.0.0
   - [x] Delete `test/PSCue.Module.Tests/IpcServerLifecycleTests.cs` (10 tests)
   - [x] Delete `test/PSCue.Module.Tests/IpcFilteringTests.cs` (12 tests)
   - [x] **Total removed**: 44 tests (all IPC-related)
-  - [x] **New test count**: ~252 tests (down from 296)
+  - [x] **New test count**: 315 tests (140 ArgumentCompleter + 175 Module)
 - [x] **Remove IPC-related test scripts**
   - [x] Delete `test-scripts/test-ipc.ps1`
   - [x] Delete `test-scripts/test-ipc-simple.ps1`
@@ -552,31 +552,31 @@ git push origin v1.0.0
   - [x] Delete `test-scripts/test-pscue-debug.ps1`
 - [x] **Update documentation**
   - [x] Remove IPC references from CLAUDE.md
-  - [ ] Remove IPC references from README.md
-  - [ ] Remove IPC references from TECHNICAL_DETAILS.md
-  - [ ] Note in Phase 16 completion: "IPC removed, module functions replace PSCue.Debug"
-- [ ] **Verify build and tests**
-  - [ ] `dotnet build` succeeds
-  - [ ] `dotnet test` passes (all remaining tests)
-  - [ ] Module loads correctly without IPC server
-  - [ ] No references to IpcServer, IpcProtocol, or IpcJsonContext remain
+  - [x] Remove IPC references from README.md
+  - [x] Remove IPC references from TECHNICAL_DETAILS.md
+  - [x] Note in Phase 16 completion: "IPC removed, module functions replace PSCue.Debug"
+- [x] **Verify build and tests**
+  - [x] `dotnet build` succeeds (fixed solution file folder paths)
+  - [x] `dotnet test` passes (all 315 tests passing)
+  - [x] Module loads correctly without IPC server
+  - [x] No references to IpcServer, IpcProtocol, or IpcJsonContext remain (only in historical docs)
 
-#### Success Criteria
+#### Success Criteria ✅ ALL COMPLETE!
 
-1. [ ] All PSCue.Debug functionality available as PowerShell functions
-2. [ ] Functions are discoverable via `Get-Command -Module PSCue`
-3. [ ] `Get-Help <function>` provides comprehensive documentation
-4. [ ] Functions return rich objects (not strings), with optional `-AsJson`
-5. [ ] Destructive operations support `-WhatIf` and `-Confirm`
-6. [ ] Direct in-process access (no IPC overhead)
-7. [ ] Export/Import functions enable backup and migration scenarios
-8. [ ] All tests pass (~252 tests after removing IPC tests)
-9. [ ] Documentation updated (README, CLAUDE.md, TECHNICAL_DETAILS.md)
-10. [ ] **PSCue.Debug completely removed** (project deleted)
-11. [ ] **IPC layer completely removed** (IpcServer, IpcProtocol, IpcJsonContext deleted)
-12. [ ] **44 IPC tests removed** (no longer needed)
-13. [ ] Module loads faster (no IPC server startup)
-14. [ ] Simpler architecture (fewer moving parts)
+1. [x] All PSCue.Debug functionality available as PowerShell functions
+2. [x] Functions are discoverable via `Get-Command -Module PSCue`
+3. [x] `Get-Help <function>` provides comprehensive documentation
+4. [x] Functions return rich objects (not strings), with optional `-AsJson`
+5. [x] Destructive operations support `-WhatIf` and `-Confirm`
+6. [x] Direct in-process access (no IPC overhead)
+7. [x] Export/Import functions enable backup and migration scenarios
+8. [x] All tests pass (315 tests after removing 44 IPC tests)
+9. [x] Documentation updated (README, CLAUDE.md, TECHNICAL_DETAILS.md)
+10. [x] **PSCue.Debug completely removed** (project deleted)
+11. [x] **IPC layer completely removed** (IpcServer, IpcProtocol, IpcJsonContext deleted)
+12. [x] **44 IPC tests removed** (no longer needed)
+13. [x] Module loads faster (no IPC server startup)
+14. [x] Simpler architecture (fewer moving parts)
 
 #### Implementation Order
 
