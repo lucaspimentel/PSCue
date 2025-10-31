@@ -21,6 +21,12 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 
 **Phase 16 Complete**: PowerShell module functions replaced PSCue.Debug CLI. All IPC infrastructure removed for simpler architecture. 10 PowerShell functions implemented (cache, learning, database, debugging).
 
+**Phase 16.5 Complete**: Module function testing and bug fixes:
+- Fixed FeedbackProvider instance mismatch (now gets instances dynamically from PSCueModule)
+- Fixed ConcurrentDictionary enumeration in Get-PSCueLearning
+- Added integration test script: `test-scripts/test-module-functions.ps1`
+- Verified learning data retrieval works in interactive PowerShell sessions
+
 **Supported Commands Update**: Added Graphite CLI (gt) with full Tab completion support for all subcommands (create, modify, submit, sync, log, etc.) and parameters. Also includes Windows Terminal (wt) support.
 
 ## Architecture

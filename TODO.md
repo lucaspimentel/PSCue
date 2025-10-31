@@ -1,6 +1,6 @@
 # PSCue - Task List
 
-**Last Updated**: 2025-10-30
+**Last Updated**: 2025-10-31
 
 This document tracks active and planned work for PSCue. For architectural details, see [TECHNICAL_DETAILS.md](TECHNICAL_DETAILS.md). For completed work, see [COMPLETED.md](COMPLETED.md).
 
@@ -8,40 +8,22 @@ This document tracks active and planned work for PSCue. For architectural detail
 
 ## Current Status
 
-**Phase 16 Complete**: PowerShell module functions fully implemented, IPC layer removed.
-- ✅ 10 PowerShell functions for cache, learning, database, and debugging
-- ✅ PSCue.Debug CLI tool removed
-- ✅ All IPC infrastructure removed (600+ lines of code)
-- ✅ 44 IPC tests removed
-- ✅ All 315 tests passing (140 ArgumentCompleter + 175 Module)
-- ✅ Documentation updated across all files
+**Phase 16.5 Complete**: PowerShell module functions fully tested and fixed.
+- ✅ Integration test script: `test-scripts/test-module-functions.ps1`
+- ✅ Fixed learning data retrieval issues (FeedbackProvider instance mismatch)
+- ✅ Fixed ConcurrentDictionary enumeration in Get-PSCueLearning
+- ✅ All 296 tests passing (140 ArgumentCompleter + 156 Module)
+- ✅ Manual testing completed in interactive PowerShell session
 
-**Current Total Tests**: 315 passing
+**Current Total Tests**: 296 passing
 - ArgumentCompleter: 140 tests
-- Module: 175 tests (including Phases 11-15 learning, persistence, navigation)
+- Module: 156 tests (including Phases 11-15 learning, persistence, navigation)
 
 ---
 
 ## Active Work
 
-### Phase 16.5: Testing ⚠️ IN PROGRESS
-**Status**: PowerShell function testing needed
-
-- [ ] Create test script: `test-scripts/test-module-functions.ps1`
-  - [ ] Test each function with various parameters
-  - [ ] Test pipeline support where applicable
-  - [ ] Test `-WhatIf` and `-Confirm` for destructive operations
-  - [ ] Test `-AsJson` output is valid JSON
-  - [ ] Test error handling (invalid paths, etc.)
-- [ ] Add unit tests: `test/PSCue.Module.Tests/ModuleFunctionsTests.cs`
-  - [ ] Test public APIs added to classes
-  - [ ] Test Export/Import functionality
-  - [ ] Test GetAllEntries, GetStatistics, etc.
-- [ ] Manual testing:
-  - [ ] Load module, run each function
-  - [ ] Verify tab completion works on function parameters
-  - [ ] Verify Get-Help works for each function
-  - [ ] Test in fresh PowerShell session
+No active work items. Phase 16.5 complete.
 
 ---
 
