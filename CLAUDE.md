@@ -1,33 +1,18 @@
 # PSCue - Quick Reference for AI Agents
 
 ## What This Is
-PowerShell completion module combining Tab completion (NativeAOT) + inline predictions (managed DLL) with **generic learning** (Phase 11) and **cross-session persistence** (Phase 12).
+PowerShell completion module combining Tab completion (NativeAOT) + inline predictions (managed DLL) with generic learning and cross-session persistence.
 
-**Phase 11 Complete**: Now learns from ALL commands (not just git/gh/scoop), with context-aware suggestions based on usage patterns.
+**Key Features**:
+- **Generic Learning**: Learns from ALL commands (not just predefined ones) with context-aware suggestions
+- **Cross-Session Persistence**: SQLite database stores learned data across sessions
+- **Directory-Aware Navigation**: Smart cd/Set-Location suggestions with path normalization
+- **PowerShell Module Functions**: 10 functions for cache, learning, database management (no IPC overhead)
+- **296 Tests**: Comprehensive test coverage (140 ArgumentCompleter + 156 Module)
 
-**Phase 12 Complete**: Learned data persists across PowerShell sessions using SQLite with concurrent access support.
+**Supported Commands**: git, gh, gt (Graphite), az, azd, func, code, scoop, winget, wt (Windows Terminal), chezmoi, tre, lsd, dust, cd/Set-Location
 
-**Phase 13 Complete**: Directory-aware navigation suggestions for cd/Set-Location with smart caching and learning integration.
-
-**Phase 14 Complete**: Enhanced cd/Set-Location learning with path normalization and context awareness:
-- Normalizes all navigation paths to absolute form (handles ~, .., relative paths)
-- Different path forms merge to same entry (cd ~/foo and cd ../foo → same learned path)
-- Filters suggestions by current directory and partial path matching
-- Boosts frequently visited paths (0.85-1.0 score vs 0.6 for filesystem)
-- Adds trailing directory separator to match PowerShell native behavior
-- Fixes absolute path handling in predictions (cd dotnet → cd D:\path\, not cd dotnet D:\path\)
-
-**Phase 15 Complete**: Test coverage improvements - added 67 new tests (CommandPredictor, FeedbackProvider). Total: 296 tests passing (156 Module + 140 ArgumentCompleter).
-
-**Phase 16 Complete**: PowerShell module functions replaced PSCue.Debug CLI. All IPC infrastructure removed for simpler architecture. 10 PowerShell functions implemented (cache, learning, database, debugging).
-
-**Phase 16.5 Complete**: Module function testing and bug fixes:
-- Fixed FeedbackProvider instance mismatch (now gets instances dynamically from PSCueModule)
-- Fixed ConcurrentDictionary enumeration in Get-PSCueLearning
-- Added integration test script: `test-scripts/test-module-functions.ps1`
-- Verified learning data retrieval works in interactive PowerShell sessions
-
-**Supported Commands Update**: Added Graphite CLI (gt) with full Tab completion support for all subcommands (create, modify, submit, sync, log, etc.) and parameters. Also includes Windows Terminal (wt) support.
+For completed work history, see COMPLETED.md.
 
 ## Architecture
 - **ArgumentCompleter** (`pscue-completer.exe`): NativeAOT exe, <10ms startup, computes completions locally with full dynamic arguments support
