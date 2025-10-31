@@ -17,7 +17,6 @@ namespace PSCue.Module;
 public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyCleanup
 {
     private readonly List<(SubsystemKind Kind, Guid Id)> _subsystems = [];
-    private static IpcServer? _ipcServer;
     private static ContextAnalyzer? _contextAnalyzer;
     private static GenericPredictor? _genericPredictor;
     private static System.Threading.Timer? _autoSaveTimer;
@@ -63,24 +62,13 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
             }
         }
 
-        // Start IPC server for ArgumentCompleter communication
-        try
-        {
-            _ipcServer = new IpcServer();
-        }
-        catch (Exception ex)
-        {
-            // Log but don't fail module loading if IPC server fails to start
-            Console.Error.WriteLine($"Failed to start IPC server: {ex.Message}");
-        }
-
         // Register command predictor with generic learning support
         RegisterCommandPredictor(new CommandPredictor(_genericPredictor, enableGenericLearning));
         //RegisterCommandPredictor(new SamplePredictor());
 
         // Register feedback provider (requires PowerShell 7.4+ with PSFeedbackProvider experimental feature)
         // This will fail gracefully on older PowerShell versions
-        RegisterFeedbackProvider(new FeedbackProvider(_ipcServer, PSCueModule.CommandHistory, PSCueModule.KnowledgeGraph));
+        RegisterFeedbackProvider(new FeedbackProvider(PSCueModule.CommandHistory, PSCueModule.KnowledgeGraph));
     }
 
     private void RegisterCommandPredictor(ICommandPredictor commandPredictor)
@@ -189,18 +177,9 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
             }
         }
 
-        // Cleanup IPC server
-        _ipcServer?.Dispose();
-        _ipcServer = null;
-
         // Cleanup AI resources
         // AiPredictor.Cleanup();
     }
-
-    /// <summary>
-    /// Get the IPC server instance for testing or feedback provider access.
-    /// </summary>
-    internal static IpcServer? GetIpcServer() => _ipcServer;
 
     /// <summary>
     /// Get the generic predictor instance for testing or debugging.

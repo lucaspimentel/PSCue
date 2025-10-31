@@ -28,7 +28,7 @@ public class FeedbackProviderTests
         // Arrange
         var history = new CommandHistory();
         var graph = new ArgumentGraph();
-        var provider = new FeedbackProvider(null, history, graph);
+        var provider = new FeedbackProvider(history, graph);
         var context = CreateSuccessContext(commandLine);
 
         // Act
@@ -75,7 +75,7 @@ public class FeedbackProviderTests
     {
         // Arrange
         var history = new CommandHistory();
-        var provider = new FeedbackProvider(null, history, null);
+        var provider = new FeedbackProvider(history, null);
         var context = CreateSuccessContext("git status");
 
         // Act
@@ -92,7 +92,7 @@ public class FeedbackProviderTests
     {
         // Arrange
         var history = new CommandHistory();
-        var provider = new FeedbackProvider(null, history, null);
+        var provider = new FeedbackProvider(history, null);
         var context = CreateErrorContext("git invalid-command");
 
         // Act
@@ -109,7 +109,7 @@ public class FeedbackProviderTests
     {
         // Arrange
         var graph = new ArgumentGraph();
-        var provider = new FeedbackProvider(null, null, graph);
+        var provider = new FeedbackProvider(null, graph);
         var context = CreateSuccessContext("git commit -m 'test'");
 
         // Act
@@ -126,7 +126,7 @@ public class FeedbackProviderTests
     {
         // Arrange
         var graph = new ArgumentGraph();
-        var provider = new FeedbackProvider(null, null, graph);
+        var provider = new FeedbackProvider(null, graph);
         var context = CreateErrorContext("git invalid-command");
 
         // Act
@@ -151,7 +151,7 @@ public class FeedbackProviderTests
         {
             var history = new CommandHistory();
             var graph = new ArgumentGraph();
-            var provider = new FeedbackProvider(null, history, graph);
+            var provider = new FeedbackProvider(history, graph);
             var context = CreateSuccessContext(commandLine);
 
             // Act
@@ -175,7 +175,7 @@ public class FeedbackProviderTests
         try
         {
             var history = new CommandHistory();
-            var provider = new FeedbackProvider(null, history, null);
+            var provider = new FeedbackProvider(history, null);
 
             // Act & Assert - Test each pattern
             provider.GetFeedback(CreateSuccessContext("aws configure"), CancellationToken.None);
@@ -205,7 +205,7 @@ public class FeedbackProviderTests
         try
         {
             var history = new CommandHistory();
-            var provider = new FeedbackProvider(null, history, null);
+            var provider = new FeedbackProvider(history, null);
 
             // Act
             provider.GetFeedback(CreateSuccessContext("aws configure"), CancellationToken.None);
@@ -225,27 +225,25 @@ public class FeedbackProviderTests
     public void GetFeedback_SupportedCommand_UpdatesCache()
     {
         // Arrange
-        var pipeName = $"PSCue-Test-{Guid.NewGuid():N}";
-        var server = new IpcServer(pipeName);
-        Thread.Sleep(100); // Give server time to start
+        var cache = new CompletionCache();
+        PSCueModule.Cache = cache;
 
         try
         {
-            var provider = new FeedbackProvider(server, null, null);
+            var provider = new FeedbackProvider(null, null);
             var context = CreateSuccessContext("git checkout main");
 
             // Act
             provider.GetFeedback(context, CancellationToken.None);
 
-            // Assert - Cache should be updated (this is tested indirectly via IPC)
-            var cache = server.GetCache();
+            // Assert - Cache should be updated via PSCueModule.Cache
             var stats = cache.GetStatistics();
             // Note: Cache updates are best effort, so we just verify no crashes
             Assert.NotNull(stats);
         }
         finally
         {
-            server?.Dispose();
+            PSCueModule.Cache = null;
         }
     }
 
@@ -254,7 +252,7 @@ public class FeedbackProviderTests
     {
         // Arrange
         var history = new CommandHistory();
-        var provider = new FeedbackProvider(null, history, null);
+        var provider = new FeedbackProvider(history, null);
         var context = CreateSuccessContext("git commit -m 'Fix bug #123 & update README'");
 
         // Act
@@ -271,7 +269,7 @@ public class FeedbackProviderTests
     {
         // Arrange
         var history = new CommandHistory();
-        var provider = new FeedbackProvider(null, history, null);
+        var provider = new FeedbackProvider(history, null);
         var longMessage = new string('a', 1000);
         var context = CreateSuccessContext($"git commit -m '{longMessage}'");
 
@@ -303,7 +301,7 @@ public class FeedbackProviderTests
         // Arrange
         var history = new CommandHistory();
         var graph = new ArgumentGraph();
-        var provider = new FeedbackProvider(null, history, graph);
+        var provider = new FeedbackProvider(history, graph);
 
         // Act - Execute several commands
         provider.GetFeedback(CreateSuccessContext("git status"), CancellationToken.None);

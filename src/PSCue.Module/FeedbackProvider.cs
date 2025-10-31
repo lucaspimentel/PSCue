@@ -15,7 +15,6 @@ namespace PSCue.Module;
 /// </summary>
 public class FeedbackProvider : IFeedbackProvider
 {
-    private readonly IpcServer? _ipcServer;
     private readonly CommandHistory? _commandHistory;
     private readonly ArgumentGraph? _argumentGraph;
     private readonly HashSet<string> _ignorePatterns;
@@ -44,12 +43,10 @@ public class FeedbackProvider : IFeedbackProvider
     /// <summary>
     /// Initializes a new instance of the FeedbackProvider class.
     /// </summary>
-    /// <param name="ipcServer">Optional IPC server instance for accessing the completion cache.</param>
     /// <param name="commandHistory">Optional command history for generic learning.</param>
     /// <param name="argumentGraph">Optional argument graph for generic learning.</param>
-    public FeedbackProvider(IpcServer? ipcServer = null, CommandHistory? commandHistory = null, ArgumentGraph? argumentGraph = null)
+    public FeedbackProvider(CommandHistory? commandHistory = null, ArgumentGraph? argumentGraph = null)
     {
-        _ipcServer = ipcServer;
         _commandHistory = commandHistory;
         _argumentGraph = argumentGraph;
         _ignorePatterns = LoadIgnorePatterns();
@@ -178,15 +175,14 @@ public class FeedbackProvider : IFeedbackProvider
     /// </summary>
     private void UpdateCacheFromUsage(string mainCommand, string commandLine, List<string> commandElements)
     {
-        if (_ipcServer == null)
+        var cache = PSCueModule.Cache;
+        if (cache == null)
         {
             return;
         }
 
         try
         {
-            var cache = _ipcServer.GetCache();
-
             // Generate cache key from the command context
             // For example: "git|checkout" for "git checkout main"
             var cacheKey = CompletionCache.GetCacheKey(mainCommand, commandLine);

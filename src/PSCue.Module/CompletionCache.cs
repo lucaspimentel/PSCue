@@ -158,6 +158,16 @@ public class CompletionCache
 }
 
 /// <summary>
+/// Represents a completion suggestion item.
+/// </summary>
+public class CompletionItem
+{
+    public string Text { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public double Score { get; set; }
+}
+
+/// <summary>
 /// Statistics about the completion cache.
 /// </summary>
 public class CacheStatistics
