@@ -14,7 +14,6 @@ public class WindowsTerminalCommandTests
         var completions = CommandCompleter.GetCompletions("wt").ToList();
 
         Assert.NotEmpty(completions);
-        Assert.Contains(completions, x => x.CompletionText == "-h");
         Assert.Contains(completions, x => x.CompletionText == "--help");
         Assert.Contains(completions, x => x.CompletionText == "new-tab");
         Assert.Contains(completions, x => x.CompletionText == "split-pane");
@@ -27,10 +26,13 @@ public class WindowsTerminalCommandTests
 
         var completions = CommandCompleter.GetCompletions("wt -").ToList();
 
-        Assert.Contains(completions, x => x.CompletionText == "-h");
+        // Parameters with aliases now show only the long form (with alias in tooltip)
         Assert.Contains(completions, x => x.CompletionText == "--help");
-        Assert.Contains(completions, x => x.CompletionText == "-v");
         Assert.Contains(completions, x => x.CompletionText == "--version");
+
+        // But typing the short form should also match
+        var shortHelp = CommandCompleter.GetCompletions("wt -h").ToList();
+        Assert.Contains(shortHelp, x => x.CompletionText == "--help");
     }
 
     [SkippableFact]
@@ -54,10 +56,13 @@ public class WindowsTerminalCommandTests
         var completions = CommandCompleter.GetCompletions("wt new-tab").ToList();
 
         Assert.NotEmpty(completions);
-        Assert.Contains(completions, x => x.CompletionText == "-d");
+        // Only long forms appear in completion list
         Assert.Contains(completions, x => x.CompletionText == "--startingDirectory");
-        Assert.Contains(completions, x => x.CompletionText == "-p");
         Assert.Contains(completions, x => x.CompletionText == "--profile");
+
+        // Aliases are not shown separately
+        Assert.DoesNotContain(completions, x => x.CompletionText == "-d");
+        Assert.DoesNotContain(completions, x => x.CompletionText == "-p");
     }
 
     [SkippableFact]
@@ -68,8 +73,9 @@ public class WindowsTerminalCommandTests
         var completions = CommandCompleter.GetCompletions("wt nt").ToList();
 
         Assert.NotEmpty(completions);
-        Assert.Contains(completions, x => x.CompletionText == "-d");
+        // Only long forms appear
         Assert.Contains(completions, x => x.CompletionText == "--startingDirectory");
+        Assert.DoesNotContain(completions, x => x.CompletionText == "-d");
     }
 
     [SkippableFact]
@@ -80,10 +86,11 @@ public class WindowsTerminalCommandTests
         var completions = CommandCompleter.GetCompletions("wt split-pane").ToList();
 
         Assert.NotEmpty(completions);
-        Assert.Contains(completions, x => x.CompletionText == "-H");
+        // Only long forms appear
         Assert.Contains(completions, x => x.CompletionText == "--horizontal");
-        Assert.Contains(completions, x => x.CompletionText == "-V");
         Assert.Contains(completions, x => x.CompletionText == "--vertical");
+        Assert.DoesNotContain(completions, x => x.CompletionText == "-H");
+        Assert.DoesNotContain(completions, x => x.CompletionText == "-V");
     }
 
     [SkippableFact]
@@ -94,8 +101,9 @@ public class WindowsTerminalCommandTests
         var completions = CommandCompleter.GetCompletions("wt sp").ToList();
 
         Assert.NotEmpty(completions);
-        Assert.Contains(completions, x => x.CompletionText == "-H");
+        // Only long forms appear
         Assert.Contains(completions, x => x.CompletionText == "--horizontal");
+        Assert.DoesNotContain(completions, x => x.CompletionText == "-H");
     }
 
     [SkippableFact]
@@ -106,10 +114,11 @@ public class WindowsTerminalCommandTests
         var completions = CommandCompleter.GetCompletions("wt focus-tab").ToList();
 
         Assert.NotEmpty(completions);
-        Assert.Contains(completions, x => x.CompletionText == "-t");
+        // Only long forms appear
         Assert.Contains(completions, x => x.CompletionText == "--target");
-        Assert.Contains(completions, x => x.CompletionText == "-n");
         Assert.Contains(completions, x => x.CompletionText == "--next");
+        Assert.DoesNotContain(completions, x => x.CompletionText == "-t");
+        Assert.DoesNotContain(completions, x => x.CompletionText == "-n");
     }
 
     [SkippableFact]
@@ -120,8 +129,9 @@ public class WindowsTerminalCommandTests
         var completions = CommandCompleter.GetCompletions("wt ft").ToList();
 
         Assert.NotEmpty(completions);
-        Assert.Contains(completions, x => x.CompletionText == "-t");
+        // Only long forms appear
         Assert.Contains(completions, x => x.CompletionText == "--target");
+        Assert.DoesNotContain(completions, x => x.CompletionText == "-t");
     }
 
     [SkippableFact]
@@ -158,10 +168,11 @@ public class WindowsTerminalCommandTests
         var completions = CommandCompleter.GetCompletions("wt move-pane").ToList();
 
         Assert.NotEmpty(completions);
-        Assert.Contains(completions, x => x.CompletionText == "-t");
+        // Only long forms appear
         Assert.Contains(completions, x => x.CompletionText == "--tab");
-        Assert.Contains(completions, x => x.CompletionText == "-w");
         Assert.Contains(completions, x => x.CompletionText == "--window");
+        Assert.DoesNotContain(completions, x => x.CompletionText == "-t");
+        Assert.DoesNotContain(completions, x => x.CompletionText == "-w");
     }
 
     [SkippableFact]
@@ -172,8 +183,9 @@ public class WindowsTerminalCommandTests
         var completions = CommandCompleter.GetCompletions("wt mp").ToList();
 
         Assert.NotEmpty(completions);
-        Assert.Contains(completions, x => x.CompletionText == "-t");
+        // Only long forms appear
         Assert.Contains(completions, x => x.CompletionText == "--tab");
+        Assert.DoesNotContain(completions, x => x.CompletionText == "-t");
     }
 
     [SkippableFact]
@@ -198,8 +210,9 @@ public class WindowsTerminalCommandTests
         var completions = CommandCompleter.GetCompletions("wt focus-pane").ToList();
 
         Assert.NotEmpty(completions);
-        Assert.Contains(completions, x => x.CompletionText == "-t");
+        // Only long forms appear
         Assert.Contains(completions, x => x.CompletionText == "--target");
+        Assert.DoesNotContain(completions, x => x.CompletionText == "-t");
     }
 
     [SkippableFact]
@@ -210,8 +223,9 @@ public class WindowsTerminalCommandTests
         var completions = CommandCompleter.GetCompletions("wt fp").ToList();
 
         Assert.NotEmpty(completions);
-        Assert.Contains(completions, x => x.CompletionText == "-t");
+        // Only long forms appear
         Assert.Contains(completions, x => x.CompletionText == "--target");
+        Assert.DoesNotContain(completions, x => x.CompletionText == "-t");
     }
 
     [SkippableFact]

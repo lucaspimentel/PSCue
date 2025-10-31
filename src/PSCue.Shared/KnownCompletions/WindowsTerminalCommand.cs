@@ -45,13 +45,10 @@ public static class WindowsTerminalCommand
             Alias = "nt",
             Parameters =
             [
-                new("-d", "Set the starting directory for the new tab"),
-                new("--startingDirectory", "Set the starting directory for the new tab"),
-                new("-p", "Use a specific profile for the new tab"),
-                new("--profile", "Use a specific profile for the new tab"),
+                new("--startingDirectory", "Set the starting directory for the new tab (-d)") { Alias = "-d" },
+                new("--profile", "Use a specific profile for the new tab (-p)") { Alias = "-p" },
                 new("--title", "Set the title of the new tab"),
-                new("-w", "Specify which window to create this tab in"),
-                new("--window", "Specify which window to create this tab in"),
+                new("--window", "Specify which window to create this tab in (-w)") { Alias = "-w" },
                 new("--tabColor", "Set the color of the tab"),
                 new("--colorScheme", "Set the color scheme of the tab"),
                 new("--suppressApplicationTitle", "Suppress application title"),
@@ -64,16 +61,11 @@ public static class WindowsTerminalCommand
             Alias = "sp",
             Parameters =
             [
-                new("-H", "Split horizontally (split to the bottom)"),
-                new("--horizontal", "Split horizontally (split to the bottom)"),
-                new("-V", "Split vertically (split to the right)"),
-                new("--vertical", "Split vertically (split to the right)"),
-                new("-D", "Duplicate the pane's profile into a new pane"),
-                new("--duplicate", "Duplicate the pane's profile into a new pane"),
-                new("-d", "Set the starting directory for the new pane"),
-                new("--startingDirectory", "Set the starting directory for the new pane"),
-                new("-p", "Use a specific profile for the new pane"),
-                new("--profile", "Use a specific profile for the new pane"),
+                new("--horizontal", "Split horizontally, split to the bottom (-H)") { Alias = "-H" },
+                new("--vertical", "Split vertically, split to the right (-V)") { Alias = "-V" },
+                new("--duplicate", "Duplicate the pane's profile into a new pane (-D)") { Alias = "-D" },
+                new("--startingDirectory", "Set the starting directory for the new pane (-d)") { Alias = "-d" },
+                new("--profile", "Use a specific profile for the new pane (-p)") { Alias = "-p" },
                 new("--title", "Set the title of the new pane"),
                 new("--tabColor", "Set the color of the tab"),
                 new("--colorScheme", "Set the color scheme of the pane"),
@@ -88,12 +80,9 @@ public static class WindowsTerminalCommand
             Alias = "ft",
             Parameters =
             [
-                new("-t", "Focus the tab at the specified index"),
-                new("--target", "Focus the tab at the specified index"),
-                new("-n", "Focus the next tab"),
-                new("--next", "Focus the next tab"),
-                new("-p", "Focus the previous tab"),
-                new("--previous", "Focus the previous tab")
+                new("--target", "Focus the tab at the specified index (-t)") { Alias = "-t" },
+                new("--next", "Focus the next tab (-n)") { Alias = "-n" },
+                new("--previous", "Focus the previous tab (-p)") { Alias = "-p" }
             ]
         };
 
@@ -120,10 +109,8 @@ public static class WindowsTerminalCommand
             Alias = "mp",
             Parameters =
             [
-                new("-t", "Move to the tab at the specified index"),
-                new("--tab", "Move to the tab at the specified index"),
-                new("-w", "Move to the specified window"),
-                new("--window", "Move to the specified window")
+                new("--tab", "Move to the tab at the specified index (-t)") { Alias = "-t" },
+                new("--window", "Move to the specified window (-w)") { Alias = "-w" }
             ]
         };
 
@@ -147,8 +134,7 @@ public static class WindowsTerminalCommand
             Alias = "fp",
             Parameters =
             [
-                new("-t", "Focus the pane at the specified index"),
-                new("--target", "Focus the pane at the specified index")
+                new("--target", "Focus the pane at the specified index (-t)") { Alias = "-t" }
             ]
         };
 
@@ -156,22 +142,15 @@ public static class WindowsTerminalCommand
         {
             Parameters =
             [
-                new("-h", "Print this help message and exit"),
-                new("--help", "Print this help message and exit"),
-                new("-v", "Display the application version"),
-                new("--version", "Display the application version"),
-                new("-M", "Launch the window maximized"),
-                new("--maximized", "Launch the window maximized"),
-                new("-F", "Launch the window in fullscreen mode"),
-                new("--fullscreen", "Launch the window in fullscreen mode"),
-                new("-f", "Launch the window in focus mode"),
-                new("--focus", "Launch the window in focus mode"),
+                new("--help", "Print this help message and exit (-h)") { Alias = "-h" },
+                new("--version", "Display the application version (-v)") { Alias = "-v" },
+                new("--maximized", "Launch the window maximized (-M)") { Alias = "-M" },
+                new("--fullscreen", "Launch the window in fullscreen mode (-F)") { Alias = "-F" },
+                new("--focus", "Launch the window in focus mode (-f)") { Alias = "-f" },
                 new("--pos", "Specify the position for the terminal, in \"x,y\" format"),
                 new("--size", "Specify the number of columns and rows for the terminal, in \"cr\" or \"c,r\" format"),
-                new("-w", "Specify a terminal window to run the given commandline in. \"0\" always refers to the current window"),
-                new("--window", "Specify a terminal window to run the given commandline in. \"0\" always refers to the current window"),
-                new("-s", "This parameter is an internal implementation detail and should not be used"),
-                new("--saved", "This parameter is an internal implementation detail and should not be used")
+                new("--window", "Specify a terminal window to run the given commandline in. \"0\" always refers to the current window (-w)") { Alias = "-w" },
+                new("--saved", "This parameter is an internal implementation detail and should not be used (-s)") { Alias = "-s" }
             ],
             SubCommands =
             [
