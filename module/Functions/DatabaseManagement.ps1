@@ -290,6 +290,10 @@ function Get-PSCueDatabaseHistory {
             $cmd.Dispose()
 
             if ($AsJson) {
+                # Handle empty array
+                if ($history.Count -eq 0) {
+                    return "[]"
+                }
                 $history | ConvertTo-Json -Depth 10
             } else {
                 $history

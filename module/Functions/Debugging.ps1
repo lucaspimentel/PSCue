@@ -44,6 +44,12 @@ function Test-PSCueCompletion {
         # Parse input to extract command and cursor position
         $cursorPosition = $InputString.Length
 
+        # Ensure PSCue.Shared is loaded
+        $sharedDllPath = Join-Path (Split-Path (Get-Module PSCue).Path) "PSCue.Shared.dll"
+        if (Test-Path $sharedDllPath) {
+            Add-Type -Path $sharedDllPath -ErrorAction SilentlyContinue
+        }
+
         # Call CommandCompleter directly (uses string overload for PowerShell compatibility)
         $completions = [PSCue.Shared.CommandCompleter]::GetCompletions(
             $InputString,

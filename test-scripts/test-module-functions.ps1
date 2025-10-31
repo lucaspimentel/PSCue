@@ -192,8 +192,8 @@ Write-TestInfo "  - kubectl get pods"
 Write-TestInfo ""
 Write-TestInfo "Then run: Get-PSCueLearning"
 
-# Test 9: Test other functions
-Write-TestHeader "Other Module Functions"
+# Test 9: Test Get-PSCueModuleInfo
+Write-TestHeader "Get-PSCueModuleInfo"
 
 try {
     $moduleInfo = Get-PSCueModuleInfo
@@ -203,6 +203,208 @@ try {
     }
 } catch {
     Write-TestFailure "Get-PSCueModuleInfo failed: $_"
+}
+
+# Test 9a: Test -AsJson parameter for functions that support it
+Write-TestHeader "Testing -AsJson Parameters"
+
+try {
+    $jsonStats = Get-PSCueCacheStats -AsJson
+    $null = ConvertFrom-Json $jsonStats
+    Write-TestSuccess "Get-PSCueCacheStats -AsJson produces valid JSON"
+} catch {
+    Write-TestFailure "Get-PSCueCacheStats -AsJson failed: $_"
+}
+
+try {
+    $jsonCache = Get-PSCueCache -AsJson
+    $null = ConvertFrom-Json $jsonCache
+    Write-TestSuccess "Get-PSCueCache -AsJson produces valid JSON"
+} catch {
+    Write-TestFailure "Get-PSCueCache -AsJson failed: $_"
+}
+
+try {
+    $jsonLearning = Get-PSCueLearning -AsJson
+    $null = ConvertFrom-Json $jsonLearning
+    Write-TestSuccess "Get-PSCueLearning -AsJson produces valid JSON"
+} catch {
+    Write-TestFailure "Get-PSCueLearning -AsJson failed: $_"
+}
+
+try {
+    $jsonInfo = Get-PSCueModuleInfo -AsJson
+    $null = ConvertFrom-Json $jsonInfo
+    Write-TestSuccess "Get-PSCueModuleInfo -AsJson produces valid JSON"
+} catch {
+    Write-TestFailure "Get-PSCueModuleInfo -AsJson failed: $_"
+}
+
+# Test 9b: Test Get-PSCueCache with -Filter parameter
+Write-TestHeader "Testing Get-PSCueCache -Filter"
+
+try {
+    $filtered = @(Get-PSCueCache -Filter "git")
+    Write-TestSuccess "Get-PSCueCache -Filter works"
+    Write-TestInfo "Filtered entries: $($filtered.Count)"
+} catch {
+    Write-TestFailure "Get-PSCueCache -Filter failed: $_"
+}
+
+# Test 9c: Test Get-PSCueLearning with -Command parameter
+Write-TestHeader "Testing Get-PSCueLearning -Command"
+
+try {
+    $cmdLearning = @(Get-PSCueLearning -Command "git")
+    Write-TestSuccess "Get-PSCueLearning -Command works"
+    Write-TestInfo "Command-specific entries: $($cmdLearning.Count)"
+} catch {
+    Write-TestFailure "Get-PSCueLearning -Command failed: $_"
+}
+
+# Test 9d: Test Get-PSCueDatabaseStats
+Write-TestHeader "Get-PSCueDatabaseStats"
+
+try {
+    $dbStats = Get-PSCueDatabaseStats
+    Write-TestSuccess "Get-PSCueDatabaseStats works"
+    if ($Verbose) {
+        $dbStats | Format-List
+    }
+} catch {
+    Write-TestFailure "Get-PSCueDatabaseStats failed: $_"
+}
+
+try {
+    $dbStatsDetailed = Get-PSCueDatabaseStats -Detailed
+    Write-TestSuccess "Get-PSCueDatabaseStats -Detailed works"
+} catch {
+    Write-TestFailure "Get-PSCueDatabaseStats -Detailed failed: $_"
+}
+
+try {
+    $dbStatsJson = Get-PSCueDatabaseStats -AsJson
+    $null = ConvertFrom-Json $dbStatsJson
+    Write-TestSuccess "Get-PSCueDatabaseStats -AsJson produces valid JSON"
+} catch {
+    Write-TestFailure "Get-PSCueDatabaseStats -AsJson failed: $_"
+}
+
+# Test 9e: Test Get-PSCueDatabaseHistory
+Write-TestHeader "Get-PSCueDatabaseHistory"
+
+try {
+    $dbHistory = @(Get-PSCueDatabaseHistory -Last 10)
+    Write-TestSuccess "Get-PSCueDatabaseHistory -Last works"
+    Write-TestInfo "History entries: $($dbHistory.Count)"
+} catch {
+    Write-TestFailure "Get-PSCueDatabaseHistory -Last failed: $_"
+}
+
+try {
+    $dbHistoryCmd = @(Get-PSCueDatabaseHistory -Command "git")
+    Write-TestSuccess "Get-PSCueDatabaseHistory -Command works"
+    Write-TestInfo "Command-specific history: $($dbHistoryCmd.Count)"
+} catch {
+    Write-TestFailure "Get-PSCueDatabaseHistory -Command failed: $_"
+}
+
+try {
+    $dbHistoryJson = Get-PSCueDatabaseHistory -Last 5 -AsJson
+    $null = ConvertFrom-Json $dbHistoryJson
+    Write-TestSuccess "Get-PSCueDatabaseHistory -AsJson produces valid JSON"
+} catch {
+    Write-TestFailure "Get-PSCueDatabaseHistory -AsJson failed: $_"
+}
+
+# Test 9f: Test Test-PSCueCompletion
+Write-TestHeader "Test-PSCueCompletion"
+
+try {
+    $completions = Test-PSCueCompletion -InputString "git che"
+    Write-TestSuccess "Test-PSCueCompletion works"
+    Write-TestInfo "Completions found: $($completions.Count)"
+    if ($completions.Count -gt 0) {
+        $completions | Select-Object -First 3 | Format-Table CompletionText, ListItemText -AutoSize
+    }
+} catch {
+    Write-TestFailure "Test-PSCueCompletion failed: $_"
+}
+
+# Test 9g: Test Export/Import-PSCueLearning
+Write-TestHeader "Export/Import-PSCueLearning"
+
+$exportPath = Join-Path $env:TEMP "pscue-test-export.json"
+
+try {
+    Export-PSCueLearning -Path $exportPath
+    Write-TestSuccess "Export-PSCueLearning works"
+    Write-TestInfo "Exported to: $exportPath"
+
+    if (Test-Path $exportPath) {
+        $exportContent = Get-Content $exportPath -Raw
+        $null = ConvertFrom-Json $exportContent
+        Write-TestSuccess "Export file contains valid JSON"
+
+        # Test import (use -Confirm:$false to avoid prompting)
+        Import-PSCueLearning -Path $exportPath -Confirm:$false
+        Write-TestSuccess "Import-PSCueLearning works"
+
+        # Test import with -Merge
+        Import-PSCueLearning -Path $exportPath -Merge -Confirm:$false
+        Write-TestSuccess "Import-PSCueLearning -Merge works"
+
+        # Clean up
+        Remove-Item $exportPath -ErrorAction SilentlyContinue
+    }
+} catch {
+    Write-TestFailure "Export/Import-PSCueLearning failed: $_"
+}
+
+# Test 9h: Test error handling - invalid path
+Write-TestHeader "Error Handling"
+
+try {
+    $null = Export-PSCueLearning -Path "Z:\invalid\path\file.json" -ErrorAction Stop
+    Write-TestFailure "Export-PSCueLearning should fail with invalid path"
+} catch {
+    Write-TestSuccess "Export-PSCueLearning correctly handles invalid path"
+}
+
+try {
+    $null = Import-PSCueLearning -Path "Z:\invalid\path\file.json" -ErrorAction Stop
+    Write-TestFailure "Import-PSCueLearning should fail with invalid path"
+} catch {
+    Write-TestSuccess "Import-PSCueLearning correctly handles invalid path"
+}
+
+# Test 9i: Test WhatIf/Confirm for destructive operations
+Write-TestHeader "WhatIf/Confirm Support"
+
+try {
+    # Test Clear-PSCueCache with -WhatIf
+    Clear-PSCueCache -WhatIf
+    Write-TestSuccess "Clear-PSCueCache supports -WhatIf"
+} catch {
+    Write-TestFailure "Clear-PSCueCache -WhatIf failed: $_"
+}
+
+try {
+    # Test Clear-PSCueLearning with -WhatIf
+    Clear-PSCueLearning -WhatIf
+    Write-TestSuccess "Clear-PSCueLearning supports -WhatIf"
+} catch {
+    Write-TestFailure "Clear-PSCueLearning -WhatIf failed: $_"
+}
+
+# Test 9j: Test Save-PSCueLearning
+Write-TestHeader "Save-PSCueLearning"
+
+try {
+    Save-PSCueLearning
+    Write-TestSuccess "Save-PSCueLearning works"
+} catch {
+    Write-TestFailure "Save-PSCueLearning failed: $_"
 }
 
 # Test 10: Check if predictors are registered

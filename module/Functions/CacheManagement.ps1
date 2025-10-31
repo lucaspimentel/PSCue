@@ -51,7 +51,10 @@ function Get-PSCueCache {
         $entries = [PSCue.Module.PSCueModule]::Cache.GetCacheEntries($Filter)
 
         if ($AsJson) {
-            # Convert to JSON with proper formatting
+            # Convert to JSON with proper formatting (handle empty array)
+            if ($null -eq $entries -or $entries.Count -eq 0) {
+                return "[]"
+            }
             $entries | ConvertTo-Json -Depth 10
         } else {
             # Return rich objects for PowerShell pipeline
