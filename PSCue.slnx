@@ -1,50 +1,14 @@
 <Solution>
-  <Configurations>
-    <Platform Name="Any CPU" />
-    <Platform Name="x64" />
-    <Platform Name="x86" />
-  </Configurations>
   <Folder Name="/benchmark/">
     <Project Path="benchmark/PSCue.Benchmarks/PSCue.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/src/">
-    <Project Path="src\PSCue.ArgumentCompleter\PSCue.ArgumentCompleter.csproj" Type="C#">
-      <Configuration Solution="Debug|x64" Project="Debug|Any CPU" />
-      <Configuration Solution="Debug|x86" Project="Debug|Any CPU" />
-      <Configuration Solution="Release|x64" Project="Release|Any CPU" />
-      <Configuration Solution="Release|x86" Project="Release|Any CPU" />
-    </Project>
-    <Project Path="src\PSCue.Debug\PSCue.Debug.csproj" Type="C#">
-      <Configuration Solution="Debug|x64" Project="Debug|Any CPU" />
-      <Configuration Solution="Debug|x86" Project="Debug|Any CPU" />
-      <Configuration Solution="Release|x64" Project="Release|Any CPU" />
-      <Configuration Solution="Release|x86" Project="Release|Any CPU" />
-    </Project>
-    <Project Path="src\PSCue.Module\PSCue.Module.csproj" Type="C#">
-      <Configuration Solution="Debug|x64" Project="Debug|Any CPU" />
-      <Configuration Solution="Debug|x86" Project="Debug|Any CPU" />
-      <Configuration Solution="Release|x64" Project="Release|Any CPU" />
-      <Configuration Solution="Release|x86" Project="Release|Any CPU" />
-    </Project>
-    <Project Path="src\PSCue.Shared\PSCue.Shared.csproj" Type="C#">
-      <Configuration Solution="Debug|x64" Project="Debug|Any CPU" />
-      <Configuration Solution="Debug|x86" Project="Debug|Any CPU" />
-      <Configuration Solution="Release|x64" Project="Release|Any CPU" />
-      <Configuration Solution="Release|x86" Project="Release|Any CPU" />
-    </Project>
+    <Project Path="src/PSCue.ArgumentCompleter/PSCue.ArgumentCompleter.csproj" Type="C#"/>
+    <Project Path="src/PSCue.Module/PSCue.Module.csproj" Type="C#"/>
+    <Project Path="src/PSCue.Shared/PSCue.Shared.csproj" Type="C#"/>
   </Folder>
   <Folder Name="/test/">
-    <Project Path="test\PSCue.ArgumentCompleter.Tests\PSCue.ArgumentCompleter.Tests.csproj" Type="C#">
-      <Configuration Solution="Debug|x64" Project="Debug|Any CPU" />
-      <Configuration Solution="Debug|x86" Project="Debug|Any CPU" />
-      <Configuration Solution="Release|x64" Project="Release|Any CPU" />
-      <Configuration Solution="Release|x86" Project="Release|Any CPU" />
-    </Project>
-    <Project Path="test\PSCue.Module.Tests\PSCue.Module.Tests.csproj" Type="C#">
-      <Configuration Solution="Debug|x64" Project="Debug|Any CPU" />
-      <Configuration Solution="Debug|x86" Project="Debug|Any CPU" />
-      <Configuration Solution="Release|x64" Project="Release|Any CPU" />
-      <Configuration Solution="Release|x86" Project="Release|Any CPU" />
-    </Project>
+    <Project Path="test/PSCue.ArgumentCompleter.Tests/PSCue.ArgumentCompleter.Tests.csproj" Type="C#"/>
+    <Project Path="test/PSCue.Module.Tests/PSCue.Module.Tests.csproj" Type="C#"/>
   </Folder>
 </Solution>
