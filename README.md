@@ -8,7 +8,7 @@
 
 - **🚀 Fast Tab Completion**: Native AOT executable for <10ms startup time
 - **💡 Inline Predictions**: Smart command suggestions as you type using `ICommandPredictor`
-- **⚡ PowerShell Module Functions**: Native PowerShell functions for cache and learning management
+- **⚡ PowerShell Module Functions**: Native PowerShell functions for learning and database management
 - **🧠 Universal Learning System**: Learns from ALL commands (not just pre-configured ones) and adapts to your workflow patterns
 - **💾 Cross-Session Persistence**: Learning data persists across PowerShell sessions using SQLite
 - **🎯 Context-Aware Suggestions**: Detects command sequences and boosts relevant suggestions based on recent activity
@@ -25,8 +25,8 @@ PSCue uses a dual-architecture approach for optimal performance:
 
 This architecture enables:
 - Sub-10ms Tab completion response time
-- Persistent cache across Tab completion requests
-- Consistent suggestions between Tab completion and inline predictions
+- Fresh completions computed on every Tab press (includes dynamic data like git branches)
+- Inline predictions learn from your command history
 - Learning feedback loop via `IFeedbackProvider` (PowerShell 7.4+)
 - Error recovery suggestions when commands fail
 - Native PowerShell functions for direct module access (no external tools needed)
@@ -174,7 +174,7 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 - **Binary**: `PSCue.Module.dll` (Managed)
 - **Purpose**: Provides inline suggestions via `ICommandPredictor`
 - **Lifetime**: Loaded once with PowerShell module
-- **Features**: Intelligent cache, shared completion logic, PowerShell module functions, skips dynamic arguments for speed
+- **Features**: Learning system (ArgumentGraph + CommandHistory), PowerShell module functions, context-aware predictions
 
 ### Shared Completion Logic
 - **Binary**: `PSCue.Shared.dll` (Managed)
@@ -190,9 +190,10 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 │  - ICommandPredictor (suggestions)  │
 │  - IFeedbackProvider (learning)     │
 │  - PowerShell Functions             │
-│  - CompletionCache (5-min TTL)      │
+│  - ArgumentGraph (learning)         │
+│  - CommandHistory (recent cmds)     │
+│  - SQLite persistence               │
 │  - Uses PSCue.Shared.dll            │
-│  - Skips dynamic args (fast)        │
 └─────────────────────────────────────┘
 
 ┌─────────────────────────────────────┐
@@ -200,7 +201,7 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 ├─────────────────────────────────────┤
 │  pscue-completer.exe                │
 │  - Fast startup (<10ms)             │
-│  - Local computation only           │
+│  - Fresh computation each time      │
 │  - Uses PSCue.Shared.dll (compiled) │
 │  - Includes dynamic args (full)     │
 └─────────────────────────────────────┘
@@ -295,15 +296,15 @@ dotnet test
 
 ### Running Tests
 
-PSCue has **252 unit tests** covering ArgumentCompleter logic, CommandPredictor, FeedbackProvider, cache filtering, generic learning components, persistence, navigation, and integration scenarios.
+PSCue has **323 unit tests** covering ArgumentCompleter logic, CommandPredictor, FeedbackProvider, generic learning components, persistence, navigation, and integration scenarios.
 
 ```powershell
-# All tests (252 total: 140 ArgumentCompleter + 112 Module including Phases 11-16)
+# All tests (323 total: 140 ArgumentCompleter + 183 Module including Phases 11-16)
 dotnet test
 
 # Specific project
 dotnet test test/PSCue.ArgumentCompleter.Tests/  # 140 tests
-dotnet test test/PSCue.Module.Tests/             # 112 tests
+dotnet test test/PSCue.Module.Tests/             # 183 tests
 
 # With verbose output
 dotnet test --logger "console;verbosity=detailed"
@@ -322,9 +323,9 @@ Import-Module ./module/PSCue.psd1
 # Test completion generation
 Test-PSCueCompletion -InputString "git checkout ma"
 
-# View cache and learning data
-Get-PSCueCache -Filter git
+# View learning data
 Get-PSCueLearning -Command git
+Get-PSCueDatabaseHistory -Command git -Last 10
 
 # Get module diagnostics
 Get-PSCueModuleInfo
@@ -353,10 +354,10 @@ TabExpansion2 'git checkout ma' 15
   - Personalized completions based on command history
   - Error recovery suggestions for git commands
 - [x] **PowerShell Module Functions** (Phase 16)
-  - 10 native PowerShell functions for cache, learning, and database management
+  - 7 native PowerShell functions for learning and database management
   - Direct in-process access (no external tools needed)
   - Pipeline support, tab completion, comprehensive help
-  - Functions: Get-PSCueCache, Clear-PSCueCache, Get-PSCueCacheStats, Get-PSCueLearning, Clear-PSCueLearning, Export-PSCueLearning, Import-PSCueLearning, Save-PSCueLearning, Get-PSCueDatabaseStats, Get-PSCueDatabaseHistory, Test-PSCueCompletion, Get-PSCueModuleInfo
+  - Functions: Get-PSCueLearning, Clear-PSCueLearning, Export-PSCueLearning, Import-PSCueLearning, Save-PSCueLearning, Get-PSCueDatabaseStats, Get-PSCueDatabaseHistory, Test-PSCueCompletion, Get-PSCueModuleInfo
 
 - [x] **Generic Command Learning** ✅ **COMPLETE**
   - Universal command learning (learns from ALL commands, not just pre-configured ones)
@@ -423,45 +424,29 @@ To add completions for a new command:
 
 See existing completions like `GitCommand.cs` or `ScoopCommand.cs` for examples in `src/PSCue.Shared/KnownCompletions/`.
 
-## Cache & Learning Management
+## Learning & Database Management
 
-PSCue includes PowerShell functions for managing the completion cache and learning system:
+PSCue includes PowerShell functions for managing the learning system and inspecting persisted data:
 
-### Cache Management
-
-```powershell
-# View cached completions
-Get-PSCueCache                    # Show all cached completions
-Get-PSCueCache -Filter git        # Filter by command
-Get-PSCueCache -AsJson            # Output as JSON
-
-# Cache statistics
-Get-PSCueCacheStats               # Show cache stats (entries, hits, age)
-
-# Clear cache
-Clear-PSCueCache                  # Interactive confirmation
-Clear-PSCueCache -Confirm:$false  # Skip confirmation
-```
-
-### Learning System Management (In-Memory)
+### Learning System Management
 
 ```powershell
-# View learned data (currently in memory)
-Get-PSCueLearning                 # Show all learned commands
-Get-PSCueLearning -Command kubectl # Filter by specific command
-Get-PSCueLearning -AsJson         # Output as JSON
+# View learned data (in-memory ArgumentGraph)
+Get-PSCueLearning                    # Show all learned commands
+Get-PSCueLearning -Command kubectl   # Filter by specific command
+Get-PSCueLearning -AsJson            # Output as JSON
 
-# Export/Import learned data (for backup or migration)
+# Export/Import learned data (for backup or sharing across machines)
 Export-PSCueLearning -Path ~/pscue-backup.json
-Import-PSCueLearning -Path ~/pscue-backup.json          # Replace current data
-Import-PSCueLearning -Path ~/pscue-backup.json -Merge   # Merge with current data
+Import-PSCueLearning -Path ~/pscue-backup.json           # Replace current data
+Import-PSCueLearning -Path ~/pscue-backup.json -Merge    # Merge with current data
 
-# Force save to disk (bypasses auto-save timer)
+# Force save to disk (bypasses 5-minute auto-save timer)
 Save-PSCueLearning
 
-# Clear all learned data
-Clear-PSCueLearning               # Interactive confirmation (ConfirmImpact=High)
-Clear-PSCueLearning -Confirm:$false
+# Clear all learned data (memory + database)
+Clear-PSCueLearning                  # Interactive confirmation (ConfirmImpact=High)
+Clear-PSCueLearning -Confirm:$false  # Skip confirmation
 ```
 
 ### Database Management (Direct SQLite Queries)

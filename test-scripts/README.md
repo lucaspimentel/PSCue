@@ -2,6 +2,8 @@
 
 This directory contains PowerShell test scripts for manually testing PSCue functionality.
 
+**Note**: Many scripts in this directory reference IPC and CompletionCache, which were removed in Phase 16 and Phase 16.6. These scripts are archived for historical reference but may no longer work. The current integration test script is `test-module-functions.ps1`.
+
 ## Test Scripts
 
 ### IPC Communication Tests

@@ -25,6 +25,8 @@ For current and future work, see [TODO.md](TODO.md).
 - **Phase 14**: Enhanced cd Learning with Path Normalization ✅
 - **Phase 15**: Test Coverage Improvements ✅
 - **Phase 16**: PowerShell Module Functions + IPC Removal ✅
+- **Phase 16.5**: Module Function Testing & Bug Fixes ✅
+- **Phase 16.6**: Removed Unused CompletionCache ✅
 
 ---
 
@@ -1087,6 +1089,51 @@ Features:
 14. ✅ Simpler architecture
 
 ---
+
+### Phase 16.5: Module Function Testing & Bug Fixes ✅
+
+**Completed**: 2025-10-31
+
+Fixed critical bugs preventing PowerShell module functions from working correctly.
+
+**Changes**:
+- Fixed FeedbackProvider instance mismatch - now gets instances dynamically from PSCueModule
+- Fixed ConcurrentDictionary enumeration in Get-PSCueLearning
+- Created integration test script: `test-scripts/test-module-functions.ps1`
+- Verified learning data retrieval works in interactive sessions
+- All tests passing
+
+**Files Modified**:
+- `src/PSCue.Module/FeedbackProvider.cs` - Dynamic instance retrieval
+- `src/PSCue.Module/ModuleInitializer.cs` - Parameterless FeedbackProvider constructor
+- `module/Functions/LearningManagement.ps1` - Fixed dictionary enumeration
+- `test-scripts/test-module-functions.ps1` - Comprehensive integration tests
+
+### Phase 16.6: Removed Unused CompletionCache ✅
+
+**Completed**: 2025-10-31
+
+Removed vestigial CompletionCache infrastructure that served no purpose (~727 lines of dead code).
+
+**Rationale**:
+- ArgumentCompleter (NativeAOT exe) runs in separate process - cannot share memory with Module DLL
+- CompletionCache only lived in Module DLL
+- FeedbackProvider was updating it, but nothing was reading it
+- CommandPredictor uses ArgumentGraph/GenericPredictor instead
+
+**Removed**:
+- `src/PSCue.Module/CompletionCache.cs` (~190 lines)
+- `module/Functions/CacheManagement.ps1` (3 functions: Get-PSCueCache, Clear-PSCueCache, Get-PSCueCacheStats)
+- `test/PSCue.Module.Tests/CompletionCacheTests.cs` (8 tests)
+- Cache initialization in ModuleInitializer.cs
+- Cache update logic in FeedbackProvider.cs
+- PSCueModule.Cache property
+
+**Result**:
+- 7 PowerShell functions (down from 10)
+- 323 tests passing (140 ArgumentCompleter + 183 Module)
+- Simpler architecture with single learning system
+- No functional impact
 
 ## Notes
 

@@ -105,8 +105,7 @@ Tracks common flag combinations (e.g., `-la` for `ls -la`).
 ## Comparison: In-Memory vs Database
 
 ### In-Memory Functions
-- `Get-PSCueLearning` - Shows what's currently loaded in memory
-- `Get-PSCueCache` - Shows completion cache (in-memory only, not persisted)
+- `Get-PSCueLearning` - Shows what's currently loaded in ArgumentGraph (memory)
 - Fast access, current session state
 
 ### Database Functions

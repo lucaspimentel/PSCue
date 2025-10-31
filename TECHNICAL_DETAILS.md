@@ -1,12 +1,11 @@
 # PSCue Technical Details
 
-**Last Updated**: 2025-10-30
+**Last Updated**: 2025-10-31
 
 This document provides technical details about PSCue's architecture, implementation, and internal workings. For user-facing documentation, see [README.md](README.md). For development guidelines, see [CLAUDE.md](CLAUDE.md).
 
 ## Table of Contents
 
-- [Completion Cache](#completion-cache)
 - [Navigation Path Learning](#navigation-path-learning)
 - [PowerShell Module Functions](#powershell-module-functions)
 - [Architecture Diagram](#architecture-diagram)
@@ -40,28 +39,6 @@ PSCue uses a dual-component architecture with direct in-process communication fo
 - Faster module loading (no server startup)
 - Easier debugging (no cross-process communication)
 - More reliable (no connection timeouts)
-
-## Completion Cache
-
-### Implementation (`PSCue.Module/CompletionCache.cs`)
-
-Thread-safe, intelligent caching system:
-
-**Features:**
-- `ConcurrentDictionary<string, CacheEntry>` for thread safety
-- Time-based expiration (5-minute default)
-- Hit count tracking for statistics
-- Usage score tracking (0.0 to 1.0)
-- `IncrementUsage()` method for learning system
-- Cache key generation from command context
-- `GetStatistics()` for debugging
-
-**Cache Strategy:**
-- Cache Key: Command + normalized arguments (e.g., "git|checkout")
-- Expiration: 5 minutes since last write
-- Memory: Automatic cleanup via `RemoveExpired()`
-
----
 
 ## Navigation Path Learning
 
@@ -263,7 +240,6 @@ Module initialization registers subsystems automatically:
 public void OnImport()
 {
     // Initialize module state
-    PSCueModule.Cache = new CompletionCache();
     PSCueModule.KnowledgeGraph = new ArgumentGraph(...);
     PSCueModule.CommandHistory = new CommandHistory(...);
     PSCueModule.Persistence = new PersistenceManager(...);
@@ -346,23 +322,7 @@ private void RegisterCommandPredictor(ICommandPredictor commandPredictor)
 
 ## PowerShell Module Functions
 
-PSCue provides native PowerShell functions for testing, diagnostics, and management. These replace the previous `PSCue.Debug` CLI tool with direct in-process access.
-
-### Cache Management
-
-**`Get-PSCueCache [-Filter <string>] [-AsJson]`**
-- View cached completions with optional filter
-- Shows cache keys, completion counts, hit counts, and age
-- Pipeline-friendly object output
-
-**`Clear-PSCueCache [-WhatIf] [-Confirm]`**
-- Clear all cached completions
-- Interactive confirmation by default
-- Shows count of removed entries
-
-**`Get-PSCueCacheStats [-AsJson]`**
-- View cache statistics
-- Shows total entries, hits, average hits, oldest entry
+PSCue provides 7 native PowerShell functions for testing, diagnostics, and management. These replace the previous `PSCue.Debug` CLI tool with direct in-process access.
 
 ### Learning System Management
 
@@ -410,16 +370,11 @@ PSCue provides native PowerShell functions for testing, diagnostics, and managem
 **`Get-PSCueModuleInfo [-AsJson]`**
 - Module diagnostics and status
 - Version, configuration, component status
-- Cache, learning, and database statistics
+- Learning and database statistics
 
 ### Usage Examples
 
 ```powershell
-# View and manage cache
-Get-PSCueCache -Filter git
-Get-PSCueCacheStats
-Clear-PSCueCache
-
 # View and manage learning data
 Get-PSCueLearning -Command kubectl
 Export-PSCueLearning -Path ~/backup.json
@@ -429,7 +384,7 @@ Save-PSCueLearning
 Get-PSCueDatabaseStats -Detailed
 Get-PSCueDatabaseHistory -Last 50 -Command "docker"
 
-# Test completions
+# Test completions and diagnostics
 Test-PSCueCompletion -InputString "git checkout ma" -IncludeTiming
 Get-PSCueModuleInfo
 ```
