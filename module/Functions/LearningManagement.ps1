@@ -80,11 +80,12 @@ function Get-PSCueLearning {
                 $result
             }
         } else {
-            # Get all learned commands
-            $commands = [PSCue.Module.PSCueModule]::KnowledgeGraph.GetAllCommands()
+            # Get all learned commands - GetAllCommands() returns the ConcurrentDictionary
+            # which implements IEnumerable<KeyValuePair<string, CommandKnowledge>>
+            $commandsDict = [PSCue.Module.PSCueModule]::KnowledgeGraph.GetAllCommands()
 
-            # Check if dictionary is empty
-            if ($commands.Count -eq 0) {
+            # Check if empty
+            if ($commandsDict.Count -eq 0) {
                 if ($AsJson) {
                     return "[]"
                 } else {
@@ -92,19 +93,21 @@ function Get-PSCueLearning {
                 }
             }
 
-            $results = $commands.GetEnumerator() | ForEach-Object {
+            # Enumerate the dictionary to get KeyValuePairs
+            $results = @($commandsDict.GetEnumerator() | ForEach-Object {
+                $knowledge = $_.Value
                 [PSCustomObject]@{
-                    Command = $_.Value.Command
-                    TotalUsage = $_.Value.TotalUsageCount
-                    ArgumentCount = $_.Value.Arguments.Count
-                    FirstSeen = $_.Value.FirstSeen
-                    LastUsed = $_.Value.LastUsed
-                    TopArguments = ($_.Value.Arguments.Values |
+                    Command = $knowledge.Command
+                    TotalUsage = $knowledge.TotalUsageCount
+                    ArgumentCount = $knowledge.Arguments.Count
+                    FirstSeen = $knowledge.FirstSeen
+                    LastUsed = $knowledge.LastUsed
+                    TopArguments = ($knowledge.Arguments.Values |
                         Sort-Object -Property UsageCount -Descending |
                         Select-Object -First 5 |
                         ForEach-Object { $_.Argument }) -join ', '
                 }
-            } | Sort-Object -Property TotalUsage -Descending
+            } | Sort-Object -Property TotalUsage -Descending)
 
             if ($AsJson) {
                 $results | ConvertTo-Json -Depth 10

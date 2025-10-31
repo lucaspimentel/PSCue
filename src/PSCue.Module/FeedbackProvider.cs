@@ -15,8 +15,8 @@ namespace PSCue.Module;
 /// </summary>
 public class FeedbackProvider : IFeedbackProvider
 {
-    private readonly CommandHistory? _commandHistory;
-    private readonly ArgumentGraph? _argumentGraph;
+    // Note: Don't store instances - get them dynamically from PSCueModule
+    // This ensures we always use the current instances even after module reload
     private readonly HashSet<string> _ignorePatterns;
 
     /// <summary>
@@ -43,12 +43,8 @@ public class FeedbackProvider : IFeedbackProvider
     /// <summary>
     /// Initializes a new instance of the FeedbackProvider class.
     /// </summary>
-    /// <param name="commandHistory">Optional command history for generic learning.</param>
-    /// <param name="argumentGraph">Optional argument graph for generic learning.</param>
-    public FeedbackProvider(CommandHistory? commandHistory = null, ArgumentGraph? argumentGraph = null)
+    public FeedbackProvider()
     {
-        _commandHistory = commandHistory;
-        _argumentGraph = argumentGraph;
         _ignorePatterns = LoadIgnorePatterns();
     }
 
@@ -381,6 +377,10 @@ public class FeedbackProvider : IFeedbackProvider
             // Extract arguments (everything after the command)
             var arguments = commandElements.Skip(1).ToArray();
 
+            // Get current instances dynamically from PSCueModule
+            var commandHistory = PSCueModule.CommandHistory;
+            var argumentGraph = PSCueModule.KnowledgeGraph;
+
             // Get current working directory for path normalization
             string? workingDirectory = null;
             try
@@ -393,17 +393,20 @@ public class FeedbackProvider : IFeedbackProvider
             }
 
             // Add to command history (with working directory)
-            _commandHistory?.Add(command, commandLine, arguments, success, workingDirectory);
+            if (commandHistory != null)
+            {
+                commandHistory.Add(command, commandLine, arguments, success, workingDirectory);
+            }
 
             // Update argument graph (only for successful commands to avoid learning bad patterns)
-            if (success && _argumentGraph != null && arguments.Length > 0)
+            if (success && argumentGraph != null && arguments.Length > 0)
             {
-                _argumentGraph.RecordUsage(command, arguments, workingDirectory);
+                argumentGraph.RecordUsage(command, arguments, workingDirectory);
             }
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"Error in generic learning: {ex.Message}");
+            Console.Error.WriteLine($"Error in PSCue learning: {ex.Message}");
         }
     }
 }

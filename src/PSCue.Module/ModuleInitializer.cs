@@ -68,7 +68,8 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
 
         // Register feedback provider (requires PowerShell 7.4+ with PSFeedbackProvider experimental feature)
         // This will fail gracefully on older PowerShell versions
-        RegisterFeedbackProvider(new FeedbackProvider(PSCueModule.CommandHistory, PSCueModule.KnowledgeGraph));
+        // Note: FeedbackProvider gets instances dynamically from PSCueModule to handle module reloads
+        RegisterFeedbackProvider(new FeedbackProvider());
     }
 
     private void RegisterCommandPredictor(ICommandPredictor commandPredictor)
