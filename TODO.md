@@ -522,38 +522,38 @@ git push origin v1.0.0
   - [x] Pipeline examples where applicable
   - [x] Use cases and troubleshooting
 
-##### Phase 16.7: Remove IPC Layer + PSCue.Debug (2-3 hours)
-- [ ] **Remove PSCue.Debug project**
-  - [ ] Delete `src/PSCue.Debug/` directory
-  - [ ] Remove from solution file (`PSCue.sln`)
-  - [ ] Remove from CI/CD build (`.github/workflows/`)
-  - [ ] Delete test scripts that use PSCue.Debug (`test-scripts/test-pscue-debug.ps1`)
-- [ ] **Remove IPC infrastructure**
-  - [ ] Delete `src/PSCue.Module/IpcServer.cs` (~400 lines)
-  - [ ] Delete `src/PSCue.Shared/IpcProtocol.cs` (~150 lines)
-  - [ ] Delete `src/PSCue.Shared/IpcJsonContext.cs` (~50 lines)
-  - [ ] Remove IpcServer initialization from `Init.cs:OnImport()` (lines 69-78)
-  - [ ] Remove IpcServer disposal from `Init.cs:OnRemove()`
-  - [ ] Remove IpcServer field from `Init.cs` (line 19)
-  - [ ] Remove IpcServer parameter from `FeedbackProvider` constructor (no longer needed)
-- [ ] **Remove IPC tests** (all passing, but no longer needed)
-  - [ ] Delete `test/PSCue.Module.Tests/IpcServerIntegrationTests.cs` (5 tests)
-  - [ ] Delete `test/PSCue.Module.Tests/IpcServerErrorHandlingTests.cs` (10 tests)
-  - [ ] Delete `test/PSCue.Module.Tests/IpcServerConcurrencyTests.cs` (7 tests)
-  - [ ] Delete `test/PSCue.Module.Tests/IpcServerLifecycleTests.cs` (10 tests)
-  - [ ] Delete `test/PSCue.Module.Tests/IpcFilteringTests.cs` (12 tests)
-  - [ ] **Total removed**: 44 tests (all IPC-related)
-  - [ ] **New test count**: ~252 tests (down from 296)
-- [ ] **Remove IPC-related test scripts**
-  - [ ] Delete or update `test-scripts/test-ipc.ps1`
-  - [ ] Delete or update `test-scripts/test-ipc-simple.ps1`
-  - [ ] Delete or update `test-scripts/test-ipc-path.ps1`
-  - [ ] Delete or update `test-scripts/test-cache-debug.ps1`
-- [ ] **Update documentation**
-  - [ ] Remove IPC references from CLAUDE.md
+##### Phase 16.7: Remove IPC Layer + PSCue.Debug ✅ COMPLETE (2-3 hours)
+- [x] **Remove PSCue.Debug project**
+  - [x] Delete `src/PSCue.Debug/` directory
+  - [x] Remove from solution file (`PSCue.slnx`)
+  - [x] Delete test scripts that use PSCue.Debug (`test-scripts/test-pscue-debug.ps1`)
+- [x] **Remove IPC infrastructure**
+  - [x] Delete `src/PSCue.Module/IpcServer.cs` (~400 lines)
+  - [x] Delete `src/PSCue.Shared/IpcProtocol.cs` (~150 lines)
+  - [x] Delete `src/PSCue.Shared/IpcJsonContext.cs` (~50 lines)
+  - [x] Remove IpcServer initialization from `ModuleInitializer.cs:OnImport()`
+  - [x] Remove IpcServer disposal from `ModuleInitializer.cs:OnRemove()`
+  - [x] Remove IpcServer field from `ModuleInitializer.cs`
+  - [x] Remove IpcServer parameter from `FeedbackProvider` constructor
+  - [x] Update FeedbackProvider to use PSCueModule.Cache directly
+- [x] **Remove IPC tests** (44 tests removed)
+  - [x] Delete `test/PSCue.Module.Tests/IpcServerIntegrationTests.cs` (5 tests)
+  - [x] Delete `test/PSCue.Module.Tests/IpcServerErrorHandlingTests.cs` (10 tests)
+  - [x] Delete `test/PSCue.Module.Tests/IpcServerConcurrencyTests.cs` (7 tests)
+  - [x] Delete `test/PSCue.Module.Tests/IpcServerLifecycleTests.cs` (10 tests)
+  - [x] Delete `test/PSCue.Module.Tests/IpcFilteringTests.cs` (12 tests)
+  - [x] **Total removed**: 44 tests (all IPC-related)
+  - [x] **New test count**: ~252 tests (down from 296)
+- [x] **Remove IPC-related test scripts**
+  - [x] Delete `test-scripts/test-ipc.ps1`
+  - [x] Delete `test-scripts/test-ipc-simple.ps1`
+  - [x] Delete `test-scripts/test-ipc-path.ps1`
+  - [x] Delete `test-scripts/test-cache-debug.ps1`
+  - [x] Delete `test-scripts/test-pscue-debug.ps1`
+- [x] **Update documentation**
+  - [x] Remove IPC references from CLAUDE.md
   - [ ] Remove IPC references from README.md
   - [ ] Remove IPC references from TECHNICAL_DETAILS.md
-  - [ ] Update architecture diagrams (no more IPC layer)
   - [ ] Note in Phase 16 completion: "IPC removed, module functions replace PSCue.Debug"
 - [ ] **Verify build and tests**
   - [ ] `dotnet build` succeeds

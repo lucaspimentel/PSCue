@@ -1,7 +1,7 @@
 # PSCue - Quick Reference for AI Agents
 
 ## What This Is
-PowerShell completion module combining Tab completion (NativeAOT) + inline predictions (managed DLL) + IPC caching layer with **generic learning** (Phase 11) and **cross-session persistence** (Phase 12).
+PowerShell completion module combining Tab completion (NativeAOT) + inline predictions (managed DLL) with **generic learning** (Phase 11) and **cross-session persistence** (Phase 12).
 
 **Phase 11 Complete**: Now learns from ALL commands (not just git/gh/scoop), with context-aware suggestions based on usage patterns.
 
@@ -17,16 +17,15 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 - Adds trailing directory separator to match PowerShell native behavior
 - Fixes absolute path handling in predictions (cd dotnet → cd D:\path\, not cd dotnet D:\path\)
 
-**Phase 15 Complete**: Test coverage improvements - added 67 new tests (CommandPredictor, FeedbackProvider, IpcServer). Total: 343 tests passing (203 Module + 140 ArgumentCompleter).
+**Phase 15 Complete**: Test coverage improvements - added 67 new tests (CommandPredictor, FeedbackProvider). Total: 296 tests passing (156 Module + 140 ArgumentCompleter).
 
-**Phase 16 In Progress**: PowerShell module functions replacing PSCue.Debug CLI. Phases 16.1-16.4 complete (10 functions implemented), 16.5-16.7 remaining (testing, docs, IPC removal).
+**Phase 16 Complete**: PowerShell module functions replaced PSCue.Debug CLI. All IPC infrastructure removed for simpler architecture. 10 PowerShell functions implemented (cache, learning, database, debugging).
 
 **Supported Commands Update**: Added Graphite CLI (gt) with full Tab completion support for all subcommands (create, modify, submit, sync, log, etc.) and parameters. Also includes Windows Terminal (wt) support.
 
 ## Architecture
 - **ArgumentCompleter** (`pscue-completer.exe`): NativeAOT exe, <10ms startup, computes completions locally with full dynamic arguments support
-- **Module** (`PSCue.Module.dll`): Long-lived, hosts IPC server (for CommandPredictor), implements `ICommandPredictor` + `IFeedbackProvider` (7.4+)
-- **IPC**: Named pipes (`PSCue-{PID}` for production, `PSCue-Test-{GUID}` for tests), used only by CommandPredictor for fast inline predictions
+- **Module** (`PSCue.Module.dll`): Long-lived, implements `ICommandPredictor` + `IFeedbackProvider` (7.4+), provides PowerShell module functions
 - **Learning System (Phase 11)**:
   - **CommandHistory**: Ring buffer tracking last 100 commands
   - **ArgumentGraph**: Knowledge graph of command → arguments with frequency + recency scoring
@@ -44,10 +43,9 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 ```
 src/
 ├── PSCue.ArgumentCompleter/    # NativeAOT exe for Tab completion
-├── PSCue.Module/               # ICommandPredictor + IFeedbackProvider + IPC server
+├── PSCue.Module/               # ICommandPredictor + IFeedbackProvider + PowerShell functions
 └── PSCue.Shared/               # Shared completion logic (avoid NativeAOT reference issues)
     ├── CommandCompleter.cs     # Main orchestrator
-    ├── IpcProtocol.cs          # IPC definitions
     ├── KnownCompletions/       # Command-specific: git, gh, scoop, az, wt, etc.
     └── Completions/            # Framework: Command, Parameter, Argument nodes
         ├── Command.cs          # Command with Alias support
@@ -56,13 +54,12 @@ src/
 ```
 
 ## Key Files & Line References
-- `src/PSCue.Module/IpcServer.cs`: Named pipe server, cache handling, completion generation
-- `src/PSCue.Module/IpcServer.cs:27`: Constructor accepting custom pipe name (for test isolation)
+- `src/PSCue.Module/ModuleInitializer.cs`: Module lifecycle, subsystem registration
+- `src/PSCue.Module/PSCueModule.cs`: Static module state container for PowerShell functions
 - `src/PSCue.Module/ArgumentGraph.cs`: Knowledge graph with path normalization (Phase 14)
 - `src/PSCue.Module/GenericPredictor.cs`: Context-aware suggestions with path filtering (Phase 14)
 - `src/PSCue.Module/CommandPredictor.cs`: Absolute path handling in Combine method (Phase 14)
 - `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence (~470 lines)
-- `src/PSCue.Module/Init.cs`: Module lifecycle (load on import, save on remove, auto-save timer)
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
 - `module/Functions/CacheManagement.ps1`: PowerShell functions for cache management (Phase 16)
 - `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system (Phase 16)
@@ -70,9 +67,6 @@ src/
 - `module/Functions/Debugging.ps1`: PowerShell functions for testing/diagnostics (Phase 16)
 - `test/PSCue.Module.Tests/CommandPredictorTests.cs`: CommandPredictor.Combine tests (23 tests, Phase 14-15)
 - `test/PSCue.Module.Tests/FeedbackProviderTests.cs`: FeedbackProvider tests (26 tests, Phase 15)
-- `test/PSCue.Module.Tests/IpcServerErrorHandlingTests.cs`: Error handling & edge cases (10 tests, Phase 15)
-- `test/PSCue.Module.Tests/IpcServerConcurrencyTests.cs`: Concurrent request handling (7 tests, Phase 15)
-- `test/PSCue.Module.Tests/IpcServerLifecycleTests.cs`: Server lifecycle & cleanup (10 tests, Phase 15)
 - `test/PSCue.Module.Tests/ArgumentGraphTests.cs`: Path normalization tests (28 tests, Phase 14)
 - `test/PSCue.Module.Tests/GenericPredictorTests.cs`: Context-aware filtering tests (20 tests, Phase 14)
 - `test/PSCue.Module.Tests/PersistenceManagerTests.cs`: Unit tests for persistence (10 tests)
@@ -86,7 +80,7 @@ src/
 dotnet build src/PSCue.Module/ -c Release -f net9.0
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
-# Test (343 tests total: 140 ArgumentCompleter + 203 Module including Phases 11-15)
+# Test (296 tests total: 140 ArgumentCompleter + 156 Module including Phases 11-15)
 dotnet test test/PSCue.ArgumentCompleter.Tests/
 dotnet test test/PSCue.Module.Tests/
 
@@ -94,7 +88,6 @@ dotnet test test/PSCue.Module.Tests/
 dotnet test --filter "FullyQualifiedName~Persistence"
 dotnet test --filter "FullyQualifiedName~FeedbackProvider"
 dotnet test --filter "FullyQualifiedName~CommandPredictor"
-dotnet test --filter "FullyQualifiedName~IpcServer"
 
 # Install locally
 ./scripts/install-local.ps1
@@ -121,27 +114,21 @@ Test-PSCueCompletion -InputString <string>         # Test completions
 Get-PSCueModuleInfo [-AsJson]                      # Module diagnostics
 
 # See DATABASE-FUNCTIONS.md for detailed database query examples
-
-# Debug (Legacy - PSCue.Debug CLI, will be removed in Phase 16.7)
-dotnet run --project src/PSCue.Debug/ -- query-ipc "git checkout ma"
-dotnet run --project src/PSCue.Debug/ -- stats
-dotnet run --project src/PSCue.Debug/ -- cache --filter git
 ```
 
 ## Key Technical Decisions
 1. **NativeAOT for ArgumentCompleter**: <10ms startup required for Tab responsiveness
 2. **Shared logic in PSCue.Shared**: NativeAOT exe can't be referenced by Module.dll at runtime
-3. **No IPC in ArgumentCompleter**: Tab completion always computes locally with full dynamic arguments. Fast enough (<50ms) and simpler.
-4. **IPC only for CommandPredictor**: Named pipes for inline predictions cache (cross-platform, <5ms round-trip)
-5. **Test isolation**: Each test gets unique pipe name (`PSCue-Test-{GUID}`) to avoid conflicts
-6. **NestedModules in manifest**: Required for `IModuleAssemblyInitializer` to trigger
-7. **Concurrent logging**: `FileShare.ReadWrite` + `AutoFlush` for multi-process debug logging
+3. **ArgumentCompleter computes locally**: Tab completion always computes locally with full dynamic arguments. Fast enough (<50ms) and simpler.
+4. **NestedModules in manifest**: Required for `IModuleAssemblyInitializer` to trigger
+5. **Concurrent logging**: `FileShare.ReadWrite` + `AutoFlush` for multi-process debug logging
+6. **PowerShell module functions**: Direct in-process access, no IPC overhead (Phase 16)
 
 ## Performance Targets
 - ArgumentCompleter startup: <10ms
-- IPC round-trip: <5ms
 - Cache hit: <1ms
 - Total Tab completion: <50ms
+- Module function calls: <5ms
 
 ## Supported Commands
 git, gh, gt, az, azd, func, code, scoop, winget, wt, chezmoi, tre, lsd, dust, cd (Set-Location/sl/chdir)
@@ -150,34 +137,31 @@ git, gh, gt, az, azd, func, code, scoop, winget, wt, chezmoi, tre, lsd, dust, cd
 
 ## When Adding Features
 - Put shared completion logic in `PSCue.Shared`
-- DynamicArguments (git branches, scoop packages) are only used by ArgumentCompleter locally, not over IPC
-- Write tests with unique pipe names: `new IpcServer($"PSCue-Test-{Guid.NewGuid():N}")`
+- DynamicArguments (git branches, scoop packages) are computed locally by ArgumentCompleter
 - Update cache scores via `CompletionCache.IncrementUsage()` in `IFeedbackProvider`
 - **Command aliases**: Use `Alias` property on `Command` class, include in tooltip like `"Create a new tab (alias: nt)"`
 - **Parameter aliases**: Use `Alias` property on `CommandParameter` class, include in tooltip like `"Only list directories (-d)"`
 
 ## Testing Patterns
 ```csharp
-// Test with unique pipe name to avoid conflicts
-private readonly string _pipeName = $"PSCue-Test-{Guid.NewGuid():N}";
-private readonly IpcServer _server;
+// Test module functions directly using PSCueModule static properties
+[Fact]
+public void TestCacheAccess()
+{
+    var cache = PSCueModule.Cache;
+    Assert.NotNull(cache);
 
-public TestClass() {
-    _server = new IpcServer(_pipeName);  // Custom pipe name
-    Thread.Sleep(100);  // Give server time to start
-}
-
-private async Task<IpcResponse> SendRequest(IpcRequest request) {
-    using var client = new NamedPipeClientStream(".", _pipeName, ...);
-    // ... send request
+    // Test cache operations
+    cache.IncrementUsage("git|checkout", "main");
+    var stats = cache.GetStatistics();
+    Assert.True(stats.TotalHits > 0);
 }
 ```
 
 ## Common Pitfalls
-1. **Test hangs**: Tests sharing same pipe name → Use unique names per test instance
-2. **IPC not working for predictions**: Check `$env:PSCUE_PID = $PID` is set in PowerShell session (only affects inline predictions, not Tab)
-3. **ArgumentCompleter slow**: DynamicArguments (git branches, scoop packages) are computed on every Tab press. This is expected and fast (<50ms).
-4. **NativeAOT reference errors**: Put shared code in PSCue.Shared, not ArgumentCompleter
+1. **ArgumentCompleter slow**: DynamicArguments (git branches, scoop packages) are computed on every Tab press. This is expected and fast (<50ms).
+2. **NativeAOT reference errors**: Put shared code in PSCue.Shared, not ArgumentCompleter
+3. **Module functions return null**: Module may not be fully initialized. Check PSCueModule.Cache != null before use.
 
 ## Documentation
 - **Implementation status**:
