@@ -5,7 +5,7 @@ using PSCue.Shared.Completions;
 namespace PSCue.Module;
 
 /// <summary>
-/// Phase 11: Hybrid predictor that combines known completions with generic learning.
+/// Hybrid predictor that combines known completions with generic learning.
 /// - For supported commands: Blends explicit completions with learned patterns
 /// - For unsupported commands: Uses generic learning only
 /// </summary>

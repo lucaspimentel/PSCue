@@ -8,7 +8,7 @@ This document provides technical details about PSCue's architecture, implementat
 
 - [IPC Communication Layer](#ipc-communication-layer)
 - [Completion Cache](#completion-cache)
-- [Navigation Path Learning (Phase 14)](#navigation-path-learning-phase-14)
+- [Navigation Path Learning](#navigation-path-learning)
 - [PSCue.Debug Tool](#pscuedebug-tool)
 - [Architecture Diagram](#architecture-diagram)
 - [Performance Metrics](#performance-metrics)
@@ -100,7 +100,7 @@ Thread-safe, intelligent caching system:
 
 ---
 
-## Navigation Path Learning (Phase 14)
+## Navigation Path Learning
 
 **Completed**: 2025-10-30
 
@@ -696,11 +696,11 @@ Named Pipes work seamlessly across platforms:
 
 .NET's `System.IO.Pipes` abstracts platform differences - same code works everywhere!
 
-## Future: Learning System (Phase 9)
+## Future: Learning System
 
 The IPC layer and cache infrastructure are ready for the learning system implementation:
 
-**Ready for Phase 9:**
+**Ready for implementation:**
 - ✅ `CompletionCache.IncrementUsage()` method available
 - ✅ `CompletionItem.Score` field in IPC protocol
 - ✅ Usage tracking infrastructure in place

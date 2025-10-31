@@ -179,7 +179,6 @@ This directory contains PowerShell test scripts for manually testing PSCue funct
 - Validates JSON output format
 - Tests both with and without IPC server running
 - Shows summary of test results
-- **This is the main test script for Phase 10 enhancements**
 
 ## Usage
 
@@ -245,7 +244,7 @@ pwsh -NoProfile -File test-scripts/test-feedback-provider.ps1
 
 ### PSCue.Debug Tool Test
 ```powershell
-# Run comprehensive test of PSCue.Debug tool (Phase 10)
+# Run comprehensive test of PSCue.Debug tool
 pwsh -NoProfile -File test-scripts/test-pscue-debug.ps1
 ```
 
@@ -265,7 +264,7 @@ pwsh -NoProfile -File test-scripts/test-pscue-debug.ps1
 - Timing statistics on all commands
 - Graceful handling when IPC server unavailable
 
-### Module Functions Tests (Phase 16)
+### Module Functions Tests
 
 **test-module-functions.ps1**
 - Comprehensive test of all PowerShell module functions
@@ -319,15 +318,15 @@ For automated unit and integration tests, see:
   - CommandCompleter logic tests
   - Completion generation for all supported commands
   - **Windows Terminal (wt)**: 24 tests including alias support, partial matching, tooltip verification
-  - **SetLocationCommand** (Phase 13): directory navigation, caching, context detection
+  - **SetLocationCommand**: directory navigation, caching, context detection
   - Platform-specific tests (Windows/Linux/macOS)
 - `test/PSCue.Module.Tests/` - **205 tests**
   - CompletionCache tests (cache key generation, get/set, hit counting)
   - IPC filtering tests (filtering behavior, cache storage, real-world scenarios)
   - IPC server integration tests (end-to-end request/response)
-  - IPC server error handling, concurrency, and lifecycle tests (Phase 15)
-  - CommandPredictor tests including Combine method (Phase 15)
-  - FeedbackProvider tests for learning system (Phase 15)
+  - IPC server error handling, concurrency, and lifecycle tests
+  - CommandPredictor tests including Combine method
+  - FeedbackProvider tests for learning system
   - Learning system tests (CommandHistory, ArgumentGraph, ContextAnalyzer, GenericPredictor)
   - Persistence tests (SQLite storage, concurrency, edge cases, integration)
   - IPC cache filtering and subcommand navigation tests

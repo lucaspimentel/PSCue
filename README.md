@@ -53,7 +53,7 @@ PSCue provides detailed completions for these commands:
 - **Disk usage**: `dust` - directory analysis
 - **Navigation**: `cd`, `Set-Location`, `sl`, `chdir` - directory completion with smart caching
 
-### Universal Learning (Phase 11)
+### Universal Learning
 
 **NEW**: PSCue now learns from ANY command you use, even those not explicitly supported:
 
@@ -370,17 +370,17 @@ TabExpansion2 'git checkout ma' 15
 - [x] Shared completion logic (PSCue.Shared)
 - [x] Multi-platform CI/CD
 - [x] Comprehensive documentation
-- [x] **Phase 8**: IPC Communication Layer (simplified in 2025-01-27)
+- [x] **IPC Communication Layer** (simplified in 2025-01-27)
   - Named Pipe server in Module for CommandPredictor self-communication
   - IPC used only for inline predictions (fast cache access)
   - ArgumentCompleter simplified: always computes locally with full dynamic arguments
   - Clear separation: Tab = local, Inline predictions = IPC cache
-- [x] **Phase 9**: Learning System & Error Suggestions
+- [x] **Learning System & Error Suggestions**
   - Full `IFeedbackProvider` implementation (PowerShell 7.4+)
   - Usage tracking and priority scoring
   - Personalized completions based on command history
   - Error recovery suggestions for git commands
-- [x] **Phase 10**: Enhanced Debugging Tool (PSCue.Debug)
+- [x] **Enhanced Debugging Tool (PSCue.Debug)**
   - Commands: query-local, query-ipc, stats, cache, clear, ping, help
   - JSON output support for automation (--json flag)
   - PowerShell process auto-discovery
@@ -388,7 +388,7 @@ TabExpansion2 'git checkout ma' 15
   - Timing statistics on all commands
   - Comprehensive test script: test-scripts/test-pscue-debug.ps1
 
-- [x] **Phase 11**: Generic Command Learning ✅ **COMPLETE**
+- [x] **Generic Command Learning** ✅ **COMPLETE**
   - Universal command learning (learns from ALL commands, not just pre-configured ones)
   - Enhanced learning algorithms (frequency × recency scoring: 60% frequency + 40% recency)
   - Context-aware suggestions based on recent command history
@@ -397,7 +397,7 @@ TabExpansion2 'git checkout ma' 15
   - **65 new unit tests** covering all learning components
   - Components: CommandHistory (ring buffer), ArgumentGraph (knowledge graph), ContextAnalyzer, GenericPredictor, Hybrid CommandPredictor
 
-- **Phase 15 (In Progress)**: Test Coverage Improvements
+- **Test Coverage Improvements**
   - Added 45 comprehensive tests for critical components (CommandPredictor, FeedbackProvider)
   - **269 total tests passing** (91 ArgumentCompleter + 178 Module)
   - Fixed the "pluginstall" bug with 19 CommandPredictor.Combine tests
@@ -405,7 +405,7 @@ TabExpansion2 'git checkout ma' 15
   - Uses reflection to properly test internal PowerShell SDK components
   - All critical gaps addressed: CommandPredictor (95% coverage), FeedbackProvider (90% coverage)
 
-### Configuration (Phase 11)
+### Configuration
 
 ```powershell
 # Disable generic learning entirely
@@ -421,9 +421,9 @@ $env:PSCUE_DECAY_DAYS = "30"             # Score decay period (days)
 $env:PSCUE_IGNORE_PATTERNS = "aws *,*secret*,*password*"
 ```
 
-### Future Phases
+### Future Work
 
-- **Phase 12**: Advanced Features & Distribution
+- **Advanced Features & Distribution**
   - Error suggestions for more commands (gh, az, scoop)
   - ML-based prediction support
   - PowerShell Gallery publishing

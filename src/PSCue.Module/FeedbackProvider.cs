@@ -8,7 +8,7 @@ namespace PSCue.Module;
 /// Feedback provider that learns from command execution to improve completion suggestions.
 /// Requires PowerShell 7.4+ with PSFeedbackProvider experimental feature enabled.
 ///
-/// Phase 11: Enhanced with generic learning system - learns from ALL commands, not just supported ones.
+/// Enhanced with generic learning system - learns from ALL commands, not just supported ones.
 ///
 /// Documentation:
 /// https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider
@@ -95,7 +95,7 @@ public class FeedbackProvider : IFeedbackProvider
             // Handle based on trigger type
             if (context.Trigger == FeedbackTrigger.Success)
             {
-                // Phase 11: Learn from ALL commands (generic learning)
+                // Learn from ALL commands (generic learning)
                 LearnFromCommand(mainCommand, commandLine, commandElements, success: true);
 
                 // Also update cache for supported commands (backward compatibility)
@@ -371,7 +371,7 @@ public class FeedbackProvider : IFeedbackProvider
     }
 
     /// <summary>
-    /// Phase 11: Learns from ANY command execution (generic learning).
+    /// Learns from ANY command execution (generic learning).
     /// Updates CommandHistory and ArgumentGraph.
     /// </summary>
     private void LearnFromCommand(string command, string commandLine, List<string> commandElements, bool success)

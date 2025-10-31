@@ -26,10 +26,10 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
     /// </summary>
     public void OnImport()
     {
-        // Phase 16: Initialize completion cache (used by both IPC and PowerShell functions)
+        // Initialize completion cache (used by PowerShell functions)
         PSCueModule.Cache = new CompletionCache();
 
-        // Phase 11: Initialize generic learning system
+        // Initialize generic learning system
         // Check if generic learning is enabled (default: true, can be disabled via env var)
         var enableGenericLearning = Environment.GetEnvironmentVariable("PSCUE_DISABLE_LEARNING")?.Equals("true", StringComparison.OrdinalIgnoreCase) != true;
 
@@ -43,7 +43,7 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                 var maxArgs = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_MAX_ARGS_PER_CMD"), out var ma) ? ma : 100;
                 var decayDays = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_DECAY_DAYS"), out var dd) ? dd : 30;
 
-                // Phase 12: Initialize persistence manager and load learned data
+                // Initialize persistence manager and load learned data
                 PSCueModule.Persistence = new PersistenceManager();
                 PSCueModule.KnowledgeGraph = PSCueModule.Persistence.LoadArgumentGraph(maxCommands, maxArgs, decayDays);
                 PSCueModule.CommandHistory = PSCueModule.Persistence.LoadCommandHistory(historySize);
@@ -137,7 +137,7 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
     /// </summary>
     public void OnRemove(PSModuleInfo psModuleInfo)
     {
-        // Phase 12: Save learned data before unloading
+        // Save learned data before unloading
         try
         {
             if (PSCueModule.Persistence != null && PSCueModule.KnowledgeGraph != null && PSCueModule.CommandHistory != null)
