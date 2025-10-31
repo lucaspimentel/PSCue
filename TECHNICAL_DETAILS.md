@@ -601,6 +601,8 @@ PSCue works seamlessly across platforms:
 
 ## Key Technical Decisions
 
+### Core Architecture
+
 1. **Removed IPC Layer** (Phase 16.7): Simplified architecture, no inter-process communication
 2. **Direct In-Process Access**: PowerShell functions access module state directly
 3. **NativeAOT for ArgumentCompleter**: <10ms startup time for Tab completion
@@ -609,6 +611,32 @@ PSCue works seamlessly across platforms:
 6. **SQLite for Persistence**: Cross-session learning data with WAL mode for concurrency
 7. **Static Module State** (`PSCueModule`): PowerShell functions access via static properties
 8. **Path Normalization**: All navigation paths stored as absolute paths for consistency
+
+### Why Separate ArgumentCompleter and CommandPredictor?
+
+1. **Different compilation requirements**:
+   - ArgumentCompleter: NativeAOT for fast startup (CLI tool)
+   - CommandPredictor: Managed DLL for PowerShell SDK integration
+
+2. **Different lifetimes**:
+   - ArgumentCompleter: Launched per-completion (short-lived process)
+   - CommandPredictor: Loaded once with module (long-lived)
+
+3. **Clear separation of concerns**:
+   - ArgumentCompleter: Handles `Register-ArgumentCompleter` (Tab completion)
+   - CommandPredictor: Handles `ICommandPredictor` (inline suggestions)
+
+### Project References
+
+- Predictor can reference ArgumentCompleter to reuse completion logic
+- ArgumentCompleter is self-contained (no dependencies except .NET)
+
+### Code Migration Strategy
+
+- **Copy, don't link**: Independent codebase for PSCue
+- Reference original projects in README/documentation
+- Clean break allows for PSCue-specific enhancements
+- Original projects remain independent
 
 ## Implementation Notes
 
@@ -635,3 +663,337 @@ PSCue works seamlessly across platforms:
 - Learning system has privacy filters for sensitive commands
 - Database errors logged but don't crash module
 - All tests pass with comprehensive error scenarios covered
+
+---
+
+## Directory Structure
+
+```
+PSCue/
+├── src/
+│   ├── PSCue.ArgumentCompleter/         # NativeAOT executable for Tab completion
+│   │   ├── PSCue.ArgumentCompleter.csproj
+│   │   ├── Program.cs                   # Entry point
+│   │   └── AssemblyInfo.cs              # NativeAOT trim settings
+│   │
+│   ├── PSCue.Module/                    # DLL for ICommandPredictor + IFeedbackProvider
+│   │   ├── PSCue.Module.csproj
+│   │   ├── ModuleInitializer.cs         # IModuleAssemblyInitializer - auto-registers
+│   │   ├── PSCueModule.cs               # Static module state container
+│   │   ├── CommandPredictor.cs          # ICommandPredictor implementation
+│   │   ├── FeedbackProvider.cs          # IFeedbackProvider - learns from execution
+│   │   ├── CompletionCache.cs           # Cache with usage tracking
+│   │   ├── ArgumentGraph.cs             # Knowledge graph
+│   │   ├── CommandHistory.cs            # Ring buffer
+│   │   ├── GenericPredictor.cs          # Context-aware suggestions
+│   │   └── PersistenceManager.cs        # SQLite persistence
+│   │
+│   └── PSCue.Shared/                    # Shared completion logic
+│       ├── PSCue.Shared.csproj
+│       ├── CommandCompleter.cs          # Main completion orchestrator
+│       ├── Logger.cs                    # Debug logging (concurrent write support)
+│       ├── Helpers.cs                   # Utility functions
+│       ├── Completions/                 # Completion framework
+│       │   ├── ICompletion.cs
+│       │   ├── Command.cs
+│       │   ├── CommandParameter.cs
+│       │   ├── StaticArgument.cs
+│       │   └── DynamicArgument.cs
+│       └── KnownCompletions/            # Command-specific completions
+│           ├── GitCommand.cs
+│           ├── GhCommand.cs
+│           ├── ScoopCommand.cs
+│           ├── WingetCommand.cs
+│           └── Azure/
+│               ├── AzCommand.cs
+│               ├── AzdCommand.cs
+│               └── FuncCommand.cs
+│
+├── module/
+│   ├── PSCue.psd1                       # Module manifest
+│   ├── PSCue.psm1                       # Module script
+│   └── Functions/                       # PowerShell functions (Phase 16)
+│       ├── CacheManagement.ps1
+│       ├── LearningManagement.ps1
+│       ├── DatabaseManagement.ps1
+│       └── Debugging.ps1
+│
+├── test/
+│   ├── PSCue.ArgumentCompleter.Tests/
+│   │   └── PSCue.ArgumentCompleter.Tests.csproj
+│   └── PSCue.Module.Tests/
+│       └── PSCue.Module.Tests.csproj
+│
+├── scripts/
+│   ├── install-local.ps1                # Build from source and install
+│   └── install-remote.ps1               # Download and install from GitHub release
+│
+├── PSCue.slnx                           # Solution file
+├── README.md
+├── LICENSE
+└── .gitignore
+```
+
+---
+
+## Build Process
+
+### Multi-stage Build Approach
+
+1. **Build PSCue.ArgumentCompleter** (NativeAOT):
+   - Publish as native executable per platform:
+     - Windows: win-x64
+     - macOS Intel: osx-x64
+     - macOS Apple Silicon: osx-arm64
+     - Linux: linux-x64
+   - Output: `pscue-completer.exe` / `pscue-completer`
+   - NativeAOT settings:
+     - PublishAot: true
+     - OptimizationPreference: Speed
+     - InvariantGlobalization: true
+
+2. **Build PSCue.Module** (Managed DLL):
+   - Build as Release for net9.0
+   - Output: `PSCue.Module.dll`
+   - References PSCue.ArgumentCompleter as a project reference (for shared code)
+   - Includes PowerShell SDK dependency
+
+3. **Test Projects**:
+   - Build and run tests for both ArgumentCompleter and Module
+   - Total: 315 tests (140 ArgumentCompleter + 175 Module)
+
+### Build Commands
+
+```bash
+# Build ArgumentCompleter for current platform
+dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
+
+# Build Module (managed DLL)
+dotnet build src/PSCue.Module/ -c Release -f net9.0
+
+# Run tests
+dotnet test test/PSCue.ArgumentCompleter.Tests/
+dotnet test test/PSCue.Module.Tests/
+```
+
+---
+
+## Installation Strategies
+
+PSCue supports two installation methods: local (build from source) and remote (download pre-built binaries).
+
+### 1. Local Installation (Development/Source)
+
+**Script**: `scripts/install-local.ps1`
+
+**Purpose**: For developers or users who want to build from source
+
+**Usage**:
+```powershell
+# Clone the repository
+git clone https://github.com/lucaspimentel/PSCue.git
+cd PSCue
+
+# Run the local installation script
+./scripts/install-local.ps1
+```
+
+**Workflow**:
+1. Detect platform (Windows/macOS/Linux, x64/arm64)
+2. Build ArgumentCompleter with NativeAOT for the detected platform
+3. Build CommandPredictor as managed DLL
+4. Create installation directory: `~/.local/pwsh-modules/PSCue/`
+5. Copy files to installation directory:
+   - Native executable: `pscue-completer[.exe]`
+   - Module DLL: `PSCue.Module.dll`
+   - Module files: `PSCue.psd1`, `PSCue.psm1`
+   - PowerShell functions: `Functions/`
+6. Display instructions for adding to `$PROFILE`
+
+### 2. Remote Installation (End Users)
+
+**Script**: `scripts/install-remote.ps1`
+
+**Purpose**: One-liner installation for end users from GitHub releases
+
+**Usage**:
+```powershell
+# One-line remote installation (latest version)
+irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-remote.ps1 | iex
+
+# Install specific version
+$version = "1.0.0"; irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-remote.ps1 | iex
+```
+
+**Workflow**:
+1. Accept optional `$version` variable from caller (defaults to "latest")
+2. Detect platform (Windows/macOS/Linux, x64/arm64)
+3. Map platform to release asset name:
+   - Windows x64: `PSCue-win-x64.zip`
+   - macOS x64: `PSCue-osx-x64.tar.gz`
+   - macOS arm64: `PSCue-osx-arm64.tar.gz`
+   - Linux x64: `PSCue-linux-x64.tar.gz`
+4. Determine download URL from GitHub API
+5. Download release asset to temp directory
+6. Extract archive to temp location
+7. Create installation directory: `~/.local/pwsh-modules/PSCue/`
+8. Copy files from extracted archive
+9. Clean up temp files
+10. Display instructions for adding to `$PROFILE`
+
+**Key Features**:
+- No build tools required (no .NET SDK needed)
+- Downloads pre-built binaries from GitHub releases
+- Fast installation
+- Supports version pinning
+- Platform auto-detection
+
+### User's Profile Setup
+
+After either installation method, users add these lines to their PowerShell profile:
+
+```powershell
+Import-Module ~/.local/pwsh-modules/PSCue/PSCue.psd1
+Set-PSReadLineOption -PredictionSource HistoryAndPlugin
+```
+
+---
+
+## CI/CD Architecture
+
+### CI Workflow (.github/workflows/ci.yml)
+
+**Triggers**:
+- Push to main branch
+- Pull requests to main branch
+
+**Jobs**:
+
+1. **Build & Test (Matrix)**:
+   - **Platforms**: ubuntu-latest, windows-latest, macos-latest
+   - **Steps**:
+     - Checkout code
+     - Setup .NET 9.0 SDK
+     - Restore dependencies: `dotnet restore`
+     - Build solution: `dotnet build --configuration Release`
+     - Run tests: `dotnet test --configuration Release --no-build --verbosity normal`
+     - Upload test results as artifacts
+
+2. **Lint & Format**:
+   - Check code formatting: `dotnet format --verify-no-changes`
+   - Run static analysis (optional): `dotnet analyze`
+
+**Status Badge**: Add to README.md
+```markdown
+[![CI](https://github.com/lucaspimentel/PSCue/actions/workflows/ci.yml/badge.svg)](https://github.com/lucaspimentel/PSCue/actions/workflows/ci.yml)
+```
+
+### Release Workflow (.github/workflows/release.yml)
+
+**Triggers**:
+- Manual workflow dispatch (workflow_dispatch)
+- Git tags matching `v*` (e.g., `v1.0.0`)
+
+**Jobs**:
+
+1. **Build Native Binaries (Matrix)**:
+   - **Matrix dimensions**:
+     - Platform: windows, macos, linux
+     - Architecture: x64, arm64 (macOS only)
+   - **Steps**:
+     - Checkout code
+     - Setup .NET 9.0 SDK
+     - Publish ArgumentCompleter for each RID
+     - Build CommandPredictor DLL
+     - Copy module files (PSCue.psd1, PSCue.psm1, Functions/)
+     - Create platform-specific archives (zip for Windows, tar.gz for others)
+     - Generate checksums (SHA256) for each archive
+     - Upload archives as artifacts
+
+2. **Create GitHub Release**:
+   - **Depends on**: Build Native Binaries job
+   - **Steps**:
+     - Download all build artifacts
+     - Extract version from tag (e.g., `v1.0.0` → `1.0.0`)
+     - Create GitHub release using `softprops/action-gh-release@v1`
+     - Attach all platform archives + checksums
+     - Update `latest` tag (for remote installer)
+
+**Release Assets Structure**:
+```
+PSCue-win-x64.zip
+PSCue-osx-x64.tar.gz
+PSCue-osx-arm64.tar.gz
+PSCue-linux-x64.tar.gz
+checksums.txt
+```
+
+**Each archive contains**:
+```
+pscue-completer[.exe]      # Native executable
+PSCue.Module.dll           # Module assembly
+PSCue.psd1                 # Module manifest
+PSCue.psm1                 # Module script
+Functions/                 # PowerShell functions
+LICENSE                    # License file
+README.md                  # Installation instructions
+```
+
+### Creating a Release
+
+**Manual release process**:
+```bash
+# 1. Update version in module manifest (module/PSCue.psd1)
+# 2. Commit version bump
+git add module/PSCue.psd1
+git commit -m "Bump version to 1.0.0"
+
+# 3. Create and push tag
+git tag -a v1.0.0 -m "Release v1.0.0"
+git push origin v1.0.0
+
+# 4. GitHub Actions automatically builds and creates release
+```
+
+---
+
+## Naming Conventions
+
+### Executables
+- `pscue-completer` / `pscue-completer.exe` (ArgumentCompleter native executable)
+
+### Assemblies
+- `PSCue.Module.dll` (CommandPredictor module)
+- `PSCue.Shared.dll` (optional shared library, future)
+
+### Namespaces
+- `PSCue.ArgumentCompleter.*`
+- `PSCue.Module.*`
+- `PSCue.Shared.*`
+
+### Module Name
+- `PSCue` (PowerShell module name)
+
+### PowerShell Functions (10 exported)
+- **Cache**: `Get-PSCueCache`, `Clear-PSCueCache`, `Get-PSCueCacheStats`
+- **Learning**: `Get-PSCueLearning`, `Clear-PSCueLearning`, `Export-PSCueLearning`, `Import-PSCueLearning`, `Save-PSCueLearning`
+- **Database**: `Get-PSCueDatabaseStats`, `Get-PSCueDatabaseHistory`
+- **Debugging**: `Test-PSCueCompletion`, `Get-PSCueModuleInfo`
+
+---
+
+## Platform Support
+
+### Tier 1 (Full Support)
+- Windows x64
+- macOS x64 (Intel)
+- macOS arm64 (Apple Silicon)
+- Linux x64
+
+### Tier 2 (Possible Future)
+- Linux arm64
+- Windows arm64
+
+### PowerShell Version Requirements
+- PowerShell 7.2+ (Core only)
+- IFeedbackProvider requires 7.4+, but module works with degraded functionality on 7.2-7.3
