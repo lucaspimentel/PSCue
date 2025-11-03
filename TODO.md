@@ -8,10 +8,11 @@ This document tracks active and planned work for PSCue. For architectural detail
 
 ## Current Status
 
-**Phase 16.6 Complete**: Removed unused CompletionCache infrastructure.
-- ✅ Removed CompletionCache class and CacheManagement.ps1 functions
-- ✅ Simplified architecture - only learning system remains (no redundant caching)
-- ✅ Updated all documentation and tests
+**Phase 16.7 Complete**: Added recovery mode for corrupted database.
+- ✅ Added `-Force` parameter to `Clear-PSCueLearning` for database recovery
+- ✅ Works even when PSCue module fails to initialize
+- ✅ Deletes all SQLite files (main DB + WAL journal files)
+- ✅ Updated documentation (CLAUDE.md, README.md)
 - ✅ All 323 tests passing (140 ArgumentCompleter + 183 Module)
 
 **Current Total Tests**: 323 passing

@@ -447,6 +447,7 @@ Save-PSCueLearning
 # Clear all learned data (memory + database)
 Clear-PSCueLearning                  # Interactive confirmation (ConfirmImpact=High)
 Clear-PSCueLearning -Confirm:$false  # Skip confirmation
+Clear-PSCueLearning -Force           # Force delete database even if PSCue isn't initialized (recovery mode)
 ```
 
 ### Database Management (Direct SQLite Queries)
@@ -514,6 +515,21 @@ All functions support:
    # Log location: $env:LOCALAPPDATA/PSCue/log.txt (Windows)
    ```
 5. Check the log for completion activity - Tab completion always uses local computation
+
+### Database initialization fails
+
+If you see "Failed to initialize generic learning" errors when loading the module:
+
+```powershell
+# Force delete the corrupted database (works even when PSCue won't load)
+Clear-PSCueLearning -Force
+
+# Then reload the module
+Remove-Module PSCue
+Import-Module ~/.local/pwsh-modules/PSCue/PSCue.psd1
+```
+
+The `-Force` parameter bypasses initialization checks and directly deletes the SQLite database files (including WAL journal files).
 
 ### Inline predictions not appearing
 

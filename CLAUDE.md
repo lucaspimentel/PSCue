@@ -85,7 +85,7 @@ dotnet test --filter "FullyQualifiedName~CommandPredictor"
 # PowerShell Module Functions (Phase 16 - replaces PSCue.Debug)
 # Learning Management (in-memory + database)
 Get-PSCueLearning [-Command <string>] [-AsJson]    # View learned data (in-memory)
-Clear-PSCueLearning [-WhatIf] [-Confirm]           # Clear learned data (memory + DB)
+Clear-PSCueLearning [-Force] [-WhatIf] [-Confirm]  # Clear learned data (memory + DB), -Force to delete DB directly
 Export-PSCueLearning -Path <path>                  # Export to JSON
 Import-PSCueLearning -Path <path> [-Merge]         # Import from JSON
 Save-PSCueLearning                                 # Force save to disk
@@ -150,6 +150,7 @@ public void TestLearningAccess()
 1. **ArgumentCompleter slow**: DynamicArguments (git branches, scoop packages) are computed on every Tab press. This is expected and fast (<50ms).
 2. **NativeAOT reference errors**: Put shared code in PSCue.Shared, not ArgumentCompleter
 3. **Module functions return null**: Module may not be fully initialized. Check PSCueModule.KnowledgeGraph != null before use.
+4. **Corrupted database prevents initialization**: Use `Clear-PSCueLearning -Force` to delete database files without requiring module initialization.
 
 ## Documentation
 - **Implementation status**:

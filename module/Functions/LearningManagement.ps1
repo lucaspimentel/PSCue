@@ -129,6 +129,10 @@ function Clear-PSCueLearning {
         Removes all learned data including command history and argument knowledge graph.
         This also deletes the persisted database file.
 
+    .PARAMETER Force
+        Forces deletion of the database file even if PSCue is not initialized.
+        Useful for recovery scenarios when the database is corrupted.
+
     .PARAMETER WhatIf
         Shows what would happen if the command runs without actually clearing data.
 
@@ -146,12 +150,87 @@ function Clear-PSCueLearning {
     .EXAMPLE
         Clear-PSCueLearning -WhatIf
         Shows what would be cleared without actually clearing.
+
+    .EXAMPLE
+        Clear-PSCueLearning -Force
+        Forces deletion of database file even if PSCue isn't initialized.
+        Use this when the database is corrupted and preventing initialization.
     #>
     [CmdletBinding(SupportsShouldProcess, ConfirmImpact = 'High')]
-    param()
+    param(
+        [Parameter()]
+        [switch]$Force
+    )
 
+    # Helper function to get database path (mirrors PersistenceManager.GetDataDirectory logic)
+    function Get-PSCueDatabasePath {
+        if ($IsWindows -or $PSVersionTable.PSVersion.Major -lt 6) {
+            # Windows: Use LocalApplicationData
+            $localAppData = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
+            $dataDir = Join-Path $localAppData "PSCue"
+        } else {
+            # Linux/macOS: Use XDG_DATA_HOME or ~/.local/share
+            $homeDir = [Environment]::GetFolderPath([Environment+SpecialFolder]::UserProfile)
+            $xdgDataHome = $env:XDG_DATA_HOME
+            if ($xdgDataHome) {
+                $dataDir = Join-Path $xdgDataHome "PSCue"
+            } else {
+                $dataDir = Join-Path $homeDir ".local" "share" "PSCue"
+            }
+        }
+        return Join-Path $dataDir "learned-data.db"
+    }
+
+    # Force mode: Delete database file directly without requiring initialization
+    if ($Force) {
+        try {
+            $dbPath = Get-PSCueDatabasePath
+            $dbExists = Test-Path $dbPath
+            $walPath = "$dbPath-wal"
+            $shmPath = "$dbPath-shm"
+            $walExists = Test-Path $walPath
+            $shmExists = Test-Path $shmPath
+
+            if (-not $dbExists -and -not $walExists -and -not $shmExists) {
+                Write-Warning "Database file not found at: $dbPath"
+                return
+            }
+
+            $filesToDelete = @()
+            if ($dbExists) { $filesToDelete += "Database file" }
+            if ($walExists) { $filesToDelete += "WAL journal" }
+            if ($shmExists) { $filesToDelete += "Shared memory file" }
+
+            if ($PSCmdlet.ShouldProcess("$($filesToDelete -join ', ') at $dbPath", "Delete database files")) {
+                $deletedFiles = @()
+
+                if ($dbExists) {
+                    Remove-Item -Path $dbPath -Force
+                    $deletedFiles += "Database"
+                }
+                if ($walExists) {
+                    Remove-Item -Path $walPath -Force
+                    $deletedFiles += "WAL journal"
+                }
+                if ($shmExists) {
+                    Remove-Item -Path $shmPath -Force
+                    $deletedFiles += "Shared memory"
+                }
+
+                Write-Host "✓ Force deleted database files:" -ForegroundColor Green
+                Write-Host "  - Path: $dbPath" -ForegroundColor Gray
+                Write-Host "  - Deleted: $($deletedFiles -join ', ')" -ForegroundColor Gray
+                Write-Warning "PSCue module may need to be reloaded for changes to take effect."
+            }
+        } catch {
+            Write-Error "Failed to force delete database: $_"
+        }
+        return
+    }
+
+    # Normal mode: Use PersistenceManager if available
     if ($null -eq [PSCue.Module.PSCueModule]::Persistence) {
-        Write-Error "PSCue learning system is not initialized. Make sure the PSCue module is loaded and learning is enabled."
+        Write-Error "PSCue learning system is not initialized. Use -Force to delete the database file directly, or make sure the PSCue module is loaded and learning is enabled."
         return
     }
 
