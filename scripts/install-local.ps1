@@ -174,6 +174,7 @@ if (Test-Path $PredictorDllSource) {
 # Copy required dependencies
 $Dependencies = @(
     "PSCue.Shared.dll",
+    "PSCue.Module.deps.json",
     "Microsoft.Data.Sqlite.dll",
     "SQLitePCLRaw.batteries_v2.dll",
     "SQLitePCLRaw.core.dll",
@@ -199,6 +200,14 @@ if (Test-Path $RuntimesSource) {
     New-Item -ItemType Directory -Path (Split-Path $RuntimesDest -Parent) -Force | Out-Null
     Copy-Item -Path $RuntimesSource -Destination $RuntimesDest -Recurse -Force
     Write-Info "  Installed: runtimes/$RID/native/ (native SQLite libraries)"
+
+    # Also copy native DLL directly to module root for easier loading by PowerShell
+    $NativeDll = if ($IsWindowsPlatform) { "e_sqlite3.dll" } elseif ($IsMacOS) { "libe_sqlite3.dylib" } else { "libe_sqlite3.so" }
+    $NativeDllSource = Join-Path $RuntimesSource $NativeDll
+    if (Test-Path $NativeDllSource) {
+        Copy-Item -Path $NativeDllSource -Destination (Join-Path $InstallDir $NativeDll) -Force
+        Write-Info "  Installed: $NativeDll (to module root)"
+    }
 }
 
 # Copy module files
