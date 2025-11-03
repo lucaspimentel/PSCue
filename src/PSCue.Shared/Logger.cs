@@ -77,4 +77,36 @@ public static class Logger
             // AutoFlush is enabled, so no need to call Flush() explicitly
         }
     }
+
+    /// <summary>
+    /// Writes a critical error message to the log file regardless of PSCUE_DEBUG setting.
+    /// This is used for exceptions and errors that should always be logged.
+    /// </summary>
+    public static void WriteError(string message)
+    {
+        try
+        {
+            // Ensure log directory exists
+            var localAppDataFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var folder = Path.Combine(localAppDataFolder, "PSCue");
+
+            if (!Directory.Exists(folder))
+            {
+                Directory.CreateDirectory(folder);
+            }
+
+            var path = Path.Combine(folder, "log.txt");
+            var log = $"{DateTime.UtcNow:yyyy-MM-dd HH:mm:ss.ffff} [{ComponentName}] ERROR: {message}";
+
+            // Append to log file with appropriate file sharing
+            lock (FileLock)
+            {
+                File.AppendAllText(path, log + Environment.NewLine);
+            }
+        }
+        catch
+        {
+            // If logging fails, silently ignore - we don't want to crash the module
+        }
+    }
 }

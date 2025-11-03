@@ -54,7 +54,24 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"Warning: Failed to initialize generic learning: {ex.Message}");
+                var errorMessage = $"Warning: Failed to initialize generic learning: {ex.Message}";
+                Console.Error.WriteLine(errorMessage);
+
+                // Log detailed exception information (always logged, regardless of PSCUE_DEBUG)
+                PSCue.Shared.Logger.WriteError($"Generic learning initialization failed: {ex.GetType().Name}: {ex.Message}");
+                PSCue.Shared.Logger.WriteError($"Stack trace: {ex.StackTrace}");
+
+                // Log all inner exceptions recursively
+                var innerEx = ex.InnerException;
+                var depth = 1;
+                while (innerEx != null)
+                {
+                    PSCue.Shared.Logger.WriteError($"Inner exception (level {depth}): {innerEx.GetType().Name}: {innerEx.Message}");
+                    PSCue.Shared.Logger.WriteError($"Inner stack trace (level {depth}): {innerEx.StackTrace}");
+                    innerEx = innerEx.InnerException;
+                    depth++;
+                }
+
                 enableGenericLearning = false;
             }
         }
