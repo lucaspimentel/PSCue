@@ -123,10 +123,11 @@ public static class GtCommand
                 {
                     Parameters =
                     [
-                        new("--force", "Force sync without prompts (-f)") { Alias = "-f" },
-                        new("--delete", "Delete merged branches without prompting (-d)") { Alias = "-d" },
-                        new("--pull", "Pull trunk changes (-p)") { Alias = "-p" },
-                        new("--restack", "Restack all branches (-r)") { Alias = "-r" },
+                        new("--help", "Show help for sync command"),
+                        new("--all", "Sync branches across all configured trunks (-a)") { Alias = "-a" },
+                        new("--force", "Don't prompt for confirmation before overwriting or deleting (-f)") { Alias = "-f" },
+                        new("--restack", "Restack branches that can be restacked without conflicts (true by default)"),
+                        new("--no-restack", "Skip restacking branches"),
                     ]
                 },
 
