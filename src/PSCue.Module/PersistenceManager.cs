@@ -160,9 +160,10 @@ public class PersistenceManager : IDisposable
     }
 
     /// <summary>
-    /// Saves the ArgumentGraph to the database using additive merging.
-    /// Frequencies are summed, timestamps use max (most recent).
-    /// Thread-safe for concurrent sessions.
+    /// Saves the ArgumentGraph to the database using delta-based additive merging.
+    /// Only saves the delta (new usage since last load/save) to support concurrent sessions.
+    /// After saving, updates the baseline to prevent duplicate counting.
+    /// Timestamps use min (first_seen) and max (last_used) to preserve history.
     /// </summary>
     public void SaveArgumentGraph(ArgumentGraph graph)
     {
@@ -180,48 +181,62 @@ public class PersistenceManager : IDisposable
                 var command = commandKv.Key;
                 var knowledge = commandKv.Value;
 
-                // Upsert command-level stats (additive merge)
-                using (var cmd = connection.CreateCommand())
+                // Calculate delta for this command
+                var delta = graph.GetCommandDelta(command, knowledge.TotalUsageCount);
+
+                // Only save if there's a delta (skip if no new usage)
+                if (delta > 0)
                 {
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = @"
-                        INSERT INTO commands (command, total_usage_count, first_seen, last_used)
-                        VALUES (@command, @usage, @firstSeen, @lastUsed)
-                        ON CONFLICT (command) DO UPDATE SET
-                            total_usage_count = total_usage_count + @usage,
-                            first_seen = MIN(first_seen, @firstSeen),
-                            last_used = MAX(last_used, @lastUsed)
-                    ";
-                    cmd.Parameters.AddWithValue("@command", command);
-                    cmd.Parameters.AddWithValue("@usage", knowledge.TotalUsageCount);
-                    cmd.Parameters.AddWithValue("@firstSeen", knowledge.FirstSeen.ToString("O"));
-                    cmd.Parameters.AddWithValue("@lastUsed", knowledge.LastUsed.ToString("O"));
-                    cmd.ExecuteNonQuery();
+                    // Upsert command-level stats (additive merge with delta)
+                    using (var cmd = connection.CreateCommand())
+                    {
+                        cmd.Transaction = transaction;
+                        cmd.CommandText = @"
+                            INSERT INTO commands (command, total_usage_count, first_seen, last_used)
+                            VALUES (@command, @usage, @firstSeen, @lastUsed)
+                            ON CONFLICT (command) DO UPDATE SET
+                                total_usage_count = total_usage_count + @usage,
+                                first_seen = MIN(first_seen, @firstSeen),
+                                last_used = MAX(last_used, @lastUsed)
+                        ";
+                        cmd.Parameters.AddWithValue("@command", command);
+                        cmd.Parameters.AddWithValue("@usage", delta);
+                        cmd.Parameters.AddWithValue("@firstSeen", knowledge.FirstSeen.ToString("O"));
+                        cmd.Parameters.AddWithValue("@lastUsed", knowledge.LastUsed.ToString("O"));
+                        cmd.ExecuteNonQuery();
+                    }
                 }
 
-                // Upsert arguments (additive merge)
+                // Upsert arguments (additive merge with delta)
                 foreach (var argKv in knowledge.Arguments)
                 {
                     var argument = argKv.Key;
                     var stats = argKv.Value;
 
-                    using var cmd = connection.CreateCommand();
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = @"
-                        INSERT INTO arguments (command, argument, usage_count, first_seen, last_used, is_flag)
-                        VALUES (@command, @argument, @usage, @firstSeen, @lastUsed, @isFlag)
-                        ON CONFLICT (command, argument) DO UPDATE SET
-                            usage_count = usage_count + @usage,
-                            first_seen = MIN(first_seen, @firstSeen),
-                            last_used = MAX(last_used, @lastUsed)
-                    ";
-                    cmd.Parameters.AddWithValue("@command", command);
-                    cmd.Parameters.AddWithValue("@argument", argument);
-                    cmd.Parameters.AddWithValue("@usage", stats.UsageCount);
-                    cmd.Parameters.AddWithValue("@firstSeen", stats.FirstSeen.ToString("O"));
-                    cmd.Parameters.AddWithValue("@lastUsed", stats.LastUsed.ToString("O"));
-                    cmd.Parameters.AddWithValue("@isFlag", stats.IsFlag ? 1 : 0);
-                    cmd.ExecuteNonQuery();
+                    // Calculate delta for this argument
+                    var argDelta = graph.GetArgumentDelta(command, argument, stats.UsageCount);
+
+                    // Only save if there's a delta (skip if no new usage)
+                    if (argDelta > 0)
+                    {
+                        using var cmd = connection.CreateCommand();
+                        cmd.Transaction = transaction;
+                        cmd.CommandText = @"
+                            INSERT INTO arguments (command, argument, usage_count, first_seen, last_used, is_flag)
+                            VALUES (@command, @argument, @usage, @firstSeen, @lastUsed, @isFlag)
+                            ON CONFLICT (command, argument) DO UPDATE SET
+                                usage_count = usage_count + @usage,
+                                first_seen = MIN(first_seen, @firstSeen),
+                                last_used = MAX(last_used, @lastUsed)
+                        ";
+                        cmd.Parameters.AddWithValue("@command", command);
+                        cmd.Parameters.AddWithValue("@argument", argument);
+                        cmd.Parameters.AddWithValue("@usage", argDelta);
+                        cmd.Parameters.AddWithValue("@firstSeen", stats.FirstSeen.ToString("O"));
+                        cmd.Parameters.AddWithValue("@lastUsed", stats.LastUsed.ToString("O"));
+                        cmd.Parameters.AddWithValue("@isFlag", stats.IsFlag ? 1 : 0);
+                        cmd.ExecuteNonQuery();
+                    }
 
                     // Upsert co-occurrences
                     foreach (var coKv in stats.CoOccurrences)
@@ -235,7 +250,7 @@ public class PersistenceManager : IDisposable
                             INSERT INTO co_occurrences (command, argument, co_occurred_with, count)
                             VALUES (@command, @argument, @coWith, @count)
                             ON CONFLICT (command, argument, co_occurred_with) DO UPDATE SET
-                                count = count + @count
+                                count = @count
                         ";
                         coCmd.Parameters.AddWithValue("@command", command);
                         coCmd.Parameters.AddWithValue("@argument", argument);
@@ -257,7 +272,7 @@ public class PersistenceManager : IDisposable
                         INSERT INTO flag_combinations (command, flags, count)
                         VALUES (@command, @flags, @count)
                         ON CONFLICT (command, flags) DO UPDATE SET
-                            count = count + @count
+                            count = @count
                     ";
                     cmd.Parameters.AddWithValue("@command", command);
                     cmd.Parameters.AddWithValue("@flags", flags);
@@ -267,6 +282,9 @@ public class PersistenceManager : IDisposable
             }
 
             transaction.Commit();
+
+            // Update baseline after successful save to prevent duplicate counting
+            graph.UpdateBaseline();
         }
         catch
         {

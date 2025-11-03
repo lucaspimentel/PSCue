@@ -364,4 +364,39 @@ public class PersistenceIntegrationTests : IDisposable
         Assert.NotNull(mostRecent);
         Assert.Contains("19", mostRecent.CommandLine);
     }
+
+    [Fact]
+    public void MultipleSaves_NoDuplication_CountsNotAddedRepeatedly()
+    {
+        // Arrange - Initial session with usage
+        using (var persistence = new PersistenceManager(_testDbPath))
+        {
+            var graph = new ArgumentGraph();
+            graph.RecordUsage("git", new[] { "status" });
+            graph.RecordUsage("git", new[] { "commit", "-m", "test" });
+            graph.RecordUsage("git", new[] { "push" });
+
+            // Act - Save multiple times WITHOUT new usage
+            persistence.SaveArgumentGraph(graph);
+            persistence.SaveArgumentGraph(graph); // Save #2
+            persistence.SaveArgumentGraph(graph); // Save #3
+        }
+
+        // Assert - Load and verify counts didn't multiply
+        using var verifyPersistence = new PersistenceManager(_testDbPath);
+        var loaded = verifyPersistence.LoadArgumentGraph();
+
+        var knowledge = loaded.GetCommandKnowledge("git");
+        Assert.NotNull(knowledge);
+
+        // Should still be 3 total usages, NOT 9 (which would happen if additive merge duplicated)
+        Assert.Equal(3, knowledge.TotalUsageCount);
+
+        // Each argument should have count of 1
+        Assert.Equal(1, knowledge.Arguments["status"].UsageCount);
+        Assert.Equal(1, knowledge.Arguments["commit"].UsageCount);
+        Assert.Equal(1, knowledge.Arguments["-m"].UsageCount);
+        Assert.Equal(1, knowledge.Arguments["test"].UsageCount);
+        Assert.Equal(1, knowledge.Arguments["push"].UsageCount);
+    }
 }

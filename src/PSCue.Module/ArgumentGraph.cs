@@ -128,6 +128,11 @@ public class ArgumentGraph
     private readonly int _maxCommands;
     private readonly int _scoreDecayDays;
 
+    // Baseline tracking for delta calculation (concurrent session support)
+    // Maps: command -> (totalCount, arg -> argCount)
+    private readonly ConcurrentDictionary<string, (int TotalCount, ConcurrentDictionary<string, int> ArgCounts)> _baseline
+        = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>
     /// Creates a new ArgumentGraph.
     /// </summary>
@@ -351,6 +356,9 @@ public class ArgumentGraph
             knowledge.FirstSeen = firstSeen;
             knowledge.LastUsed = lastUsed;
         }
+
+        // Record baseline for delta tracking
+        _baseline.TryAdd(command, (totalUsage, new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase)));
     }
 
     /// <summary>
@@ -377,6 +385,12 @@ public class ArgumentGraph
             stats.FirstSeen = firstSeen;
             stats.LastUsed = lastUsed;
             stats.IsFlag = isFlag;
+        }
+
+        // Record baseline for delta tracking
+        if (_baseline.TryGetValue(command, out var baseline))
+        {
+            baseline.ArgCounts.TryAdd(argument, usageCount);
         }
     }
 
@@ -477,6 +491,55 @@ public class ArgumentGraph
         foreach (var cmd in toRemove)
         {
             _commands.TryRemove(cmd, out _);
+        }
+    }
+
+    /// <summary>
+    /// Gets the delta (new usage since load) for a command.
+    /// Returns 0 if command wasn't in baseline (newly learned).
+    /// </summary>
+    internal int GetCommandDelta(string command, int currentTotal)
+    {
+        if (_baseline.TryGetValue(command, out var baseline))
+        {
+            return Math.Max(0, currentTotal - baseline.TotalCount);
+        }
+        return currentTotal; // Newly learned command, delta = all usage
+    }
+
+    /// <summary>
+    /// Gets the delta (new usage since load) for an argument.
+    /// Returns 0 if argument wasn't in baseline (newly learned).
+    /// </summary>
+    internal int GetArgumentDelta(string command, string argument, int currentCount)
+    {
+        if (_baseline.TryGetValue(command, out var baseline) &&
+            baseline.ArgCounts.TryGetValue(argument, out var baselineCount))
+        {
+            return Math.Max(0, currentCount - baselineCount);
+        }
+        return currentCount; // Newly learned argument, delta = all usage
+    }
+
+    /// <summary>
+    /// Updates the baseline after a successful save.
+    /// Call this after persisting to database to reset deltas.
+    /// </summary>
+    internal void UpdateBaseline()
+    {
+        foreach (var cmdKv in _commands)
+        {
+            var command = cmdKv.Key;
+            var knowledge = cmdKv.Value;
+
+            // Update command baseline
+            var argCounts = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            foreach (var argKv in knowledge.Arguments)
+            {
+                argCounts[argKv.Key] = argKv.Value.UsageCount;
+            }
+
+            _baseline[command] = (knowledge.TotalUsageCount, argCounts);
         }
     }
 }
