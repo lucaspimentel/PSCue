@@ -63,16 +63,43 @@ public static class CommandCompleter
 
         ReadOnlySpan<char> currentArgument = default;
 
-        // Split the command line and skip the first argument
-        var argumentEnumerator = commandLine.Split(' ');
-        argumentEnumerator.MoveNext();
+        // Check if command line ends with a space (indicates completion of current token)
+        var endsWithSpace = commandLine.Length > 0 && commandLine[^1] == ' ';
 
+        // Collect all arguments (excluding the command itself)
+        var arguments = new List<Range>();
+        var argumentEnumerator = commandLine.Split(' ');
+        argumentEnumerator.MoveNext(); // Skip the command
         while (argumentEnumerator.MoveNext())
         {
-            currentArgument = commandLine[argumentEnumerator.Current].Trim();
+            arguments.Add(argumentEnumerator.Current);
+        }
+
+        // Process arguments, navigating through the completion tree
+        for (int i = 0; i < arguments.Count; i++)
+        {
+            currentArgument = commandLine[arguments[i]].Trim();
+            var isLastToken = i == arguments.Count - 1;
 
             if (currentCompletion.FindNode(currentArgument) is { } node)
             {
+                // Check if this match is via an alias (not the primary CompletionText)
+                var isAliasMatch = !Helpers.Equals(node.CompletionText, currentArgument);
+
+                // If this is the last token, there's no trailing space, AND it's an alias match,
+                // check if there are other potential matches. If so, don't navigate into it.
+                // This allows prefix matching (e.g., "gt s" shows both "submit" and "sync")
+                // But if the alias is unique (like "wt sp" for "split-pane"), navigate into it.
+                if (isLastToken && !endsWithSpace && isAliasMatch && currentCompletion is ICompletionWithChildren cwc)
+                {
+                    var potentialMatches = cwc.GetCompletions(currentArgument, includeDynamicArguments: false);
+                    if (potentialMatches.Count > 1)
+                    {
+                        // Multiple matches exist, keep currentArgument as the search term
+                        break;
+                    }
+                }
+
                 // If we found a parameter that doesn't have arguments, stay at the parent level
                 // so we can continue to suggest other parameters
                 if (node is not CommandParameter { StaticArguments.Length: 0, DynamicArguments: null })

@@ -142,10 +142,15 @@ public class GtCommandTests
         var completions = CommandCompleter.GetCompletions("gt sync").ToList();
 
         Assert.NotEmpty(completions);
+        Assert.Contains(completions, x => x.CompletionText == "--help");
+        Assert.Contains(completions, x => x.CompletionText == "--all");
         Assert.Contains(completions, x => x.CompletionText == "--force");
-        Assert.Contains(completions, x => x.CompletionText == "--delete");
-        Assert.Contains(completions, x => x.CompletionText == "--pull");
         Assert.Contains(completions, x => x.CompletionText == "--restack");
+        Assert.Contains(completions, x => x.CompletionText == "--no-restack");
+
+        // Verify old invalid parameters are gone
+        Assert.DoesNotContain(completions, x => x.CompletionText == "--delete");
+        Assert.DoesNotContain(completions, x => x.CompletionText == "--pull");
     }
 
     [Fact]
@@ -229,6 +234,30 @@ public class GtCommandTests
 
         // Typing "gt sub" should match commands starting with "sub"
         Assert.Contains(completions, x => x.CompletionText == "submit");
+    }
+
+    [Fact]
+    public void Gt_S_Matches_Both_Submit_And_Sync()
+    {
+        var completions = CommandCompleter.GetCompletions("gt s").ToList();
+
+        // Typing "gt s" should match:
+        // 1. "submit" (has alias "s")
+        // 2. "sync" (starts with "s")
+        Assert.Contains(completions, x => x.CompletionText == "submit");
+        Assert.Contains(completions, x => x.CompletionText == "sync");
+    }
+
+    [Fact]
+    public void Gt_S_WithSpace_NavigatesIntoSubmit()
+    {
+        var completions = CommandCompleter.GetCompletions("gt s ").ToList();
+
+        // Typing "gt s " (with trailing space) should recognize "s" as the submit alias
+        // and navigate into the submit command, showing its parameters
+        Assert.Contains(completions, x => x.CompletionText == "--stack");
+        Assert.Contains(completions, x => x.CompletionText == "--draft");
+        Assert.DoesNotContain(completions, x => x.CompletionText == "sync");
     }
 
     [Fact]
