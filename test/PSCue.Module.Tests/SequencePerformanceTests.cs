@@ -228,7 +228,7 @@ public class SequencePerformanceTests
     }
 
     [Fact]
-    public void ConcurrentReadAccess_ShouldNotDegrade()
+    public async Task ConcurrentReadAccess_ShouldNotDegrade()
     {
         // Test that concurrent reads don't cause contention
 
@@ -260,7 +260,7 @@ public class SequencePerformanceTests
             });
         }
 
-        System.Threading.Tasks.Task.WaitAll(tasks);
+        await System.Threading.Tasks.Task.WhenAll(tasks);
         sw.Stop();
 
         var avgMsPerCall = sw.Elapsed.TotalMilliseconds / (10 * 1000);

@@ -28,7 +28,9 @@ public class FeedbackProviderTests
         // Arrange
         var history = new CommandHistory();
         var graph = new ArgumentGraph();
-        var provider = new FeedbackProvider(history, graph);
+        PSCueModule.CommandHistory = history;
+        PSCueModule.KnowledgeGraph = graph;
+        var provider = new FeedbackProvider();
         var context = CreateSuccessContext(commandLine);
 
         // Act
@@ -75,7 +77,9 @@ public class FeedbackProviderTests
     {
         // Arrange
         var history = new CommandHistory();
-        var provider = new FeedbackProvider(history, null);
+        PSCueModule.CommandHistory = history;
+        PSCueModule.KnowledgeGraph = null;
+        var provider = new FeedbackProvider();
         var context = CreateSuccessContext("git status");
 
         // Act
@@ -92,7 +96,9 @@ public class FeedbackProviderTests
     {
         // Arrange
         var history = new CommandHistory();
-        var provider = new FeedbackProvider(history, null);
+        PSCueModule.CommandHistory = history;
+        PSCueModule.KnowledgeGraph = null;
+        var provider = new FeedbackProvider();
         var context = CreateErrorContext("git invalid-command");
 
         // Act
@@ -109,7 +115,9 @@ public class FeedbackProviderTests
     {
         // Arrange
         var graph = new ArgumentGraph();
-        var provider = new FeedbackProvider(null, graph);
+        PSCueModule.CommandHistory = null;
+        PSCueModule.KnowledgeGraph = graph;
+        var provider = new FeedbackProvider();
         var context = CreateSuccessContext("git commit -m 'test'");
 
         // Act
@@ -126,7 +134,9 @@ public class FeedbackProviderTests
     {
         // Arrange
         var graph = new ArgumentGraph();
-        var provider = new FeedbackProvider(null, graph);
+        PSCueModule.CommandHistory = null;
+        PSCueModule.KnowledgeGraph = graph;
+        var provider = new FeedbackProvider();
         var context = CreateErrorContext("git invalid-command");
 
         // Act
@@ -151,7 +161,9 @@ public class FeedbackProviderTests
         {
             var history = new CommandHistory();
             var graph = new ArgumentGraph();
-            var provider = new FeedbackProvider(history, graph);
+            PSCueModule.CommandHistory = history;
+            PSCueModule.KnowledgeGraph = graph;
+            var provider = new FeedbackProvider();
             var context = CreateSuccessContext(commandLine);
 
             // Act
@@ -175,7 +187,9 @@ public class FeedbackProviderTests
         try
         {
             var history = new CommandHistory();
-            var provider = new FeedbackProvider(history, null);
+            PSCueModule.CommandHistory = history;
+            PSCueModule.KnowledgeGraph = null;
+            var provider = new FeedbackProvider();
 
             // Act & Assert - Test each pattern
             provider.GetFeedback(CreateSuccessContext("aws configure"), CancellationToken.None);
@@ -205,7 +219,9 @@ public class FeedbackProviderTests
         try
         {
             var history = new CommandHistory();
-            var provider = new FeedbackProvider(history, null);
+            PSCueModule.CommandHistory = history;
+            PSCueModule.KnowledgeGraph = null;
+            var provider = new FeedbackProvider();
 
             // Act
             provider.GetFeedback(CreateSuccessContext("aws configure"), CancellationToken.None);
@@ -221,38 +237,17 @@ public class FeedbackProviderTests
         }
     }
 
-    [Fact]
-    public void GetFeedback_SupportedCommand_UpdatesCache()
-    {
-        // Arrange
-        var cache = new CompletionCache();
-        PSCueModule.Cache = cache;
-
-        try
-        {
-            var provider = new FeedbackProvider(null, null);
-            var context = CreateSuccessContext("git checkout main");
-
-            // Act
-            provider.GetFeedback(context, CancellationToken.None);
-
-            // Assert - Cache should be updated via PSCueModule.Cache
-            var stats = cache.GetStatistics();
-            // Note: Cache updates are best effort, so we just verify no crashes
-            Assert.NotNull(stats);
-        }
-        finally
-        {
-            PSCueModule.Cache = null;
-        }
-    }
+    // Test removed: GetFeedback_SupportedCommand_UpdatesCache
+    // CompletionCache no longer exists in the architecture (removed in refactoring)
 
     [Fact]
     public void GetFeedback_SpecialCharacters_HandlesCorrectly()
     {
         // Arrange
         var history = new CommandHistory();
-        var provider = new FeedbackProvider(history, null);
+        PSCueModule.CommandHistory = history;
+        PSCueModule.KnowledgeGraph = null;
+        var provider = new FeedbackProvider();
         var context = CreateSuccessContext("git commit -m 'Fix bug #123 & update README'");
 
         // Act
@@ -269,7 +264,9 @@ public class FeedbackProviderTests
     {
         // Arrange
         var history = new CommandHistory();
-        var provider = new FeedbackProvider(history, null);
+        PSCueModule.CommandHistory = history;
+        PSCueModule.KnowledgeGraph = null;
+        var provider = new FeedbackProvider();
         var longMessage = new string('a', 1000);
         var context = CreateSuccessContext($"git commit -m '{longMessage}'");
 
@@ -301,7 +298,9 @@ public class FeedbackProviderTests
         // Arrange
         var history = new CommandHistory();
         var graph = new ArgumentGraph();
-        var provider = new FeedbackProvider(history, graph);
+        PSCueModule.CommandHistory = history;
+        PSCueModule.KnowledgeGraph = graph;
+        var provider = new FeedbackProvider();
 
         // Act - Execute several commands
         provider.GetFeedback(CreateSuccessContext("git status"), CancellationToken.None);

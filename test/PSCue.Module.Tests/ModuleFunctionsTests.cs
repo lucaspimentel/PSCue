@@ -17,27 +17,7 @@ public class ModuleFunctionsTests
     // Comprehensive integration testing is done via test-scripts/test-module-functions.ps1
     // These unit tests verify basic behavior of the public APIs.
 
-    #region CompletionCache Tests
-
-    [Fact]
-    public void GetCacheEntries_ReturnsEmptyArray_WhenCacheIsEmpty()
-    {
-        var cache = new CompletionCache();
-        var entries = cache.GetCacheEntries(null);
-        Assert.NotNull(entries);
-        Assert.Empty(entries);
-    }
-
-    [Fact]
-    public void GetStatistics_ReturnsZero_WhenCacheIsEmpty()
-    {
-        var cache = new CompletionCache();
-        var stats = cache.GetStatistics();
-        Assert.Equal(0, stats.EntryCount);
-        Assert.Equal(0, stats.TotalHits);
-    }
-
-    #endregion
+    // CompletionCache tests removed - CompletionCache no longer exists in the architecture
 
     #region ArgumentGraph Tests
 
