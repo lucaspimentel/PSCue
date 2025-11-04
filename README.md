@@ -8,10 +8,12 @@
 
 - **🚀 Fast Tab Completion**: Native AOT executable for <10ms startup time
 - **💡 Inline Predictions**: Smart command suggestions as you type using `ICommandPredictor`
+- **🤖 ML-Based Predictions**: N-gram sequence learning predicts your next command (e.g., `git add` → `git commit`)
 - **⚡ PowerShell Module Functions**: Native PowerShell functions for learning and database management
 - **🧠 Universal Learning System**: Learns from ALL commands (not just pre-configured ones) and adapts to your workflow patterns
-- **💾 Cross-Session Persistence**: Learning data persists across PowerShell sessions using SQLite
+- **💾 Cross-Session Persistence**: Learning data persists across PowerShell sessions using SQLite with concurrent session support
 - **🎯 Context-Aware Suggestions**: Detects command sequences and boosts relevant suggestions based on recent activity
+- **⚡ High Performance**: <1ms cache lookups, <20ms total prediction time (within PowerShell's timeout)
 - **🆘 Error Suggestions**: Provides helpful recovery suggestions when commands fail (e.g., git errors)
 - **🔌 Cross-platform**: Windows, macOS (Apple Silicon), and Linux support
 - **📦 Zero Configuration**: Works out of the box after installation
@@ -58,11 +60,14 @@ PSCue provides detailed completions for these commands:
 
 - **kubectl**, **docker**, **cargo**, **npm**, **dotnet**, **go**, **terraform**, and hundreds more
 - Tracks which flags and arguments you use most frequently
-- Detects command workflows (e.g., docker build → docker run)
+- **ML-based command sequence prediction**: Learns which commands you typically run after others (e.g., `git add` → `git commit`)
+- Detects command workflows and suggests next steps based on n-gram analysis
 - Provides context-aware suggestions based on recent activity
 - Fully automatic - no configuration needed
 
 **Example**: Never used kubectl before? After you run `kubectl get pods`, `kubectl describe pod`, etc., PSCue learns these patterns and will suggest them next time you type `kubectl`.
+
+**ML Prediction Example**: After typing `git add file.txt`, PSCue's ML engine predicts you'll likely run `git commit` next and boosts that suggestion based on your historical command sequences.
 
 ## Installation
 
@@ -296,15 +301,19 @@ dotnet test
 
 ### Running Tests
 
-PSCue has **323 unit tests** covering ArgumentCompleter logic, CommandPredictor, FeedbackProvider, generic learning components, persistence, navigation, and integration scenarios.
+PSCue has **365 unit tests** covering ArgumentCompleter logic, CommandPredictor, FeedbackProvider, generic learning components, ML prediction, persistence, navigation, and integration scenarios.
 
 ```powershell
-# All tests (323 total: 140 ArgumentCompleter + 183 Module including Phases 11-16)
+# All tests (365 total: 140 ArgumentCompleter + 225 Module including Phases 11-17.1)
+# Phase 17.1 adds 42 tests: 25 unit + 8 integration + 9 performance for ML prediction
 dotnet test
 
 # Specific project
 dotnet test test/PSCue.ArgumentCompleter.Tests/  # 140 tests
-dotnet test test/PSCue.Module.Tests/             # 183 tests
+dotnet test test/PSCue.Module.Tests/             # 225 tests
+
+# Run ML prediction tests specifically
+dotnet test --filter "FullyQualifiedName~SequencePredictor"
 
 # With verbose output
 dotnet test --logger "console;verbosity=detailed"
@@ -389,15 +398,26 @@ $env:PSCUE_MAX_COMMANDS = "500"          # Max commands to track
 $env:PSCUE_MAX_ARGS_PER_CMD = "100"      # Max arguments per command
 $env:PSCUE_DECAY_DAYS = "30"             # Score decay period (days)
 
+# ML prediction configuration (enabled by default)
+$env:PSCUE_ML_ENABLED = "true"           # Enable ML sequence predictions
+$env:PSCUE_ML_NGRAM_ORDER = "2"          # N-gram order: 2=bigrams, 3=trigrams
+$env:PSCUE_ML_NGRAM_MIN_FREQ = "3"       # Minimum frequency to suggest (occurrences)
+
 # Privacy: ignore sensitive commands (comma-separated wildcards)
 $env:PSCUE_IGNORE_PATTERNS = "aws *,*secret*,*password*"
 ```
+
+**ML Prediction Performance:**
+- Cache lookup: <1ms (fits within 20ms PowerShell prediction timeout)
+- Total prediction with ML: <20ms (validated via performance tests)
+- Memory usage: <5MB for 10,000 learned sequences
+- Cross-session persistence: SQLite with additive merging for concurrent sessions
 
 ### Future Work
 
 - **Advanced Features & Distribution**
   - Error suggestions for more commands (gh, az, scoop)
-  - ML-based prediction support
+  - Advanced ML with semantic embeddings (ONNX Runtime)
   - PowerShell Gallery publishing
   - Scoop/Homebrew package managers
 

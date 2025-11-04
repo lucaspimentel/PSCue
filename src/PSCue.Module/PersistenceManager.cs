@@ -151,10 +151,20 @@ public class PersistenceManager : IDisposable
                 working_directory TEXT
             );
 
+            -- Command sequences table: tracks command-to-command transitions (n-grams)
+            CREATE TABLE IF NOT EXISTS command_sequences (
+                prev_command TEXT NOT NULL COLLATE NOCASE,
+                next_command TEXT NOT NULL COLLATE NOCASE,
+                frequency INTEGER NOT NULL DEFAULT 0,
+                last_seen TEXT NOT NULL,
+                PRIMARY KEY (prev_command, next_command)
+            );
+
             -- Indexes for performance
             CREATE INDEX IF NOT EXISTS idx_arguments_command ON arguments(command);
             CREATE INDEX IF NOT EXISTS idx_co_occurrences_command_arg ON co_occurrences(command, argument);
             CREATE INDEX IF NOT EXISTS idx_history_timestamp ON command_history(timestamp DESC);
+            CREATE INDEX IF NOT EXISTS idx_sequences_prev ON command_sequences(prev_command);
         ";
         command.ExecuteNonQuery();
     }
@@ -347,6 +357,86 @@ public class PersistenceManager : IDisposable
     }
 
     /// <summary>
+    /// Saves command sequences to the database using additive merging.
+    /// Frequencies are incremented, and timestamps use max (most recent).
+    /// </summary>
+    public void SaveCommandSequences(Dictionary<string, Dictionary<string, (int frequency, DateTime lastSeen)>> sequences)
+    {
+        if (sequences == null)
+            throw new ArgumentNullException(nameof(sequences));
+
+        using var connection = CreateConnection();
+
+        using var transaction = connection.BeginTransaction();
+
+        try
+        {
+            foreach (var (prevCommand, nextCommands) in sequences)
+            {
+                foreach (var (nextCommand, data) in nextCommands)
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.Transaction = transaction;
+                    cmd.CommandText = @"
+                        INSERT INTO command_sequences (prev_command, next_command, frequency, last_seen)
+                        VALUES (@prevCmd, @nextCmd, @frequency, @lastSeen)
+                        ON CONFLICT (prev_command, next_command) DO UPDATE SET
+                            frequency = frequency + @frequency,
+                            last_seen = MAX(last_seen, @lastSeen)
+                    ";
+                    cmd.Parameters.AddWithValue("@prevCmd", prevCommand);
+                    cmd.Parameters.AddWithValue("@nextCmd", nextCommand);
+                    cmd.Parameters.AddWithValue("@frequency", data.frequency);
+                    cmd.Parameters.AddWithValue("@lastSeen", data.lastSeen.ToString("O"));
+                    cmd.ExecuteNonQuery();
+                }
+            }
+
+            transaction.Commit();
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Loads command sequences from the database.
+    /// Returns a dictionary of prev_command -> (next_command -> (frequency, lastSeen)).
+    /// </summary>
+    public Dictionary<string, Dictionary<string, (int frequency, DateTime lastSeen)>> LoadCommandSequences()
+    {
+        var sequences = new Dictionary<string, Dictionary<string, (int frequency, DateTime lastSeen)>>(StringComparer.OrdinalIgnoreCase);
+
+        using var connection = CreateConnection();
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = @"
+            SELECT prev_command, next_command, frequency, last_seen
+            FROM command_sequences
+        ";
+        using var reader = cmd.ExecuteReader();
+
+        while (reader.Read())
+        {
+            var prevCommand = reader.GetString(0);
+            var nextCommand = reader.GetString(1);
+            var frequency = reader.GetInt32(2);
+            var lastSeen = DateTime.Parse(reader.GetString(3)).ToUniversalTime();
+
+            if (!sequences.ContainsKey(prevCommand))
+            {
+                sequences[prevCommand] = new Dictionary<string, (int frequency, DateTime lastSeen)>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            sequences[prevCommand][nextCommand] = (frequency, lastSeen);
+        }
+
+        return sequences;
+    }
+
+    /// <summary>
     /// Loads the ArgumentGraph from the database.
     /// </summary>
     public ArgumentGraph LoadArgumentGraph(int maxCommands = 500, int maxArgumentsPerCommand = 100, int scoreDecayDays = 30)
@@ -501,6 +591,7 @@ public class PersistenceManager : IDisposable
                 DELETE FROM co_occurrences;
                 DELETE FROM flag_combinations;
                 DELETE FROM command_history;
+                DELETE FROM command_sequences;
             ";
             cmd.ExecuteNonQuery();
 

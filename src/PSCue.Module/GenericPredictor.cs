@@ -44,15 +44,17 @@ public class GenericPredictor
     private readonly CommandHistory _history;
     private readonly ArgumentGraph _argumentGraph;
     private readonly ContextAnalyzer _contextAnalyzer;
+    private readonly SequencePredictor? _sequencePredictor;
 
     /// <summary>
     /// Creates a new GenericPredictor.
     /// </summary>
-    public GenericPredictor(CommandHistory history, ArgumentGraph argumentGraph, ContextAnalyzer contextAnalyzer)
+    public GenericPredictor(CommandHistory history, ArgumentGraph argumentGraph, ContextAnalyzer contextAnalyzer, SequencePredictor? sequencePredictor = null)
     {
         _history = history ?? throw new ArgumentNullException(nameof(history));
         _argumentGraph = argumentGraph ?? throw new ArgumentNullException(nameof(argumentGraph));
         _contextAnalyzer = contextAnalyzer ?? throw new ArgumentNullException(nameof(contextAnalyzer));
+        _sequencePredictor = sequencePredictor; // Optional - null if ML disabled
     }
 
     /// <summary>
@@ -284,7 +286,44 @@ public class GenericPredictor
     /// </summary>
     private void AddContextSuggestions(string command, List<string> arguments, CommandContext context, List<PredictionSuggestion> suggestions)
     {
-        // If this is a new command (no args yet), suggest subcommands based on sequences
+        // Get ML-based sequence predictions if available (n-gram predictor)
+        if (_sequencePredictor != null && arguments.Count == 0)
+        {
+            var recentCommands = context.RecentCommands.Select(e => e.Command).ToArray();
+            var sequencePredictions = _sequencePredictor.GetPredictions(recentCommands);
+
+            foreach (var (nextCommand, score) in sequencePredictions.Take(5))
+            {
+                // Check if this is a subcommand suggestion (e.g., "commit" for "git")
+                if (nextCommand.StartsWith(command, StringComparison.OrdinalIgnoreCase))
+                {
+                    var subcommand = nextCommand.Substring(command.Length).Trim();
+                    if (!string.IsNullOrEmpty(subcommand) && !subcommand.Contains(' '))
+                    {
+                        // Don't add if already in suggestions
+                        if (!suggestions.Any(s => s.Text.Equals(subcommand, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            suggestions.Add(new PredictionSuggestion
+                            {
+                                Text = subcommand,
+                                Description = $"ML predicted ({score:P0})",
+                                Score = score * 0.9, // Scale ML scores slightly lower than hardcoded
+                                IsFlag = false,
+                                Source = "ml-sequence"
+                            });
+                        }
+                    }
+                }
+                // Also suggest full next commands (e.g., after "git add", suggest "git commit")
+                else if (!nextCommand.StartsWith(command, StringComparison.OrdinalIgnoreCase))
+                {
+                    // This is a completely different command suggestion
+                    // Skip for now as these are handled differently by CommandPredictor
+                }
+            }
+        }
+
+        // If this is a new command (no args yet), suggest subcommands based on hardcoded sequences
         if (arguments.Count == 0 && context.SuggestedNextCommands.Count > 0)
         {
             foreach (var nextCmd in context.SuggestedNextCommands.Take(3))

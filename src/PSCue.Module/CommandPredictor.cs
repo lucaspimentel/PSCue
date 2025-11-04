@@ -84,6 +84,14 @@ public class CommandPredictor : ICommandPredictor
     /// <summary>
     /// Merges known completions with generic learned suggestions.
     /// Deduplicates and ranks by score.
+    ///
+    /// Blending strategy:
+    /// - Known completions: Scored 1.0 to 0.5 based on order
+    /// - Generic suggestions: Scored by frequency (0.6) + recency (0.4)
+    /// - ML sequence predictions: Scored by n-gram probability + recency (via GenericPredictor)
+    /// - Overlap boost: If suggestion appears in both, boost score by 1.2×
+    ///
+    /// Final score = (0.3 × frequency/recency) + (0.3 × n-gram) + (0.4 × known completions)
     /// </summary>
     private List<PredictiveSuggestion> MergeSuggestions(
         ReadOnlySpan<char> input,
@@ -104,7 +112,7 @@ public class CommandPredictor : ICommandPredictor
             suggestions[c.CompletionText] = (fullText, c.Tooltip, score);
         }
 
-        // Merge in generic suggestions
+        // Merge in generic suggestions (includes ML sequence predictions)
         if (genericSuggestions != null)
         {
             foreach (var g in genericSuggestions)
@@ -124,7 +132,7 @@ public class CommandPredictor : ICommandPredictor
                 }
                 else
                 {
-                    // New suggestion from generic learning
+                    // New suggestion from generic learning (including ML sequences)
                     suggestions[g.Text] = (fullText, g.Description, g.Score);
                 }
             }

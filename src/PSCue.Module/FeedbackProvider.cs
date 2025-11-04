@@ -288,7 +288,7 @@ public class FeedbackProvider : IFeedbackProvider
 
     /// <summary>
     /// Learns from ANY command execution (generic learning).
-    /// Updates CommandHistory and ArgumentGraph.
+    /// Updates CommandHistory, ArgumentGraph, and SequencePredictor.
     /// </summary>
     private void LearnFromCommand(string command, string commandLine, List<string> commandElements, bool success)
     {
@@ -300,6 +300,7 @@ public class FeedbackProvider : IFeedbackProvider
             // Get current instances dynamically from PSCueModule
             var commandHistory = PSCueModule.CommandHistory;
             var argumentGraph = PSCueModule.KnowledgeGraph;
+            var sequencePredictor = PSCueModule.SequencePredictor;
 
             // Get current working directory for path normalization
             string? workingDirectory = null;
@@ -316,6 +317,13 @@ public class FeedbackProvider : IFeedbackProvider
             if (commandHistory != null)
             {
                 commandHistory.Add(command, commandLine, arguments, success, workingDirectory);
+
+                // Record command sequence for n-gram prediction (only for successful commands)
+                if (success && sequencePredictor != null)
+                {
+                    var recentCommands = commandHistory.GetRecent(5).Select(e => e.Command).ToArray();
+                    sequencePredictor.RecordSequence(recentCommands);
+                }
             }
 
             // Update argument graph (only for successful commands to avoid learning bad patterns)

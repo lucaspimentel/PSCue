@@ -8,31 +8,43 @@ This document tracks active and planned work for PSCue. For architectural detail
 
 ## Current Status
 
-**Phase 16.7 Complete**: Added recovery mode for corrupted database.
-- ✅ Added `-Force` parameter to `Clear-PSCueLearning` for database recovery
-- ✅ Works even when PSCue module fails to initialize
-- ✅ Deletes all SQLite files (main DB + WAL journal files)
-- ✅ Updated documentation (CLAUDE.md, README.md)
-- ✅ All 323 tests passing (140 ArgumentCompleter + 183 Module)
+**Phase 17.1 Complete**: Added ML-based N-gram sequence prediction.
+- ✅ Created SequencePredictor component with bigram/trigram support
+- ✅ Integrated with FeedbackProvider for automatic learning
+- ✅ Extended database schema with command_sequences table
+- ✅ Added persistence with additive merging for concurrent sessions
+- ✅ Comprehensive testing: 25 unit + 8 integration + 9 performance tests
+- ✅ Performance validated: <1ms cache lookup, <20ms total prediction
+- ✅ Configuration via environment variables (enabled by default)
+- ✅ Updated documentation (CLAUDE.md, TODO.md)
+- ✅ All 365 tests passing (140 ArgumentCompleter + 225 Module)
 
-**Current Total Tests**: 323 passing
+**Current Total Tests**: 365 passing
 - ArgumentCompleter: 140 tests
-- Module: 183 tests (including Phases 11-15 learning, persistence, navigation)
+- Module: 225 tests (including Phases 11-17.1: learning, persistence, navigation, ML prediction)
+- Phase 17.1 added 42 tests (25 unit + 8 integration + 9 performance)
 
 ---
 
 ## Active Work
 
-No active work items. Phase 16.5 complete.
+No active work items. Phase 17.1 complete.
 
 ---
 
 ## Planned Work
 
-### Phase 14: Future Enhancements
+### Phase 17.2: Advanced ML (Future Enhancement)
 **Status**: Backlog
 
-- [ ] Add ML-based prediction support
+- [ ] Semantic embeddings for argument similarity (ONNX Runtime)
+- [ ] Pre-trained or user-trained models
+- [ ] Background pre-computation for heavy ML
+- [ ] Research ONNX Runtime + NativeAOT compatibility
+
+### Phase 18: Future Enhancements
+**Status**: Backlog
+
 - [ ] Copy AI model scripts to `ai/` directory
 - [ ] Create Scoop manifest
 - [ ] Publish to PowerShell Gallery

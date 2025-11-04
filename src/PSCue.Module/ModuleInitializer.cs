@@ -40,13 +40,26 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                 var maxArgs = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_MAX_ARGS_PER_CMD"), out var ma) ? ma : 100;
                 var decayDays = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_DECAY_DAYS"), out var dd) ? dd : 30;
 
+                // ML configuration (Phase 17.1: N-gram predictor)
+                var mlEnabled = Environment.GetEnvironmentVariable("PSCUE_ML_ENABLED")?.Equals("false", StringComparison.OrdinalIgnoreCase) != true; // Default: true
+                var ngramOrder = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_ML_NGRAM_ORDER"), out var no) ? no : 2; // Default: bigrams
+                var ngramMinFreq = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_ML_NGRAM_MIN_FREQ"), out var mf) ? mf : 3; // Default: 3 occurrences
+
                 // Initialize persistence manager and load learned data
                 PSCueModule.Persistence = new PersistenceManager();
                 PSCueModule.KnowledgeGraph = PSCueModule.Persistence.LoadArgumentGraph(maxCommands, maxArgs, decayDays);
                 PSCueModule.CommandHistory = PSCueModule.Persistence.LoadCommandHistory(historySize);
 
+                // Initialize ML sequence predictor if enabled
+                if (mlEnabled)
+                {
+                    PSCueModule.SequencePredictor = new SequencePredictor(ngramOrder, ngramMinFreq);
+                    var sequences = PSCueModule.Persistence.LoadCommandSequences();
+                    PSCueModule.SequencePredictor.Initialize(sequences);
+                }
+
                 _contextAnalyzer = new ContextAnalyzer();
-                _genericPredictor = new GenericPredictor(PSCueModule.CommandHistory, PSCueModule.KnowledgeGraph, _contextAnalyzer);
+                _genericPredictor = new GenericPredictor(PSCueModule.CommandHistory, PSCueModule.KnowledgeGraph, _contextAnalyzer, PSCueModule.SequencePredictor);
 
                 // Set up auto-save timer (every 5 minutes)
                 var autoSaveInterval = TimeSpan.FromMinutes(5);
@@ -138,6 +151,17 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
             {
                 PSCueModule.Persistence.SaveArgumentGraph(PSCueModule.KnowledgeGraph);
                 PSCueModule.Persistence.SaveCommandHistory(PSCueModule.CommandHistory);
+
+                // Save ML sequence data if enabled
+                if (PSCueModule.SequencePredictor != null)
+                {
+                    var delta = PSCueModule.SequencePredictor.GetDelta();
+                    if (delta.Count > 0)
+                    {
+                        PSCueModule.Persistence.SaveCommandSequences(delta);
+                        PSCueModule.SequencePredictor.ClearDelta();
+                    }
+                }
             }
         }
         catch (Exception ex)
@@ -159,6 +183,16 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
             {
                 PSCueModule.Persistence.SaveArgumentGraph(PSCueModule.KnowledgeGraph);
                 PSCueModule.Persistence.SaveCommandHistory(PSCueModule.CommandHistory);
+
+                // Save ML sequence data if enabled
+                if (PSCueModule.SequencePredictor != null)
+                {
+                    var delta = PSCueModule.SequencePredictor.GetDelta();
+                    if (delta.Count > 0)
+                    {
+                        PSCueModule.Persistence.SaveCommandSequences(delta);
+                    }
+                }
             }
         }
         catch (Exception ex)
@@ -169,6 +203,10 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
         // Stop auto-save timer
         _autoSaveTimer?.Dispose();
         _autoSaveTimer = null;
+
+        // Cleanup SequencePredictor
+        PSCueModule.SequencePredictor?.Dispose();
+        PSCueModule.SequencePredictor = null;
 
         // Cleanup persistence manager
         PSCueModule.Persistence?.Dispose();

@@ -23,4 +23,10 @@ public static class PSCueModule
     /// Handles cross-session persistence of learned data using SQLite.
     /// </summary>
     public static PersistenceManager? Persistence { get; internal set; }
+
+    /// <summary>
+    /// Gets the sequence predictor instance.
+    /// Learns command sequences (n-grams) for ML-based next-command prediction.
+    /// </summary>
+    public static SequencePredictor? SequencePredictor { get; internal set; }
 }

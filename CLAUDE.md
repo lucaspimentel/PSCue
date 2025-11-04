@@ -50,7 +50,8 @@ src/
 - `src/PSCue.Module/ArgumentGraph.cs`: Knowledge graph with path normalization (Phase 14)
 - `src/PSCue.Module/GenericPredictor.cs`: Context-aware suggestions with path filtering (Phase 14)
 - `src/PSCue.Module/CommandPredictor.cs`: Absolute path handling in Combine method (Phase 14)
-- `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence (~470 lines)
+- `src/PSCue.Module/SequencePredictor.cs`: N-gram ML prediction for command sequences (Phase 17.1)
+- `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence (~770 lines)
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
 - `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system (Phase 16)
 - `module/Functions/DatabaseManagement.ps1`: PowerShell functions for database queries (Phase 16)
@@ -59,6 +60,9 @@ src/
 - `test/PSCue.Module.Tests/FeedbackProviderTests.cs`: FeedbackProvider tests (26 tests, Phase 15)
 - `test/PSCue.Module.Tests/ArgumentGraphTests.cs`: Path normalization tests (28 tests, Phase 14)
 - `test/PSCue.Module.Tests/GenericPredictorTests.cs`: Context-aware filtering tests (20 tests, Phase 14)
+- `test/PSCue.Module.Tests/SequencePredictorTests.cs`: N-gram predictor unit tests (25 tests, Phase 17.1)
+- `test/PSCue.Module.Tests/SequencePersistenceIntegrationTests.cs`: Sequence persistence tests (8 tests, Phase 17.1)
+- `test/PSCue.Module.Tests/SequencePerformanceTests.cs`: Performance benchmarks (<1ms, <20ms) (9 tests, Phase 17.1)
 - `test/PSCue.Module.Tests/PersistenceManagerTests.cs`: Unit tests for persistence (10 tests)
 - `test/PSCue.Module.Tests/PersistenceConcurrencyTests.cs`: Multi-session concurrency (11 tests)
 - `test/PSCue.Module.Tests/PersistenceEdgeCaseTests.cs`: Edge cases & error handling (18 tests)
@@ -70,7 +74,8 @@ src/
 dotnet build src/PSCue.Module/ -c Release -f net9.0
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
-# Test (323 tests total: 140 ArgumentCompleter + 183 Module including Phases 11-15)
+# Test (365 tests total: 140 ArgumentCompleter + 225 Module including Phases 11-17.1)
+# Phase 17.1 adds 42 new tests (25 unit + 8 integration + 9 performance)
 dotnet test test/PSCue.ArgumentCompleter.Tests/
 dotnet test test/PSCue.Module.Tests/
 
@@ -78,6 +83,7 @@ dotnet test test/PSCue.Module.Tests/
 dotnet test --filter "FullyQualifiedName~Persistence"
 dotnet test --filter "FullyQualifiedName~FeedbackProvider"
 dotnet test --filter "FullyQualifiedName~CommandPredictor"
+dotnet test --filter "FullyQualifiedName~SequencePredictor"
 
 # Install locally
 ./scripts/install-local.ps1
@@ -171,6 +177,11 @@ $env:PSCUE_HISTORY_SIZE = "100"          # Command history size
 $env:PSCUE_MAX_COMMANDS = "500"          # Max commands to track
 $env:PSCUE_MAX_ARGS_PER_CMD = "100"      # Max arguments per command
 $env:PSCUE_DECAY_DAYS = "30"             # Score decay period (days)
+
+# ML prediction configuration (Phase 17.1: N-gram sequence predictor)
+$env:PSCUE_ML_ENABLED = "true"           # Enable ML sequence predictions (default: true)
+$env:PSCUE_ML_NGRAM_ORDER = "2"          # N-gram order: 2=bigrams, 3=trigrams (default: 2)
+$env:PSCUE_ML_NGRAM_MIN_FREQ = "3"       # Minimum frequency to suggest (default: 3 occurrences)
 
 # Privacy: ignore sensitive commands (comma-separated wildcards)
 $env:PSCUE_IGNORE_PATTERNS = "aws *,*secret*,*password*"
