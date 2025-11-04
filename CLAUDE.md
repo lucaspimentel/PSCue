@@ -188,5 +188,9 @@ $env:PSCUE_IGNORE_PATTERNS = "aws *,*secret*,*password*"
 ```
 
 ## Platform Support
-Windows x64, macOS arm64, Linux x64 (PowerShell 7.2+, IFeedbackProvider requires 7.4+)
-- when adding support for new commands, add the completer registration in module/PSCue.psm1
+**Supported**: Windows x64, Linux x64 (PowerShell 7.2+, IFeedbackProvider requires 7.4+)
+**Not supported**: macOS (can build from source using install-local.ps1)
+
+**CI/CD**: Automated builds and releases via GitHub Actions for win-x64 and linux-x64
+
+When adding support for new commands, add the completer registration in module/PSCue.psm1

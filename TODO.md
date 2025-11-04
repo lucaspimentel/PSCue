@@ -1,6 +1,6 @@
 # PSCue - Task List
 
-**Last Updated**: 2025-10-31
+**Last Updated**: 2025-11-04
 
 This document tracks active and planned work for PSCue. For architectural details, see [TECHNICAL_DETAILS.md](TECHNICAL_DETAILS.md). For completed work, see [COMPLETED.md](COMPLETED.md).
 
@@ -28,7 +28,12 @@ This document tracks active and planned work for PSCue. For architectural detail
 
 ## Active Work
 
-No active work items. Phase 17.1 complete.
+**CI/CD Setup Complete** (2025-11-04)
+- ✅ GitHub Actions CI workflow configured for win-x64 and linux-x64
+- ✅ GitHub Actions Release workflow configured for win-x64 and linux-x64
+- ✅ Fixed missing Functions/ directory in release archives (critical bug)
+- ✅ Added platform validation to install-remote.ps1
+- ✅ Ready for first release!
 
 ---
 
@@ -54,35 +59,48 @@ No active work items. Phase 17.1 complete.
 - [ ] Semantic argument understanding (detect file paths, URLs, etc.)
 
 ### CI/CD & Distribution
-**Status**: Not started
+**Status**: Complete ✅
 
-See [TECHNICAL_DETAILS.md#cicd-architecture](TECHNICAL_DETAILS.md#cicd-architecture) for full workflow design.
-
-**Quick Summary**:
-- [ ] GitHub Actions CI workflow (.github/workflows/ci.yml)
-  - Build & test on ubuntu-latest, windows-latest, macos-latest
-  - Run `dotnet test` and `dotnet format --verify-no-changes`
-- [ ] GitHub Actions Release workflow (.github/workflows/release.yml)
+**Completed Items**:
+- ✅ GitHub Actions CI workflow (.github/workflows/ci.yml)
+  - Build & test on ubuntu-latest, windows-latest (win-x64, linux-x64 only)
+  - Run `dotnet test` with 365 tests
+  - Lint/format check temporarily disabled (needs .editorconfig)
+- ✅ GitHub Actions Release workflow (.github/workflows/release.yml)
   - Trigger on git tags `v*` (e.g., `v1.0.0`)
-  - Build NativeAOT binaries for all platforms (win-x64, osx-x64, osx-arm64, linux-x64)
-  - Create platform-specific archives (zip for Windows, tar.gz for others)
+  - Build NativeAOT binaries for win-x64 and linux-x64
+  - Create platform-specific archives (zip for Windows, tar.gz for Linux)
   - Generate SHA256 checksums
   - Create GitHub release with all artifacts
-- [ ] Update `scripts/install-remote.ps1` for downloading from GitHub releases
+  - **Fixed**: Added Functions/ directory to release archives
+- ✅ Updated `scripts/install-remote.ps1`
+  - Download from GitHub releases (latest or specific version)
+  - Platform validation (win-x64, linux-x64 only)
+  - **Fixed**: Copy Functions/ directory from archives
+
+**Platform Support**: Windows x64, Linux x64 only (macOS removed)
 
 **Manual Release Process**:
 ```bash
 # 1. Update version in module/PSCue.psd1
-# 2. Commit version bump
+# 2. Commit and create tag
 git add module/PSCue.psd1
-git commit -m "Bump version to 1.0.0"
-
-# 3. Create and push tag
+git commit -m "chore: bump version to 1.0.0"
 git tag -a v1.0.0 -m "Release v1.0.0"
-git push origin v1.0.0
+git push origin main v1.0.0
 
-# 4. GitHub Actions automatically builds and creates release
+# 3. GitHub Actions automatically:
+#    - Builds for win-x64 and linux-x64
+#    - Runs all 365 tests on both platforms
+#    - Creates release archives with Functions/ directory
+#    - Generates checksums
+#    - Creates GitHub release
 ```
+
+**Remaining Distribution Tasks**:
+- [ ] Create Scoop manifest (Windows package manager)
+- [ ] Publish to PowerShell Gallery
+- [ ] Optional: Enable dotnet format checking (requires .editorconfig)
 
 ---
 

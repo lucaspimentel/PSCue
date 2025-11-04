@@ -76,6 +76,16 @@ $Architecture = [System.Runtime.InteropServices.RuntimeInformation]::ProcessArch
 $RID = "$Platform-$Architecture"
 Write-Info "Platform: $RID"
 
+# Validate supported platforms
+$SupportedPlatforms = @('win-x64', 'linux-x64')
+if ($RID -notin $SupportedPlatforms) {
+    Write-Error "Platform '$RID' is not currently supported."
+    Write-Info "Supported platforms: $($SupportedPlatforms -join ', ')"
+    Write-Info ""
+    Write-Info "To build from source, use: ./scripts/install-local.ps1"
+    exit 1
+}
+
 # Map platform to release asset name
 $Extension = if ($IsWindows) { "zip" } else { "tar.gz" }
 $AssetName = "PSCue-$RID.$Extension"
@@ -195,6 +205,13 @@ try {
         if (-not $IsWindows -and $file.Name -eq "pscue-completer") {
             & chmod +x (Join-Path $InstallDir $file.Name)
         }
+    }
+
+    # Copy Functions directory if it exists
+    $FunctionsDir = Join-Path $ExtractDir "Functions"
+    if (Test-Path $FunctionsDir) {
+        Copy-Item -Path $FunctionsDir -Destination $InstallDir -Recurse -Force
+        Write-Info "  Installed: Functions/"
     }
 
     # Success!

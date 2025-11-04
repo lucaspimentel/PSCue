@@ -21,9 +21,6 @@ jobs:
           - os: windows-latest
             rid: win-x64
             archive-ext: zip
-          - os: macos-latest
-            rid: osx-arm64
-            archive-ext: tar.gz
           - os: ubuntu-latest
             rid: linux-x64
             archive-ext: tar.gz
@@ -51,6 +48,7 @@ jobs:
         run: |
           Copy-Item module/PSCue.psd1 dist/${{ matrix.rid }}/
           Copy-Item module/PSCue.psm1 dist/${{ matrix.rid }}/
+          Copy-Item -Path module/Functions -Destination dist/${{ matrix.rid }}/ -Recurse
           Copy-Item LICENSE dist/${{ matrix.rid }}/
           Copy-Item README.md dist/${{ matrix.rid }}/
 
@@ -126,6 +124,5 @@ jobs:
           generate_release_notes: true
           files: |
             artifacts/PSCue-win-x64/PSCue-win-x64.zip
-            artifacts/PSCue-osx-arm64/PSCue-osx-arm64.tar.gz
             artifacts/PSCue-linux-x64/PSCue-linux-x64.tar.gz
             checksums.txt

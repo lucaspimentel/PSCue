@@ -15,7 +15,7 @@
 - **🎯 Context-Aware Suggestions**: Detects command sequences and boosts relevant suggestions based on recent activity
 - **⚡ High Performance**: <1ms cache lookups, <20ms total prediction time (within PowerShell's timeout)
 - **🆘 Error Suggestions**: Provides helpful recovery suggestions when commands fail (e.g., git errors)
-- **🔌 Cross-platform**: Windows, macOS (Apple Silicon), and Linux support
+- **🔌 Cross-platform**: Windows (x64) and Linux (x64) support
 - **📦 Zero Configuration**: Works out of the box after installation
 
 ### Two-Component Design
@@ -350,7 +350,7 @@ TabExpansion2 'git checkout ma' 15
 - [x] Tab completion working (ArgumentCompleter)
 - [x] Inline predictions working (CommandPredictor)
 - [x] Shared completion logic (PSCue.Shared)
-- [x] Multi-platform CI/CD
+- [x] Multi-platform CI/CD (Windows x64, Linux x64)
 - [x] Comprehensive documentation
 - [x] **Simplified Architecture** (Phase 16, completed 2025-01-30)
   - Removed IPC layer entirely (no longer needed)
@@ -415,11 +415,14 @@ $env:PSCUE_IGNORE_PATTERNS = "aws *,*secret*,*password*"
 
 ### Future Work
 
-- **Advanced Features & Distribution**
+- **Distribution**
+  - PowerShell Gallery publishing
+  - Scoop package manager (Windows)
+  - .editorconfig + format checking in CI
+- **Advanced Features**
   - Error suggestions for more commands (gh, az, scoop)
   - Advanced ML with semantic embeddings (ONNX Runtime)
-  - PowerShell Gallery publishing
-  - Scoop/Homebrew package managers
+  - macOS support (currently Windows x64 and Linux x64 only)
 
 See [TODO.md](TODO.md) for detailed implementation plan.
 
@@ -499,7 +502,7 @@ Write-Host "In memory: $inMemory | In database: $inDb"
 
 **Database Location:**
 - Windows: `%LOCALAPPDATA%\PSCue\learned-data.db`
-- Linux/macOS: `~/.local/share/PSCue/learned-data.db`
+- Linux: `~/.local/share/PSCue/learned-data.db`
 
 For detailed documentation on database functions, schema, and use cases, see [DATABASE-FUNCTIONS.md](DATABASE-FUNCTIONS.md).
 
@@ -571,9 +574,9 @@ The `-Force` parameter bypasses initialization checks and directly deletes the S
 
 ### Platform-specific issues
 
-- **macOS**: Ensure you downloaded the `osx-arm64` build (Apple Silicon)
 - **Linux**: May need to set executable permissions: `chmod +x ~/.local/pwsh-modules/PSCue/pscue-completer`
 - **Windows**: If execution policy blocks the module, run: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
+- **macOS**: Not currently supported (Windows x64 and Linux x64 only). You can build from source using `./scripts/install-local.ps1`
 
 ## License
 
