@@ -8,7 +8,7 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 - **Cross-Session Persistence**: SQLite database stores learned data across sessions
 - **Directory-Aware Navigation**: Smart cd/Set-Location suggestions with path normalization
 - **PowerShell Module Functions**: 7 functions for learning and database management (no IPC overhead)
-- **323 Tests**: Comprehensive test coverage (140 ArgumentCompleter + 183 Module)
+- **354 Tests Passing**: Comprehensive test coverage (142 ArgumentCompleter + 212 Module passing)
 
 **Supported Commands**: git, gh, gt (Graphite), az, azd, func, code, scoop, winget, wt (Windows Terminal), chezmoi, tre, lsd, dust, cd/Set-Location
 
@@ -74,10 +74,10 @@ src/
 dotnet build src/PSCue.Module/ -c Release -f net9.0
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
-# Test (365 tests total: 140 ArgumentCompleter + 225 Module including Phases 11-17.1)
-# Phase 17.1 adds 42 new tests (25 unit + 8 integration + 9 performance)
-dotnet test test/PSCue.ArgumentCompleter.Tests/
-dotnet test test/PSCue.Module.Tests/
+# Test (354 passing: 142 ArgumentCompleter + 212 Module)
+# Note: 4 tests skipped/flaky (concurrency tests)
+dotnet test test/PSCue.ArgumentCompleter.Tests/  # 142 tests, all passing
+dotnet test test/PSCue.Module.Tests/             # 216 tests, 212 passing
 
 # Run specific test groups
 dotnet test --filter "FullyQualifiedName~Persistence"
@@ -192,5 +192,9 @@ $env:PSCUE_IGNORE_PATTERNS = "aws *,*secret*,*password*"
 **Not supported**: macOS (can build from source using install-local.ps1)
 
 **CI/CD**: Automated builds and releases via GitHub Actions for win-x64 and linux-x64
+- **Latest Release**: v0.2.0 (2025-11-05)
+- **Installation**: `irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-remote.ps1 | iex`
+- **Release Assets**: PSCue-win-x64.zip, PSCue-linux-x64.tar.gz, checksums.txt
+- **Includes**: Functions/ directory fix from v0.1.0
 
 When adding support for new commands, add the completer registration in module/PSCue.psm1

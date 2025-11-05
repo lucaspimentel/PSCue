@@ -1,6 +1,6 @@
 # PSCue - Task List
 
-**Last Updated**: 2025-11-04
+**Last Updated**: 2025-11-05
 
 This document tracks active and planned work for PSCue. For architectural details, see [TECHNICAL_DETAILS.md](TECHNICAL_DETAILS.md). For completed work, see [COMPLETED.md](COMPLETED.md).
 
@@ -19,21 +19,30 @@ This document tracks active and planned work for PSCue. For architectural detail
 - ✅ Updated documentation (CLAUDE.md, TODO.md)
 - ✅ All 365 tests passing (140 ArgumentCompleter + 225 Module)
 
-**Current Total Tests**: 365 passing
-- ArgumentCompleter: 140 tests
-- Module: 225 tests (including Phases 11-17.1: learning, persistence, navigation, ML prediction)
-- Phase 17.1 added 42 tests (25 unit + 8 integration + 9 performance)
+**Current Total Tests**: 354 of 358 passing
+- ArgumentCompleter: 142 tests (all passing)
+- Module: 212 of 216 tests passing (4 skipped/flaky concurrency tests)
+- Test count adjusted after removing obsolete CompletionCache tests in v0.2.0
 
 ---
 
 ## Active Work
 
-**CI/CD Setup Complete** (2025-11-04)
+**v0.2.0 Released!** (2025-11-05)
+- ✅ Fixed test compilation errors from architecture refactoring
+- ✅ Updated FeedbackProvider tests to use PSCueModule static properties
+- ✅ Removed obsolete CompletionCache tests
+- ✅ Fixed xUnit async/await warning
+- ✅ Successfully released v0.2.0 with working CI/CD
+- ✅ Release includes: PSCue-win-x64.zip, PSCue-linux-x64.tar.gz, checksums.txt
+- 🎉 First successful release available for installation!
+
+**CI/CD Complete** (2025-11-04/05)
 - ✅ GitHub Actions CI workflow configured for win-x64 and linux-x64
-- ✅ GitHub Actions Release workflow configured for win-x64 and linux-x64
-- ✅ Fixed missing Functions/ directory in release archives (critical bug)
+- ✅ GitHub Actions Release workflow configured and tested
+- ✅ Fixed missing Functions/ directory in release archives (critical bug from v0.1.0)
 - ✅ Added platform validation to install-remote.ps1
-- ✅ Ready for first release!
+- ✅ v0.1.0 attempted (build failures), v0.2.0 successful
 
 ---
 
@@ -97,10 +106,12 @@ git push origin main v1.0.0
 #    - Creates GitHub release
 ```
 
-**Remaining Distribution Tasks**:
+**Next Distribution Steps**:
+- [ ] Test v0.2.0 installation on fresh Windows and Linux systems
 - [ ] Create Scoop manifest (Windows package manager)
 - [ ] Publish to PowerShell Gallery
 - [ ] Optional: Enable dotnet format checking (requires .editorconfig)
+- [ ] Consider adding release notes generation automation
 
 ---
 
