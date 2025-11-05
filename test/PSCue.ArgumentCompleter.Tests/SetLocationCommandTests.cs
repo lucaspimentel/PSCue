@@ -122,7 +122,7 @@ public class SetLocationCommandTests
         }
     }
 
-    [Fact]
+    [SkippableFact]
     public void GetDirectorySuggestions_Detects_Absolute_Path_Windows()
     {
         Skip.IfNot(IsWindows, "Windows-specific test");
@@ -394,7 +394,7 @@ public class SetLocationCommandTests
         Assert.Contains(completions, x => x.CompletionText == "..");
     }
 
-    [Fact]
+    [SkippableFact]
     public void Cross_Platform_Path_Handling_Windows()
     {
         Skip.IfNot(IsWindows, "Windows-specific test");
