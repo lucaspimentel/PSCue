@@ -27,6 +27,9 @@ For current and future work, see [TODO.md](TODO.md).
 - **Phase 16**: PowerShell Module Functions + IPC Removal ✅
 - **Phase 16.5**: Module Function Testing & Bug Fixes ✅
 - **Phase 16.6**: Removed Unused CompletionCache ✅
+- **Phase 17.1**: ML-Based N-gram Sequence Prediction ✅
+- **Phase 17.2**: Privacy & Security - Sensitive Data Protection ✅
+- **CI/CD & Distribution**: GitHub Actions Automated Releases ✅
 
 ---
 
@@ -1134,6 +1137,127 @@ Removed vestigial CompletionCache infrastructure that served no purpose (~727 li
 - 323 tests passing (140 ArgumentCompleter + 183 Module)
 - Simpler architecture with single learning system
 - No functional impact
+
+### Phase 17.1: ML-Based N-gram Sequence Prediction ✅
+
+**Completed**: 2025-11-04
+
+Added intelligent command sequence prediction using n-gram machine learning model.
+
+**Features**:
+- **SequencePredictor**: N-gram based ML prediction for command sequences
+- **Bigram/Trigram Support**: Configurable via PSCUE_ML_NGRAM_ORDER (default: 2)
+- **Automatic Learning**: Integrated with FeedbackProvider for seamless learning
+- **SQLite Persistence**: Stores learned sequences with frequencies across sessions
+- **Additive Merging**: Concurrent session support with frequency summing
+- **Performance**: <1ms cache lookups, <20ms total prediction time
+- **Configuration**: Environment variables for enabling/disabling and tuning
+
+**Implementation**:
+- `src/PSCue.Module/SequencePredictor.cs`: N-gram prediction engine (~350 lines)
+- Database schema extended with `command_sequences` table
+- Integration with PersistenceManager for cross-session storage
+
+**Testing**:
+- Unit tests: SequencePredictorTests.cs
+- Integration tests: SequencePersistenceIntegrationTests.cs
+- Performance tests: SequencePerformanceTests.cs
+- All tests passing
+
+**Configuration**:
+```powershell
+$env:PSCUE_ML_ENABLED = "true"           # Enable ML predictions (default)
+$env:PSCUE_ML_NGRAM_ORDER = "2"          # N-gram order (2=bigrams, 3=trigrams)
+$env:PSCUE_ML_NGRAM_MIN_FREQ = "3"       # Minimum frequency threshold
+```
+
+### Phase 17.2: Privacy & Security - Sensitive Data Protection ✅
+
+**Completed**: 2025-11-05
+
+Multi-layered filtering to prevent learning commands with sensitive information.
+
+**Features**:
+- **Built-in Keyword Filtering** (always active, cannot be disabled):
+  - `*password*`, `*passwd*`, `*secret*`, `*api*key*`, `*token*`
+  - `*private*key*`, `*credentials*`, `*bearer*`, `*oauth*`
+
+- **Heuristic Detection** (pattern-based, always active):
+  - GitHub/Stripe keys: `sk_`, `pk_`, `ghp_`, `gho_`, etc.
+  - AWS access keys: `AKIA...`
+  - JWT tokens: `eyJ...`
+  - Bearer tokens: `Bearer ...`
+  - Long secrets: Base64/hex strings (40+ chars, outside quotes)
+
+- **Smart Filtering**:
+  - Removes quoted content before hex/base64 checks
+  - Avoids false positives from commit messages
+  - Example: `git commit -m 'aaaa...'` allowed, `echo aaaa...` blocked
+
+- **Custom User Patterns**:
+  - Configure via `PSCUE_IGNORE_PATTERNS` environment variable
+  - Wildcard support: `"aws *,terraform *,*custom*"`
+
+**Implementation**:
+- Enhanced `FeedbackProvider.cs` with filtering logic (~90 lines added)
+- `LoadIgnorePatterns()`: Loads built-in + user patterns
+- `ShouldIgnoreCommand()`: Wildcard matching
+- `ContainsSensitiveValue()`: Heuristic detection
+
+**Testing**:
+- Comprehensive test coverage for all scenarios
+- FeedbackProviderTests.cs extended with filtering tests
+- All tests passing
+
+**Documentation**:
+- Added dedicated "Privacy & Security" section to README.md
+- Updated CLAUDE.md with filtering details
+- Updated TODO.md
+
+### CI/CD & Distribution: GitHub Actions Automated Releases ✅
+
+**Completed**: 2025-11-04/05
+
+Automated build, test, and release pipeline for PSCue.
+
+**Features**:
+- **CI Workflow** (`.github/workflows/ci.yml`):
+  - Runs on every push and PR
+  - Builds for win-x64 and linux-x64
+  - Runs full test suite on both platforms
+  - Matrix strategy for parallel builds
+
+- **Release Workflow** (`.github/workflows/release.yml`):
+  - Triggers on version tags (`v*`)
+  - Builds NativeAOT binaries for both platforms
+  - Creates platform-specific archives (zip/tar.gz)
+  - Generates SHA256 checksums
+  - Creates GitHub release with all artifacts
+  - **Fixed**: Includes Functions/ directory in archives
+
+- **Installation Script** (`scripts/install-remote.ps1`):
+  - Downloads from GitHub releases (latest or specific version)
+  - Platform detection and validation
+  - Extracts and installs to `~/.local/pwsh-modules/PSCue/`
+  - One-line installation: `irm https://raw.githubusercontent.com/.../install-remote.ps1 | iex`
+
+**Platform Support**: Windows x64, Linux x64
+
+**Releases**:
+- v0.1.0: Initial attempt (build failures)
+- v0.2.0: First successful release with all features
+
+**Manual Release Process**:
+```bash
+# 1. Update version in module/PSCue.psd1
+# 2. Commit and tag
+git add module/PSCue.psd1
+git commit -m "chore: bump version to X.Y.Z"
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+git push origin main vX.Y.Z
+
+# 3. GitHub Actions automatically builds and publishes
+```
 
 ## Notes
 
