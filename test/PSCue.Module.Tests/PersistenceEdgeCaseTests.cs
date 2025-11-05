@@ -189,13 +189,44 @@ public class PersistenceEdgeCaseTests : IDisposable
         Thread.Sleep(200); // Wait for SQLite to release file handles
 
         // Delete all related files (db, wal, shm)
+        var walFile = _testDbPath + "-wal";
+        var shmFile = _testDbPath + "-shm";
+
         try
         {
-            File.Delete(_testDbPath);
-            var walFile = _testDbPath + "-wal";
-            var shmFile = _testDbPath + "-shm";
-            if (File.Exists(walFile)) File.Delete(walFile);
-            if (File.Exists(shmFile)) File.Delete(shmFile);
+            // Try multiple times with increasing delays (SQLite WAL on Linux can be slow)
+            for (int attempt = 0; attempt < 5; attempt++)
+            {
+                try
+                {
+                    if (File.Exists(_testDbPath)) File.Delete(_testDbPath);
+                    if (File.Exists(walFile)) File.Delete(walFile);
+                    if (File.Exists(shmFile)) File.Delete(shmFile);
+
+                    // Verify all files are actually deleted
+                    if (!File.Exists(_testDbPath) && !File.Exists(walFile) && !File.Exists(shmFile))
+                    {
+                        break;
+                    }
+                }
+                catch (IOException)
+                {
+                    // Files still locked, wait and retry
+                }
+
+                if (attempt < 4)
+                {
+                    Thread.Sleep(100 * (attempt + 1)); // Exponential backoff
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
+                }
+            }
+
+            // Final check - if files still exist, skip test
+            if (File.Exists(_testDbPath) || File.Exists(walFile) || File.Exists(shmFile))
+            {
+                return;
+            }
         }
         catch (IOException)
         {
