@@ -183,8 +183,19 @@ $env:PSCUE_ML_ENABLED = "true"           # Enable ML sequence predictions (defau
 $env:PSCUE_ML_NGRAM_ORDER = "2"          # N-gram order: 2=bigrams, 3=trigrams (default: 2)
 $env:PSCUE_ML_NGRAM_MIN_FREQ = "3"       # Minimum frequency to suggest (default: 3 occurrences)
 
-# Privacy: ignore sensitive commands (comma-separated wildcards)
-$env:PSCUE_IGNORE_PATTERNS = "aws *,*secret*,*password*"
+# Privacy & Security: Command filtering
+# BUILT-IN patterns (always active, cannot be disabled):
+#   *password*, *passwd*, *secret*, *api*key*, *token*, *private*key*,
+#   *credentials*, *bearer*, *oauth*
+# HEURISTIC detection (always active):
+#   - GitHub/Stripe keys (sk_, pk_, ghp_, gho_, etc.)
+#   - AWS access keys (AKIA...)
+#   - JWT tokens (eyJ...)
+#   - Bearer tokens
+#   - Long base64/hex strings (40+ chars, outside quotes)
+#
+# Additional user patterns (comma-separated wildcards):
+$env:PSCUE_IGNORE_PATTERNS = "aws *,terraform *,*custom-secret*"
 ```
 
 ## Platform Support

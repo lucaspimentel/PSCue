@@ -147,15 +147,129 @@ public class FeedbackProviderTests
         Assert.DoesNotContain(suggestions, s => s.Argument == "invalid-command");
     }
 
+    /// <summary>
+    /// Tests built-in sensitive data patterns that are always ignored.
+    /// These patterns protect user privacy by preventing learning of commands with sensitive data.
+    /// </summary>
+    [Theory]
+    [InlineData("git commit -m my-password here")]                          // Contains "password"
+    [InlineData("export API_KEY=sk_test_12345")]                            // Contains "api_key"
+    [InlineData("echo $SECRET_TOKEN")]                                      // Contains "secret" and "token"
+    [InlineData("curl -H 'Authorization: Bearer abc123'")]                  // Contains "bearer"
+    [InlineData("az login --service-principal --password hunter2")]         // Contains "password"
+    [InlineData("gh auth login --with-token")]                              // Contains "token"
+    [InlineData("echo my-private-key")]                                     // Contains "private*key"
+    [InlineData("set OAUTH_SECRET=value")]                                  // Contains "oauth"
+    [InlineData("aws configure set aws_secret_access_key value")]           // Contains "secret"
+    public void GetFeedback_BuiltInSensitivePattern_NeverLearns(string commandLine)
+    {
+        // Arrange - No custom patterns set, only built-in patterns apply
+        Environment.SetEnvironmentVariable("PSCUE_IGNORE_PATTERNS", null);
+        try
+        {
+            var history = new CommandHistory();
+            var graph = new ArgumentGraph();
+            PSCueModule.CommandHistory = history;
+            PSCueModule.KnowledgeGraph = graph;
+            var provider = new FeedbackProvider();
+            var context = CreateSuccessContext(commandLine);
+
+            // Act
+            provider.GetFeedback(context, CancellationToken.None);
+
+            // Assert - Should not add to history due to built-in patterns
+            var entries = history.GetRecent(10);
+            Assert.Empty(entries);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PSCUE_IGNORE_PATTERNS", null);
+        }
+    }
+
+    /// <summary>
+    /// Tests heuristic detection of API keys and tokens by pattern matching.
+    /// These don't rely on keyword matching but detect structure of sensitive values.
+    /// </summary>
+    [Theory]
+    [InlineData("gh auth login ghp_1234567890abcdefghijklmnopqrstuvwxyz")]   // GitHub personal access token
+    [InlineData("export STRIPE_KEY=sk_test_1234567890abcdefghijklmnop")]     // Stripe secret key
+    [InlineData("aws configure set aws_access_key_id AKIAIOSFODNN7EXAMPLE")] // AWS access key
+    [InlineData("curl -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c")] // JWT token
+    [InlineData("echo abcdef1234567890abcdef1234567890abcdef1234567890")]    // Long hex string (64 chars)
+    [InlineData("set TOKEN=YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY3ODkw")] // Base64-like string (40 chars)
+    public void GetFeedback_SensitiveValueHeuristic_NeverLearns(string commandLine)
+    {
+        // Arrange - No custom patterns, heuristics should detect sensitive values
+        Environment.SetEnvironmentVariable("PSCUE_IGNORE_PATTERNS", null);
+        try
+        {
+            var history = new CommandHistory();
+            var graph = new ArgumentGraph();
+            PSCueModule.CommandHistory = history;
+            PSCueModule.KnowledgeGraph = graph;
+            var provider = new FeedbackProvider();
+            var context = CreateSuccessContext(commandLine);
+
+            // Act
+            provider.GetFeedback(context, CancellationToken.None);
+
+            // Assert - Should not add to history due to heuristic detection
+            var entries = history.GetRecent(10);
+            Assert.Empty(entries);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PSCUE_IGNORE_PATTERNS", null);
+        }
+    }
+
+    /// <summary>
+    /// Tests that normal commands without sensitive data are still learned.
+    /// </summary>
+    [Theory]
+    [InlineData("git status")]                                              // Normal git command
+    [InlineData("docker ps")]                                               // Normal docker command
+    [InlineData("kubectl get pods")]                                        // Normal kubectl command
+    [InlineData("npm install express")]                                     // Normal npm command
+    [InlineData("cargo build --release")]                                   // Normal cargo command
+    [InlineData("git commit -m 'Add feature'")]                             // Normal commit (no sensitive words)
+    [InlineData("echo Hello World")]                                        // Simple echo (no sensitive data)
+    public void GetFeedback_NormalCommand_LearnsCorrectly(string commandLine)
+    {
+        // Arrange
+        Environment.SetEnvironmentVariable("PSCUE_IGNORE_PATTERNS", null);
+        try
+        {
+            var history = new CommandHistory();
+            var graph = new ArgumentGraph();
+            PSCueModule.CommandHistory = history;
+            PSCueModule.KnowledgeGraph = graph;
+            var provider = new FeedbackProvider();
+            var context = CreateSuccessContext(commandLine);
+
+            // Act
+            provider.GetFeedback(context, CancellationToken.None);
+
+            // Assert - Should learn normally
+            var entries = history.GetRecent(10);
+            Assert.Single(entries);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PSCUE_IGNORE_PATTERNS", null);
+        }
+    }
+
     [Theory]
     [InlineData("git status", "git")]                                       // Exact match
     [InlineData("aws configure", "aws")]                                    // Wildcard prefix match
     [InlineData("aws s3 ls", "aws *")]                                      // Wildcard prefix match
-    [InlineData("echo my-password", "*password*")]                          // Wildcard contains match
-    [InlineData("set SECRET_KEY=value", "*secret*")]                        // Case insensitive match
-    public void GetFeedback_IgnoredPattern_DoesNotLearn(string commandLine, string ignorePattern)
+    [InlineData("echo my-custom-secret", "*custom-secret*")]                // Custom user pattern
+    [InlineData("terraform apply -var api_endpoint=prod", "*terraform*")]   // Custom command block
+    public void GetFeedback_CustomIgnorePattern_DoesNotLearn(string commandLine, string ignorePattern)
     {
-        // Arrange
+        // Arrange - Custom user patterns via environment variable
         Environment.SetEnvironmentVariable("PSCUE_IGNORE_PATTERNS", ignorePattern);
         try
         {

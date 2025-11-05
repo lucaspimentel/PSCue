@@ -238,20 +238,40 @@ public class FeedbackProvider : IFeedbackProvider
     /// <summary>
     /// Loads ignore patterns from environment variable for privacy.
     /// Format: PSCUE_IGNORE_PATTERNS="aws *,*secret*,*password*"
+    /// Also includes built-in patterns for common sensitive data patterns.
     /// </summary>
     private static HashSet<string> LoadIgnorePatterns()
     {
         var patterns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        var envValue = Environment.GetEnvironmentVariable("PSCUE_IGNORE_PATTERNS");
-        if (string.IsNullOrWhiteSpace(envValue))
+        // Built-in patterns for common sensitive data
+        // These are always active to protect user privacy
+        var builtInPatterns = new[]
         {
-            return patterns;
-        }
+            "*password*",
+            "*passwd*",
+            "*secret*",
+            "*api*key*",      // Matches api-key, api_key, apikey, API_KEY, etc.
+            "*token*",
+            "*private*key*",
+            "*credentials*",
+            "*bearer*",
+            "*oauth*"
+        };
 
-        foreach (var pattern in envValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        foreach (var pattern in builtInPatterns)
         {
             patterns.Add(pattern);
+        }
+
+        // Add user-defined patterns from environment variable
+        var envValue = Environment.GetEnvironmentVariable("PSCUE_IGNORE_PATTERNS");
+        if (!string.IsNullOrWhiteSpace(envValue))
+        {
+            foreach (var pattern in envValue.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                patterns.Add(pattern);
+            }
         }
 
         return patterns;
@@ -259,6 +279,7 @@ public class FeedbackProvider : IFeedbackProvider
 
     /// <summary>
     /// Checks if a command should be ignored for privacy.
+    /// Detects sensitive data patterns in command names and arguments.
     /// </summary>
     private bool ShouldIgnoreCommand(string command, string commandLine)
     {
@@ -269,7 +290,7 @@ public class FeedbackProvider : IFeedbackProvider
         if (_ignorePatterns.Contains(command))
             return true;
 
-        // Check wildcard patterns
+        // Check wildcard patterns against full command line
         foreach (var pattern in _ignorePatterns)
         {
             if (pattern.Contains('*'))
@@ -280,6 +301,63 @@ public class FeedbackProvider : IFeedbackProvider
                 {
                     return true;
                 }
+            }
+        }
+
+        // Additional heuristics: Detect likely sensitive values in arguments
+        // Look for long alphanumeric strings that could be API keys/tokens
+        // Common patterns: 32+ chars, mix of letters/numbers/special chars
+        if (ContainsSensitiveValue(commandLine))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Detects potential sensitive values like API keys or tokens in command arguments.
+    /// Uses heuristics to identify long alphanumeric strings that could be secrets.
+    /// </summary>
+    private static bool ContainsSensitiveValue(string commandLine)
+    {
+        // Common patterns for API keys/tokens:
+        // - Long strings (32+ chars) with mixed alphanumeric
+        // - Common prefixes: sk-, pk-, ghp_, gho_, Bearer, AWS, AKIA
+        // - Base64-like patterns
+        // Note: We check for these outside of quoted strings to avoid false positives from commit messages
+
+        var sensitivePatterns = new[]
+        {
+            @"\b(sk|pk|ghp|gho|ghs|ghr)_[A-Za-z0-9_]{10,}",   // GitHub, Stripe keys (10+ chars after prefix, allows underscores)
+            @"\bAKIA[A-Z0-9]{16}",                              // AWS access keys
+            @"Bearer\s+[A-Za-z0-9\-._~+/]+=*",                 // Bearer tokens (very specific pattern)
+            @"\b(ey[A-Za-z0-9_-]{10,}\.){2}[A-Za-z0-9_-]{10,}", // JWT tokens (very specific pattern)
+        };
+
+        foreach (var pattern in sensitivePatterns)
+        {
+            if (System.Text.RegularExpressions.Regex.IsMatch(commandLine, pattern))
+            {
+                return true;
+            }
+        }
+
+        // For base64 and hex patterns, only match if they appear as standalone arguments (not in quotes)
+        // Remove quoted content first to avoid false positives from commit messages
+        var withoutQuotes = System.Text.RegularExpressions.Regex.Replace(commandLine, @"['""][^'""]*['""]", "");
+
+        var standaloneValuePatterns = new[]
+        {
+            @"\b[A-Za-z0-9+/]{40,}={0,2}\b",                   // Base64-like (40+ chars, not in quotes)
+            @"\b[a-f0-9]{40,}\b",                              // Hex tokens (40+ chars, not in quotes)
+        };
+
+        foreach (var pattern in standaloneValuePatterns)
+        {
+            if (System.Text.RegularExpressions.Regex.IsMatch(withoutQuotes, pattern))
+            {
+                return true;
             }
         }
 

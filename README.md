@@ -11,6 +11,7 @@
 - **🤖 ML-Based Predictions**: N-gram sequence learning predicts your next command (e.g., `git add` → `git commit`)
 - **⚡ PowerShell Module Functions**: Native PowerShell functions for learning and database management
 - **🧠 Universal Learning System**: Learns from ALL commands (not just pre-configured ones) and adapts to your workflow patterns
+- **🔒 Privacy & Security**: Built-in sensitive data detection - never learns commands with API keys, passwords, or tokens
 - **💾 Cross-Session Persistence**: Learning data persists across PowerShell sessions using SQLite with concurrent session support
 - **🎯 Context-Aware Suggestions**: Detects command sequences and boosts relevant suggestions based on recent activity
 - **⚡ High Performance**: <1ms cache lookups, <20ms total prediction time (within PowerShell's timeout)
@@ -162,6 +163,51 @@ git checkout nonexistent-branch
 ```
 
 **Requirements**: PowerShell 7.4+ with `PSFeedbackProvider` experimental feature enabled (see setup instructions below).
+
+## Privacy & Security
+
+PSCue protects your sensitive data with multi-layered filtering:
+
+### Built-in Protection (Always Active)
+
+Commands containing sensitive keywords are **never learned or stored**:
+- Passwords: `*password*`, `*passwd*`
+- API Keys: `*api*key*`, `*secret*`
+- Tokens: `*token*`, `*oauth*`, `*bearer*`
+- Credentials: `*credentials*`, `*private*key*`
+
+### Heuristic Detection (Always Active)
+
+PSCue automatically detects and ignores commands with:
+- **GitHub/Stripe keys**: `sk_`, `pk_`, `ghp_`, `gho_`, etc.
+- **AWS access keys**: `AKIA...`
+- **JWT tokens**: `eyJ...`
+- **Bearer tokens**: `Bearer ...`
+- **Long secrets**: Base64/hex strings (40+ characters, outside quotes)
+
+### Examples of Protected Commands
+
+```powershell
+# These commands will NEVER be learned:
+export API_KEY=sk_test_1234567890...           # Stripe key detected
+aws configure set aws_secret_access_key ...    # "secret" keyword
+gh auth login ghp_abcdef123456...              # GitHub token pattern
+curl -H "Authorization: Bearer eyJ..."         # JWT token pattern
+git commit -m "password is hunter2"            # "password" keyword
+```
+
+### Custom Filtering
+
+Add your own patterns via environment variable:
+
+```powershell
+# In your PowerShell profile:
+$env:PSCUE_IGNORE_PATTERNS = "aws *,terraform *,*mycompany*"
+```
+
+Patterns use wildcards: `*` matches any characters.
+
+**Note**: Built-in patterns cannot be disabled to ensure baseline privacy protection.
 
 ## Architecture
 

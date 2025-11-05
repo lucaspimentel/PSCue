@@ -19,14 +19,23 @@ This document tracks active and planned work for PSCue. For architectural detail
 - ✅ Updated documentation (CLAUDE.md, TODO.md)
 - ✅ All 365 tests passing (140 ArgumentCompleter + 225 Module)
 
-**Current Total Tests**: 354 of 358 passing
+**Current Total Tests**: 377 tests passing
 - ArgumentCompleter: 142 tests (all passing)
-- Module: 212 of 216 tests passing (4 skipped/flaky concurrency tests)
-- Test count adjusted after removing obsolete CompletionCache tests in v0.2.0
+- Module: 235 tests (all passing)
+- Test count increased: +23 tests for sensitive data filtering (Phase 17.2)
 
 ---
 
 ## Active Work
+
+**Phase 17.2 Complete**: Privacy & Security - Sensitive Data Protection (2025-11-05)
+- ✅ Built-in keyword filtering (*password*, *secret*, *api*key*, *token*, etc.)
+- ✅ Heuristic detection (GitHub/Stripe keys, AWS keys, JWT tokens, Bearer tokens)
+- ✅ Smart filtering (ignores long hex/base64 strings outside quotes)
+- ✅ Custom patterns via PSCUE_IGNORE_PATTERNS environment variable
+- ✅ Comprehensive testing: 23 new tests (9 built-in + 6 heuristic + 7 normal + 5 custom)
+- ✅ Updated documentation (CLAUDE.md, README.md with dedicated Privacy section)
+- ✅ All 377 tests passing (142 ArgumentCompleter + 235 Module)
 
 **v0.2.0 Released!** (2025-11-05)
 - ✅ Fixed test compilation errors from architecture refactoring
@@ -48,7 +57,7 @@ This document tracks active and planned work for PSCue. For architectural detail
 
 ## Planned Work
 
-### Phase 17.2: Advanced ML (Future Enhancement)
+### Phase 17.3: Advanced ML (Future Enhancement)
 **Status**: Backlog
 
 - [ ] Semantic embeddings for argument similarity (ONNX Runtime)
