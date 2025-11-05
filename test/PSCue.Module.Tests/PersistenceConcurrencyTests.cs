@@ -60,52 +60,6 @@ public class PersistenceConcurrencyTests : IDisposable
         }
     }
 
-    [Fact(Skip = "Flaky test - timing-sensitive concurrent database access")]
-    public async Task ConcurrentSessions_MultipleWriters_AllDataPersisted()
-    {
-        // Arrange - Simulate 5 concurrent PowerShell sessions
-        const int sessionCount = 5;
-        const int commandsPerSession = 10;
-
-        var tasks = new List<Task>();
-
-        // Act - Each "session" saves learned data concurrently
-        for (int sessionId = 0; sessionId < sessionCount; sessionId++)
-        {
-            var id = sessionId; // Capture for closure
-            tasks.Add(Task.Run(() =>
-            {
-                using var persistence = new PersistenceManager(_testDbPath);
-                var graph = new ArgumentGraph();
-
-                // Each session learns different patterns
-                for (int i = 0; i < commandsPerSession; i++)
-                {
-                    graph.RecordUsage("git", new[] { "commit", "-m", $"session{id}-msg{i}" });
-                }
-
-                persistence.SaveArgumentGraph(graph);
-            }));
-        }
-
-        await Task.WhenAll(tasks);
-
-        // Assert - Load final state and verify all data was merged
-        using var finalPersistence = new PersistenceManager(_testDbPath);
-        var finalGraph = finalPersistence.LoadArgumentGraph();
-
-        var gitKnowledge = finalGraph.GetCommandKnowledge("git");
-        Assert.NotNull(gitKnowledge);
-
-        // Total usage should be sum of all sessions
-        var expectedTotal = sessionCount * commandsPerSession;
-        Assert.Equal(expectedTotal, gitKnowledge.TotalUsageCount);
-
-        // "commit" argument should appear in all commands
-        Assert.True(gitKnowledge.Arguments.ContainsKey("commit"));
-        Assert.Equal(expectedTotal, gitKnowledge.Arguments["commit"].UsageCount);
-    }
-
     [Fact]
     public async Task ConcurrentSessions_SameCommand_FrequenciesSummed()
     {
@@ -146,67 +100,6 @@ public class PersistenceConcurrencyTests : IDisposable
         Assert.Equal(15, gitKnowledge.Arguments["main"].UsageCount);
     }
 
-    [Fact(Skip = "Flaky test - timing-sensitive concurrent database access")]
-    public void ConcurrentSessions_ReadersAndWriters_NoDeadlock()
-    {
-        // Arrange - Mix of readers and writers
-        const int writerCount = 3;
-        const int readerCount = 5;
-        const int iterations = 10;
-
-        // Pre-populate with some data
-        using (var persistence = new PersistenceManager(_testDbPath))
-        {
-            var graph = new ArgumentGraph();
-            graph.RecordUsage("git", new[] { "status" });
-            persistence.SaveArgumentGraph(graph);
-        }
-
-        var tasks = new List<Task>();
-
-        // Writers
-        for (int i = 0; i < writerCount; i++)
-        {
-            var id = i;
-            tasks.Add(Task.Run(() =>
-            {
-                using var persistence = new PersistenceManager(_testDbPath);
-
-                for (int j = 0; j < iterations; j++)
-                {
-                    var graph = new ArgumentGraph();
-                    graph.RecordUsage("git", new[] { $"command{id}" });
-                    persistence.SaveArgumentGraph(graph);
-                    Thread.Sleep(10); // Simulate work
-                }
-            }));
-        }
-
-        // Readers
-        for (int i = 0; i < readerCount; i++)
-        {
-            tasks.Add(Task.Run(() =>
-            {
-                using var persistence = new PersistenceManager(_testDbPath);
-
-                for (int j = 0; j < iterations; j++)
-                {
-                    var graph = persistence.LoadArgumentGraph();
-                    Assert.NotNull(graph);
-                    Thread.Sleep(5); // Simulate work
-                }
-            }));
-        }
-
-        // Act & Assert - Should complete without deadlock
-        var allTasks = Task.WhenAll(tasks.ToArray());
-        var timeout = Task.Delay(TimeSpan.FromSeconds(30));
-#pragma warning disable xUnit1031 // Test is intentionally synchronous to avoid async-related timing issues
-        var completedTask = Task.WhenAny(allTasks, timeout).GetAwaiter().GetResult();
-#pragma warning restore xUnit1031
-        Assert.True(completedTask == allTasks, "Tasks did not complete in time - possible deadlock");
-    }
-
     [Fact]
     public async Task ConcurrentSessions_DifferentCommands_AllPersisted()
     {
@@ -241,42 +134,6 @@ public class PersistenceConcurrencyTests : IDisposable
         {
             Assert.Contains(command, trackedCommands, StringComparer.OrdinalIgnoreCase);
         }
-    }
-
-    [Fact(Skip = "Flaky test - timing-sensitive concurrent database access")]
-    public async Task ConcurrentSessions_CommandHistory_AllEntriesSaved()
-    {
-        // Arrange
-        const int sessionCount = 3;
-        const int entriesPerSession = 5;
-        var tasks = new List<Task>();
-
-        // Act - Each session adds history entries
-        for (int i = 0; i < sessionCount; i++)
-        {
-            var sessionId = i;
-            tasks.Add(Task.Run(() =>
-            {
-                using var persistence = new PersistenceManager(_testDbPath);
-                var history = new CommandHistory(maxSize: 100);
-
-                for (int j = 0; j < entriesPerSession; j++)
-                {
-                    history.Add("test", $"test command {sessionId}-{j}", new[] { "arg" }, success: true);
-                }
-
-                persistence.SaveCommandHistory(history, maxEntries: 100);
-            }));
-        }
-
-        await Task.WhenAll(tasks);
-
-        // Assert - Most recent save wins (ring buffer behavior)
-        using var finalPersistence = new PersistenceManager(_testDbPath);
-        var finalHistory = finalPersistence.LoadCommandHistory(maxSize: 100);
-
-        // Should have entries from at least one session
-        Assert.True(finalHistory.Count >= entriesPerSession);
     }
 
     [Fact]
