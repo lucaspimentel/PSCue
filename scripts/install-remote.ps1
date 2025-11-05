@@ -68,8 +68,8 @@ function Write-Error {
 }
 
 # Detect platform and architecture
-$IsWindows = $IsWindows -or ($PSVersionTable.PSVersion.Major -le 5)
-$Platform = if ($IsWindows) { 'win' } elseif ($IsMacOS) { 'osx' } else { 'linux' }
+$IsWindowsPlatform = $IsWindows -or ($PSVersionTable.PSVersion.Major -le 5)
+$Platform = if ($IsWindowsPlatform) { 'win' } elseif ($IsMacOS) { 'osx' } else { 'linux' }
 $Architecture = [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToLower()
 
 # Map architecture names
@@ -87,7 +87,7 @@ if ($RID -notin $SupportedPlatforms) {
 }
 
 # Map platform to release asset name
-$Extension = if ($IsWindows) { "zip" } else { "tar.gz" }
+$Extension = if ($IsWindowsPlatform) { "zip" } else { "tar.gz" }
 $AssetName = "PSCue-$RID.$Extension"
 Write-Info "Asset: $AssetName"
 
@@ -175,7 +175,7 @@ try {
     Write-Status "Extracting archive..."
     $ExtractDir = Join-Path $TempDir "extracted"
 
-    if ($IsWindows) {
+    if ($IsWindowsPlatform) {
         # Extract ZIP on Windows
         Expand-Archive -Path $ArchivePath -DestinationPath $ExtractDir -Force
     } else {
@@ -202,7 +202,7 @@ try {
         Write-Info "  Installed: $($file.Name)"
 
         # Make pscue-completer executable on Unix systems
-        if (-not $IsWindows -and $file.Name -eq "pscue-completer") {
+        if (-not $IsWindowsPlatform -and $file.Name -eq "pscue-completer") {
             & chmod +x (Join-Path $InstallDir $file.Name)
         }
     }
