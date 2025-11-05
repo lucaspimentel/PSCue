@@ -26,12 +26,26 @@ public class PersistenceConcurrencyTests : IDisposable
 
     public void Dispose()
     {
-        // Clean up test database
+        // Clean up test database and WAL files
         try
         {
+            // Delete main database file
             if (File.Exists(_testDbPath))
             {
                 File.Delete(_testDbPath);
+            }
+
+            // Delete SQLite WAL files
+            var walPath = _testDbPath + "-wal";
+            if (File.Exists(walPath))
+            {
+                File.Delete(walPath);
+            }
+
+            var shmPath = _testDbPath + "-shm";
+            if (File.Exists(shmPath))
+            {
+                File.Delete(shmPath);
             }
 
             var dir = Path.GetDirectoryName(_testDbPath);
@@ -340,7 +354,9 @@ public class PersistenceConcurrencyTests : IDisposable
         Assert.Contains("-m", commitStats.CoOccurrences.Keys);
 
         // Co-occurrence count should reflect all sessions
-        Assert.True(commitStats.CoOccurrences["-a"] >= sessionCount);
+        var actualCount = commitStats.CoOccurrences["-a"];
+        Assert.True(actualCount >= sessionCount,
+            $"Expected co-occurrence count >= {sessionCount}, but got {actualCount}");
     }
 
     [Fact]

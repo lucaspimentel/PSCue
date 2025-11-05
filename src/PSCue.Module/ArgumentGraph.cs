@@ -129,9 +129,17 @@ public class ArgumentGraph
     private readonly int _scoreDecayDays;
 
     // Baseline tracking for delta calculation (concurrent session support)
-    // Maps: command -> (totalCount, arg -> argCount)
-    private readonly ConcurrentDictionary<string, (int TotalCount, ConcurrentDictionary<string, int> ArgCounts)> _baseline
+    // Maps: command -> (totalCount, arg -> argCount, arg -> (coOccurredWith -> count), flags -> count)
+    private readonly ConcurrentDictionary<string, BaselineData> _baseline
         = new(StringComparer.OrdinalIgnoreCase);
+
+    private class BaselineData
+    {
+        public int TotalCount { get; set; }
+        public ConcurrentDictionary<string, int> ArgCounts { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        public ConcurrentDictionary<string, ConcurrentDictionary<string, int>> CoOccurrences { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        public ConcurrentDictionary<string, int> FlagCombinations { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    }
 
     /// <summary>
     /// Creates a new ArgumentGraph.
@@ -358,7 +366,10 @@ public class ArgumentGraph
         }
 
         // Record baseline for delta tracking
-        _baseline.TryAdd(command, (totalUsage, new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase)));
+        _baseline.TryAdd(command, new BaselineData
+        {
+            TotalCount = totalUsage
+        });
     }
 
     /// <summary>
@@ -522,6 +533,35 @@ public class ArgumentGraph
     }
 
     /// <summary>
+    /// Gets the delta (new occurrences since load) for a co-occurrence.
+    /// Returns the current count if not in baseline (newly learned).
+    /// </summary>
+    internal int GetCoOccurrenceDelta(string command, string argument, string coOccurredWith, int currentCount)
+    {
+        if (_baseline.TryGetValue(command, out var baseline) &&
+            baseline.CoOccurrences.TryGetValue(argument, out var argCoOccurrences) &&
+            argCoOccurrences.TryGetValue(coOccurredWith, out var baselineCount))
+        {
+            return Math.Max(0, currentCount - baselineCount);
+        }
+        return currentCount; // Newly learned co-occurrence, delta = all usage
+    }
+
+    /// <summary>
+    /// Gets the delta (new usage since load) for a flag combination.
+    /// Returns the current count if not in baseline (newly learned).
+    /// </summary>
+    internal int GetFlagCombinationDelta(string command, string flags, int currentCount)
+    {
+        if (_baseline.TryGetValue(command, out var baseline) &&
+            baseline.FlagCombinations.TryGetValue(flags, out var baselineCount))
+        {
+            return Math.Max(0, currentCount - baselineCount);
+        }
+        return currentCount; // Newly learned flag combination, delta = all usage
+    }
+
+    /// <summary>
     /// Updates the baseline after a successful save.
     /// Call this after persisting to database to reset deltas.
     /// </summary>
@@ -533,13 +573,32 @@ public class ArgumentGraph
             var knowledge = cmdKv.Value;
 
             // Update command baseline
-            var argCounts = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var baselineData = new BaselineData
+            {
+                TotalCount = knowledge.TotalUsageCount
+            };
+
+            // Track argument counts
             foreach (var argKv in knowledge.Arguments)
             {
-                argCounts[argKv.Key] = argKv.Value.UsageCount;
+                baselineData.ArgCounts[argKv.Key] = argKv.Value.UsageCount;
+
+                // Track co-occurrences for this argument
+                var coOccurrences = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                foreach (var coKv in argKv.Value.CoOccurrences)
+                {
+                    coOccurrences[coKv.Key] = coKv.Value;
+                }
+                baselineData.CoOccurrences[argKv.Key] = coOccurrences;
             }
 
-            _baseline[command] = (knowledge.TotalUsageCount, argCounts);
+            // Track flag combinations
+            foreach (var flagKv in knowledge.FlagCombinations)
+            {
+                baselineData.FlagCombinations[flagKv.Key] = flagKv.Value;
+            }
+
+            _baseline[command] = baselineData;
         }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Data;
 using System.IO;
 using System.Linq;
 using Microsoft.Data.Sqlite;
@@ -181,8 +182,7 @@ public class PersistenceManager : IDisposable
             throw new ArgumentNullException(nameof(graph));
 
         using var connection = CreateConnection();
-
-        using var transaction = connection.BeginTransaction();
+        using var transaction = connection.BeginTransaction(IsolationLevel.Serializable);
 
         try
         {
@@ -248,46 +248,60 @@ public class PersistenceManager : IDisposable
                         cmd.ExecuteNonQuery();
                     }
 
-                    // Upsert co-occurrences
+                    // Upsert co-occurrences (using delta tracking)
                     foreach (var coKv in stats.CoOccurrences)
                     {
                         var coOccurredWith = coKv.Key;
                         var count = coKv.Value;
 
-                        using var coCmd = connection.CreateCommand();
-                        coCmd.Transaction = transaction;
-                        coCmd.CommandText = @"
-                            INSERT INTO co_occurrences (command, argument, co_occurred_with, count)
-                            VALUES (@command, @argument, @coWith, @count)
-                            ON CONFLICT (command, argument, co_occurred_with) DO UPDATE SET
-                                count = @count
-                        ";
-                        coCmd.Parameters.AddWithValue("@command", command);
-                        coCmd.Parameters.AddWithValue("@argument", argument);
-                        coCmd.Parameters.AddWithValue("@coWith", coOccurredWith);
-                        coCmd.Parameters.AddWithValue("@count", count);
-                        coCmd.ExecuteNonQuery();
+                        // Calculate delta for this co-occurrence
+                        var coDelta = graph.GetCoOccurrenceDelta(command, argument, coOccurredWith, count);
+
+                        // Only save if there's a delta (skip if no new co-occurrences)
+                        if (coDelta > 0)
+                        {
+                            using var coCmd = connection.CreateCommand();
+                            coCmd.Transaction = transaction;
+                            coCmd.CommandText = @"
+                                INSERT INTO co_occurrences (command, argument, co_occurred_with, count)
+                                VALUES (@command, @argument, @coWith, @count)
+                                ON CONFLICT (command, argument, co_occurred_with) DO UPDATE SET
+                                    count = count + @count
+                            ";
+                            coCmd.Parameters.AddWithValue("@command", command);
+                            coCmd.Parameters.AddWithValue("@argument", argument);
+                            coCmd.Parameters.AddWithValue("@coWith", coOccurredWith);
+                            coCmd.Parameters.AddWithValue("@count", coDelta);
+                            coCmd.ExecuteNonQuery();
+                        }
                     }
                 }
 
-                // Upsert flag combinations
+                // Upsert flag combinations (using delta tracking)
                 foreach (var flagKv in knowledge.FlagCombinations)
                 {
                     var flags = flagKv.Key;
                     var count = flagKv.Value;
 
-                    using var cmd = connection.CreateCommand();
-                    cmd.Transaction = transaction;
-                    cmd.CommandText = @"
-                        INSERT INTO flag_combinations (command, flags, count)
-                        VALUES (@command, @flags, @count)
-                        ON CONFLICT (command, flags) DO UPDATE SET
-                            count = @count
-                    ";
-                    cmd.Parameters.AddWithValue("@command", command);
-                    cmd.Parameters.AddWithValue("@flags", flags);
-                    cmd.Parameters.AddWithValue("@count", count);
-                    cmd.ExecuteNonQuery();
+                    // Calculate delta for this flag combination
+                    var flagDelta = graph.GetFlagCombinationDelta(command, flags, count);
+
+                    // Only save if there's a delta (skip if no new usage)
+                    if (flagDelta > 0)
+                    {
+                        using var cmd = connection.CreateCommand();
+                        cmd.Transaction = transaction;
+                        cmd.CommandText = @"
+                            INSERT INTO flag_combinations (command, flags, count)
+                            VALUES (@command, @flags, @count)
+                            ON CONFLICT (command, flags) DO UPDATE SET
+                                count = count + @count
+                        ";
+                        cmd.Parameters.AddWithValue("@command", command);
+                        cmd.Parameters.AddWithValue("@flags", flags);
+                        cmd.Parameters.AddWithValue("@count", flagDelta);
+                        cmd.ExecuteNonQuery();
+                    }
                 }
             }
 
@@ -314,7 +328,8 @@ public class PersistenceManager : IDisposable
 
         using var connection = CreateConnection();
 
-        using var transaction = connection.BeginTransaction();
+        // Use Serializable isolation to ensure atomic writes
+        using var transaction = connection.BeginTransaction(IsolationLevel.Serializable);
 
         try
         {
@@ -367,7 +382,8 @@ public class PersistenceManager : IDisposable
 
         using var connection = CreateConnection();
 
-        using var transaction = connection.BeginTransaction();
+        // Use Serializable isolation to ensure atomic writes
+        using var transaction = connection.BeginTransaction(IsolationLevel.Serializable);
 
         try
         {
@@ -579,7 +595,8 @@ public class PersistenceManager : IDisposable
     {
         using var connection = CreateConnection();
 
-        using var transaction = connection.BeginTransaction();
+        // Use Serializable isolation to ensure atomic writes
+        using var transaction = connection.BeginTransaction(IsolationLevel.Serializable);
 
         try
         {
