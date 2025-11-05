@@ -347,16 +347,15 @@ dotnet test
 
 ### Running Tests
 
-PSCue has **354 passing tests** (358 total) covering ArgumentCompleter logic, CommandPredictor, FeedbackProvider, generic learning components, ML prediction, persistence, navigation, and integration scenarios.
+PSCue has comprehensive test coverage across ArgumentCompleter logic, CommandPredictor, FeedbackProvider, generic learning components, ML prediction, persistence, navigation, and integration scenarios.
 
 ```powershell
-# All tests (354 passing: 142 ArgumentCompleter + 212 Module)
-# 4 tests skipped/flaky (concurrency tests)
+# All tests
 dotnet test
 
 # Specific project
-dotnet test test/PSCue.ArgumentCompleter.Tests/  # 142 tests
-dotnet test test/PSCue.Module.Tests/             # 216 tests (212 passing)
+dotnet test test/PSCue.ArgumentCompleter.Tests/
+dotnet test test/PSCue.Module.Tests/
 
 # Run ML prediction tests specifically
 dotnet test --filter "FullyQualifiedName~SequencePredictor"

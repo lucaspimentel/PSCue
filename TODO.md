@@ -17,12 +17,7 @@ This document tracks active and planned work for PSCue. For architectural detail
 - ✅ Performance validated: <1ms cache lookup, <20ms total prediction
 - ✅ Configuration via environment variables (enabled by default)
 - ✅ Updated documentation (CLAUDE.md, TODO.md)
-- ✅ All 365 tests passing (140 ArgumentCompleter + 225 Module)
-
-**Current Total Tests**: 377 tests passing
-- ArgumentCompleter: 142 tests (all passing)
-- Module: 235 tests (all passing)
-- Test count increased: +23 tests for sensitive data filtering (Phase 17.2)
+- ✅ All tests passing
 
 ---
 
@@ -33,9 +28,9 @@ This document tracks active and planned work for PSCue. For architectural detail
 - ✅ Heuristic detection (GitHub/Stripe keys, AWS keys, JWT tokens, Bearer tokens)
 - ✅ Smart filtering (ignores long hex/base64 strings outside quotes)
 - ✅ Custom patterns via PSCUE_IGNORE_PATTERNS environment variable
-- ✅ Comprehensive testing: 23 new tests (9 built-in + 6 heuristic + 7 normal + 5 custom)
+- ✅ Comprehensive test coverage for all filtering scenarios
 - ✅ Updated documentation (CLAUDE.md, README.md with dedicated Privacy section)
-- ✅ All 377 tests passing (142 ArgumentCompleter + 235 Module)
+- ✅ All tests passing
 
 **v0.2.0 Released!** (2025-11-05)
 - ✅ Fixed test compilation errors from architecture refactoring
@@ -82,7 +77,7 @@ This document tracks active and planned work for PSCue. For architectural detail
 **Completed Items**:
 - ✅ GitHub Actions CI workflow (.github/workflows/ci.yml)
   - Build & test on ubuntu-latest, windows-latest (win-x64, linux-x64 only)
-  - Run `dotnet test` with 365 tests
+  - Run `dotnet test` for all tests
   - Lint/format check temporarily disabled (needs .editorconfig)
 - ✅ GitHub Actions Release workflow (.github/workflows/release.yml)
   - Trigger on git tags `v*` (e.g., `v1.0.0`)
@@ -109,7 +104,7 @@ git push origin main v1.0.0
 
 # 3. GitHub Actions automatically:
 #    - Builds for win-x64 and linux-x64
-#    - Runs all 365 tests on both platforms
+#    - Runs all tests on both platforms
 #    - Creates release archives with Functions/ directory
 #    - Generates checksums
 #    - Creates GitHub release

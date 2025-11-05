@@ -8,7 +8,7 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 - **Cross-Session Persistence**: SQLite database stores learned data across sessions
 - **Directory-Aware Navigation**: Smart cd/Set-Location suggestions with path normalization
 - **PowerShell Module Functions**: 7 functions for learning and database management (no IPC overhead)
-- **354 Tests Passing**: Comprehensive test coverage (142 ArgumentCompleter + 212 Module passing)
+- **Comprehensive Test Coverage**: Full test suite for all components
 
 **Supported Commands**: git, gh, gt (Graphite), az, azd, func, code, scoop, winget, wt (Windows Terminal), chezmoi, tre, lsd, dust, cd/Set-Location
 
@@ -56,17 +56,17 @@ src/
 - `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system (Phase 16)
 - `module/Functions/DatabaseManagement.ps1`: PowerShell functions for database queries (Phase 16)
 - `module/Functions/Debugging.ps1`: PowerShell functions for testing/diagnostics (Phase 16)
-- `test/PSCue.Module.Tests/CommandPredictorTests.cs`: CommandPredictor.Combine tests (23 tests, Phase 14-15)
-- `test/PSCue.Module.Tests/FeedbackProviderTests.cs`: FeedbackProvider tests (26 tests, Phase 15)
-- `test/PSCue.Module.Tests/ArgumentGraphTests.cs`: Path normalization tests (28 tests, Phase 14)
-- `test/PSCue.Module.Tests/GenericPredictorTests.cs`: Context-aware filtering tests (20 tests, Phase 14)
-- `test/PSCue.Module.Tests/SequencePredictorTests.cs`: N-gram predictor unit tests (25 tests, Phase 17.1)
-- `test/PSCue.Module.Tests/SequencePersistenceIntegrationTests.cs`: Sequence persistence tests (8 tests, Phase 17.1)
-- `test/PSCue.Module.Tests/SequencePerformanceTests.cs`: Performance benchmarks (<1ms, <20ms) (9 tests, Phase 17.1)
-- `test/PSCue.Module.Tests/PersistenceManagerTests.cs`: Unit tests for persistence (10 tests)
-- `test/PSCue.Module.Tests/PersistenceConcurrencyTests.cs`: Multi-session concurrency (11 tests)
-- `test/PSCue.Module.Tests/PersistenceEdgeCaseTests.cs`: Edge cases & error handling (18 tests)
-- `test/PSCue.Module.Tests/PersistenceIntegrationTests.cs`: End-to-end integration (15 tests)
+- `test/PSCue.Module.Tests/CommandPredictorTests.cs`: CommandPredictor.Combine tests (Phase 14-15)
+- `test/PSCue.Module.Tests/FeedbackProviderTests.cs`: FeedbackProvider tests (Phase 15)
+- `test/PSCue.Module.Tests/ArgumentGraphTests.cs`: Path normalization tests (Phase 14)
+- `test/PSCue.Module.Tests/GenericPredictorTests.cs`: Context-aware filtering tests (Phase 14)
+- `test/PSCue.Module.Tests/SequencePredictorTests.cs`: N-gram predictor unit tests (Phase 17.1)
+- `test/PSCue.Module.Tests/SequencePersistenceIntegrationTests.cs`: Sequence persistence tests (Phase 17.1)
+- `test/PSCue.Module.Tests/SequencePerformanceTests.cs`: Performance benchmarks (<1ms, <20ms) (Phase 17.1)
+- `test/PSCue.Module.Tests/PersistenceManagerTests.cs`: Unit tests for persistence
+- `test/PSCue.Module.Tests/PersistenceConcurrencyTests.cs`: Multi-session concurrency
+- `test/PSCue.Module.Tests/PersistenceEdgeCaseTests.cs`: Edge cases & error handling
+- `test/PSCue.Module.Tests/PersistenceIntegrationTests.cs`: End-to-end integration
 
 ## Common Tasks
 ```bash
@@ -74,10 +74,9 @@ src/
 dotnet build src/PSCue.Module/ -c Release -f net9.0
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
-# Test (354 passing: 142 ArgumentCompleter + 212 Module)
-# Note: 4 tests skipped/flaky (concurrency tests)
-dotnet test test/PSCue.ArgumentCompleter.Tests/  # 142 tests, all passing
-dotnet test test/PSCue.Module.Tests/             # 216 tests, 212 passing
+# Test
+dotnet test test/PSCue.ArgumentCompleter.Tests/
+dotnet test test/PSCue.Module.Tests/
 
 # Run specific test groups
 dotnet test --filter "FullyQualifiedName~Persistence"
