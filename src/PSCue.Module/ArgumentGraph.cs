@@ -6,6 +6,69 @@ using System.Linq;
 namespace PSCue.Module;
 
 /// <summary>
+/// Tracks sequential argument usage (e.g., "checkout" followed by "master").
+/// Used for multi-word prediction suggestions.
+/// </summary>
+public class ArgumentSequence
+{
+    /// <summary>
+    /// The first argument in the sequence (e.g., "checkout", "commit").
+    /// </summary>
+    public string FirstArgument { get; set; } = string.Empty;
+
+    /// <summary>
+    /// The second argument in the sequence (e.g., "master", "-m").
+    /// </summary>
+    public string SecondArgument { get; set; } = string.Empty;
+
+    /// <summary>
+    /// How many times this sequence has been used.
+    /// </summary>
+    public int UsageCount { get; set; }
+
+    /// <summary>
+    /// When this sequence was first observed.
+    /// </summary>
+    public DateTime FirstSeen { get; set; }
+
+    /// <summary>
+    /// When this sequence was last used.
+    /// </summary>
+    public DateTime LastUsed { get; set; }
+
+    /// <summary>
+    /// Calculates a recency-weighted score (0.0-1.0).
+    /// More recent usage gets higher scores.
+    /// </summary>
+    public double GetRecencyScore(int decayDays = 30)
+    {
+        var age = DateTime.UtcNow - LastUsed;
+        var ageDays = age.TotalDays;
+
+        if (ageDays <= 0)
+            return 1.0; // Used today
+
+        var decayFactor = Math.Exp(-ageDays / decayDays);
+        return Math.Max(0.0, Math.Min(1.0, decayFactor));
+    }
+
+    /// <summary>
+    /// Calculates a combined score based on frequency and recency.
+    /// </summary>
+    public double GetScore(int totalUsageCount, int decayDays = 30)
+    {
+        if (totalUsageCount == 0)
+            return 0.0;
+
+        var frequencyScore = (double)UsageCount / totalUsageCount;
+        var recencyScore = GetRecencyScore(decayDays);
+
+        // Weighted combination: 60% frequency, 40% recency
+        return (0.6 * frequencyScore) + (0.4 * recencyScore);
+    }
+}
+
+/// <summary>
 /// Statistics about a specific argument's usage with a command.
 /// </summary>
 public class ArgumentStats
@@ -101,6 +164,13 @@ public class CommandKnowledge
     public ConcurrentDictionary<string, int> FlagCombinations { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Sequential argument patterns (e.g., "checkout" followed by "master").
+    /// Maps "first|second" key -> ArgumentSequence.
+    /// Used for multi-word prediction suggestions.
+    /// </summary>
+    public ConcurrentDictionary<string, ArgumentSequence> ArgumentSequences { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Total number of times this command has been observed.
     /// </summary>
     public int TotalUsageCount { get; set; }
@@ -129,7 +199,7 @@ public class ArgumentGraph
     private readonly int _scoreDecayDays;
 
     // Baseline tracking for delta calculation (concurrent session support)
-    // Maps: command -> (totalCount, arg -> argCount, arg -> (coOccurredWith -> count), flags -> count)
+    // Maps: command -> (totalCount, arg -> argCount, arg -> (coOccurredWith -> count), flags -> count, sequences -> count)
     private readonly ConcurrentDictionary<string, BaselineData> _baseline
         = new(StringComparer.OrdinalIgnoreCase);
 
@@ -139,6 +209,7 @@ public class ArgumentGraph
         public ConcurrentDictionary<string, int> ArgCounts { get; set; } = new(StringComparer.OrdinalIgnoreCase);
         public ConcurrentDictionary<string, ConcurrentDictionary<string, int>> CoOccurrences { get; set; } = new(StringComparer.OrdinalIgnoreCase);
         public ConcurrentDictionary<string, int> FlagCombinations { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        public ConcurrentDictionary<string, int> ArgumentSequences { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -223,6 +294,45 @@ public class ArgumentGraph
         {
             var combination = string.Join(" ", flags);
             knowledge.FlagCombinations.AddOrUpdate(combination, 1, (_, count) => count + 1);
+        }
+
+        // Track argument sequences for multi-word suggestions
+        // Record consecutive argument pairs (e.g., "checkout" -> "master")
+        for (int i = 0; i < arguments.Length - 1; i++)
+        {
+            var first = arguments[i];
+            var second = arguments[i + 1];
+
+            // Skip if either is empty
+            if (string.IsNullOrWhiteSpace(first) || string.IsNullOrWhiteSpace(second))
+                continue;
+
+            // Skip navigation commands - paths are already normalized but too specific for multi-word suggestions
+            if (isNavigationCommand)
+                continue;
+
+            // Only track meaningful sequences:
+            // 1. subcommand + argument (e.g., "checkout" + "master")
+            // 2. flag + value (e.g., "-m" + "commit message")
+            // Skip: flag + flag (already tracked in FlagCombinations)
+            var firstIsFlag = first.StartsWith("-");
+            var secondIsFlag = second.StartsWith("-");
+
+            if (firstIsFlag && secondIsFlag)
+                continue; // Skip flag+flag pairs
+
+            // Create sequence key
+            var sequenceKey = $"{first}|{second}";
+            var sequence = knowledge.ArgumentSequences.GetOrAdd(sequenceKey, key => new ArgumentSequence
+            {
+                FirstArgument = first,
+                SecondArgument = second,
+                FirstSeen = now,
+                LastUsed = now
+            });
+
+            sequence.UsageCount++;
+            sequence.LastUsed = now;
         }
 
         // Enforce limits
@@ -317,6 +427,36 @@ public class ArgumentGraph
             .ThenByDescending(x => x.Stats.UsageCount)
             .Take(maxResults)
             .Select(x => x.Stats)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Gets common argument sequences that start with the given argument.
+    /// Used for multi-word prediction suggestions.
+    /// Returns sequences sorted by score (highest first).
+    /// </summary>
+    /// <param name="command">The command name (e.g., "git").</param>
+    /// <param name="firstArgument">The first argument to look for (e.g., "checkout").</param>
+    /// <param name="maxResults">Maximum number of sequences to return (default: 5).</param>
+    public List<ArgumentSequence> GetSequencesStartingWith(string command, string firstArgument, int maxResults = 5)
+    {
+        if (string.IsNullOrWhiteSpace(command) || string.IsNullOrWhiteSpace(firstArgument))
+            return new List<ArgumentSequence>();
+
+        if (!_commands.TryGetValue(command, out var knowledge))
+            return new List<ArgumentSequence>();
+
+        return knowledge.ArgumentSequences.Values
+            .Where(seq => seq.FirstArgument.Equals(firstArgument, StringComparison.OrdinalIgnoreCase))
+            .Select(seq => new
+            {
+                Sequence = seq,
+                Score = seq.GetScore(knowledge.TotalUsageCount, _scoreDecayDays)
+            })
+            .OrderByDescending(x => x.Score)
+            .ThenByDescending(x => x.Sequence.UsageCount)
+            .Take(maxResults)
+            .Select(x => x.Sequence)
             .ToList();
     }
 
@@ -428,6 +568,45 @@ public class ArgumentGraph
             return;
 
         knowledge.FlagCombinations.TryAdd(flags, count);
+
+        // Record baseline for delta tracking
+        if (_baseline.TryGetValue(command, out var baseline))
+        {
+            baseline.FlagCombinations.TryAdd(flags, count);
+        }
+    }
+
+    /// <summary>
+    /// Initializes an argument sequence (used by PersistenceManager).
+    /// </summary>
+    internal void InitializeArgumentSequence(string command, string firstArg, string secondArg, int usageCount, DateTime firstSeen, DateTime lastUsed)
+    {
+        if (!_commands.TryGetValue(command, out var knowledge))
+            return;
+
+        var sequenceKey = $"{firstArg}|{secondArg}";
+        var sequence = knowledge.ArgumentSequences.GetOrAdd(sequenceKey, key => new ArgumentSequence
+        {
+            FirstArgument = firstArg,
+            SecondArgument = secondArg,
+            UsageCount = usageCount,
+            FirstSeen = firstSeen,
+            LastUsed = lastUsed
+        });
+
+        // Update if already exists (shouldn't happen, but handle gracefully)
+        if (sequence.UsageCount == 0)
+        {
+            sequence.UsageCount = usageCount;
+            sequence.FirstSeen = firstSeen;
+            sequence.LastUsed = lastUsed;
+        }
+
+        // Record baseline for delta tracking
+        if (_baseline.TryGetValue(command, out var baseline))
+        {
+            baseline.ArgumentSequences.TryAdd(sequenceKey, usageCount);
+        }
     }
 
     /// <summary>
@@ -464,23 +643,40 @@ public class ArgumentGraph
     }
 
     /// <summary>
-    /// Removes least recently used arguments if over limit.
+    /// Removes least recently used arguments and sequences if over limit.
     /// </summary>
     private void EnforceLimits(CommandKnowledge knowledge)
     {
-        if (knowledge.Arguments.Count <= _maxArgumentsPerCommand)
-            return;
-
-        // Remove least recently used arguments
-        var toRemove = knowledge.Arguments.Values
-            .OrderBy(a => a.LastUsed)
-            .Take(knowledge.Arguments.Count - _maxArgumentsPerCommand)
-            .Select(a => a.Argument)
-            .ToList();
-
-        foreach (var arg in toRemove)
+        // Prune arguments if over limit
+        if (knowledge.Arguments.Count > _maxArgumentsPerCommand)
         {
-            knowledge.Arguments.TryRemove(arg, out _);
+            var toRemove = knowledge.Arguments.Values
+                .OrderBy(a => a.LastUsed)
+                .Take(knowledge.Arguments.Count - _maxArgumentsPerCommand)
+                .Select(a => a.Argument)
+                .ToList();
+
+            foreach (var arg in toRemove)
+            {
+                knowledge.Arguments.TryRemove(arg, out _);
+            }
+        }
+
+        // Prune sequences if over limit (keep top 50 by usage count and recency)
+        const int maxSequences = 50;
+        if (knowledge.ArgumentSequences.Count > maxSequences)
+        {
+            var toRemoveSeq = knowledge.ArgumentSequences.Values
+                .OrderBy(s => s.LastUsed)
+                .ThenBy(s => s.UsageCount)
+                .Take(knowledge.ArgumentSequences.Count - maxSequences)
+                .Select(s => $"{s.FirstArgument}|{s.SecondArgument}")
+                .ToList();
+
+            foreach (var key in toRemoveSeq)
+            {
+                knowledge.ArgumentSequences.TryRemove(key, out _);
+            }
         }
     }
 
@@ -562,6 +758,21 @@ public class ArgumentGraph
     }
 
     /// <summary>
+    /// Gets the delta (new usage since load) for an argument sequence.
+    /// Returns the current count if not in baseline (newly learned).
+    /// </summary>
+    internal int GetArgumentSequenceDelta(string command, string firstArg, string secondArg, int currentCount)
+    {
+        var sequenceKey = $"{firstArg}|{secondArg}";
+        if (_baseline.TryGetValue(command, out var baseline) &&
+            baseline.ArgumentSequences.TryGetValue(sequenceKey, out var baselineCount))
+        {
+            return Math.Max(0, currentCount - baselineCount);
+        }
+        return currentCount; // Newly learned sequence, delta = all usage
+    }
+
+    /// <summary>
     /// Updates the baseline after a successful save.
     /// Call this after persisting to database to reset deltas.
     /// </summary>
@@ -596,6 +807,12 @@ public class ArgumentGraph
             foreach (var flagKv in knowledge.FlagCombinations)
             {
                 baselineData.FlagCombinations[flagKv.Key] = flagKv.Value;
+            }
+
+            // Track argument sequences
+            foreach (var seqKv in knowledge.ArgumentSequences)
+            {
+                baselineData.ArgumentSequences[seqKv.Key] = seqKv.Value.UsageCount;
             }
 
             _baseline[command] = baselineData;

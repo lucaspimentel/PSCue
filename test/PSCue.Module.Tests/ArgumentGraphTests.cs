@@ -596,4 +596,184 @@ public class ArgumentGraphTests
         var storedPath = knowledge.Arguments.Keys.First();
         Assert.Equal("subdir", storedPath); // Not normalized
     }
+
+    #region Argument Sequence Tests (Multi-Word Suggestions)
+
+    [Fact]
+    public void RecordUsage_TracksArgumentSequences()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+
+        // Act
+        graph.RecordUsage("git", new[] { "checkout", "master" });
+
+        // Assert
+        var knowledge = graph.GetCommandKnowledge("git");
+        Assert.NotNull(knowledge);
+        Assert.Single(knowledge.ArgumentSequences);
+        Assert.True(knowledge.ArgumentSequences.ContainsKey("checkout|master"));
+
+        var sequence = knowledge.ArgumentSequences["checkout|master"];
+        Assert.Equal("checkout", sequence.FirstArgument);
+        Assert.Equal("master", sequence.SecondArgument);
+        Assert.Equal(1, sequence.UsageCount);
+    }
+
+    [Fact]
+    public void RecordUsage_IncrementsSequenceUsageCount()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+
+        // Act
+        graph.RecordUsage("git", new[] { "checkout", "master" });
+        graph.RecordUsage("git", new[] { "checkout", "master" });
+        graph.RecordUsage("git", new[] { "checkout", "develop" });
+
+        // Assert
+        var knowledge = graph.GetCommandKnowledge("git");
+        Assert.NotNull(knowledge);
+        Assert.Equal(2, knowledge.ArgumentSequences.Count);
+
+        var masterSeq = knowledge.ArgumentSequences["checkout|master"];
+        Assert.Equal(2, masterSeq.UsageCount);
+
+        var developSeq = knowledge.ArgumentSequences["checkout|develop"];
+        Assert.Equal(1, developSeq.UsageCount);
+    }
+
+    [Fact]
+    public void RecordUsage_TracksMultipleSequencesInSingleCommand()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+
+        // Act - command with 3 args creates 2 sequences
+        graph.RecordUsage("git", new[] { "commit", "-m", "message" });
+
+        // Assert
+        var knowledge = graph.GetCommandKnowledge("git");
+        Assert.NotNull(knowledge);
+        Assert.Equal(2, knowledge.ArgumentSequences.Count);
+        Assert.True(knowledge.ArgumentSequences.ContainsKey("commit|-m"));
+        Assert.True(knowledge.ArgumentSequences.ContainsKey("-m|message"));
+    }
+
+    [Fact]
+    public void RecordUsage_SkipsFlagToFlagSequences()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+
+        // Act - consecutive flags should not create sequence
+        graph.RecordUsage("ls", new[] { "-l", "-a" });
+
+        // Assert
+        var knowledge = graph.GetCommandKnowledge("ls");
+        Assert.NotNull(knowledge);
+        Assert.Empty(knowledge.ArgumentSequences); // No sequences for flag-to-flag
+    }
+
+    [Fact]
+    public void RecordUsage_SkipsNavigationCommandSequences()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+
+        // Act - navigation commands don't track sequences (paths too specific)
+        graph.RecordUsage("cd", new[] { "/home/user", "subdir" }, workingDirectory: "/tmp");
+
+        // Assert
+        var knowledge = graph.GetCommandKnowledge("cd");
+        Assert.NotNull(knowledge);
+        Assert.Empty(knowledge.ArgumentSequences); // No sequences for cd
+    }
+
+    [Fact]
+    public void GetSequencesStartingWith_ReturnsMatchingSequences()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        graph.RecordUsage("git", new[] { "checkout", "master" });
+        graph.RecordUsage("git", new[] { "checkout", "master" });
+        graph.RecordUsage("git", new[] { "checkout", "develop" });
+        graph.RecordUsage("git", new[] { "checkout", "-b", "feature" });
+        graph.RecordUsage("git", new[] { "commit", "-m", "message" });
+
+        // Act
+        var sequences = graph.GetSequencesStartingWith("git", "checkout");
+
+        // Assert
+        Assert.Equal(3, sequences.Count); // checkout->master, checkout->develop, checkout->-b
+        Assert.All(sequences, seq => Assert.Equal("checkout", seq.FirstArgument));
+
+        // Verify ordering by score (frequency + recency)
+        Assert.Equal("master", sequences[0].SecondArgument); // Used 2x
+    }
+
+    [Fact]
+    public void GetSequencesStartingWith_ReturnsEmptyForUnknownCommand()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        graph.RecordUsage("git", new[] { "checkout", "master" });
+
+        // Act
+        var sequences = graph.GetSequencesStartingWith("docker", "run");
+
+        // Assert
+        Assert.Empty(sequences);
+    }
+
+    [Fact]
+    public void GetSequencesStartingWith_ReturnsEmptyForUnknownFirstArgument()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        graph.RecordUsage("git", new[] { "checkout", "master" });
+
+        // Act
+        var sequences = graph.GetSequencesStartingWith("git", "push");
+
+        // Assert
+        Assert.Empty(sequences);
+    }
+
+    [Fact]
+    public void GetSequencesStartingWith_RespectsMaxResults()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        for (int i = 0; i < 10; i++)
+        {
+            graph.RecordUsage("git", new[] { "checkout", $"branch{i}" });
+        }
+
+        // Act
+        var sequences = graph.GetSequencesStartingWith("git", "checkout", maxResults: 5);
+
+        // Assert
+        Assert.Equal(5, sequences.Count);
+    }
+
+    [Fact]
+    public void EnforceLimits_PrunesOldSequences()
+    {
+        // Arrange
+        var graph = new ArgumentGraph(maxCommands: 100, maxArgumentsPerCommand: 10);
+
+        // Act - create more than 50 sequences (limit in EnforceLimits)
+        for (int i = 0; i < 60; i++)
+        {
+            graph.RecordUsage("git", new[] { "checkout", $"branch{i}" });
+        }
+
+        // Assert - should be pruned to 50
+        var knowledge = graph.GetCommandKnowledge("git");
+        Assert.NotNull(knowledge);
+        Assert.True(knowledge.ArgumentSequences.Count <= 50);
+    }
+
+    #endregion
 }

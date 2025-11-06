@@ -33,6 +33,10 @@ public class CommandPredictorTests
     [InlineData("cd proj", "C:\\Users\\test\\projects\\", "cd C:\\Users\\test\\projects\\")] // Windows absolute path
     [InlineData("cd test", "/home/user/test/", "cd /home/user/test/")]        // Unix absolute path
     [InlineData("sl mydir", "D:\\temp\\mydir\\", "sl D:\\temp\\mydir\\")]     // Set-Location with absolute path
+    [InlineData("git che", "checkout master", "git checkout master")]         // Multi-word completion
+    [InlineData("git chec", "checkout -b feature", "git checkout -b feature")] // Multi-word with flag
+    [InlineData("git ", "commit -m", "git commit -m")]                        // Multi-word with no partial
+    [InlineData("docker", "run -it", "docker run -it")]                       // Multi-word from empty command
     public void Combine_VariousScenarios_ProducesExpectedResults(string input, string completionText, string expected)
     {
         var result = CommandPredictor.Combine(input, completionText);

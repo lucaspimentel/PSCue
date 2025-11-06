@@ -141,6 +141,17 @@ public class PersistenceManager : IDisposable
                 PRIMARY KEY (command, flags)
             );
 
+            -- Argument sequences table: tracks consecutive argument pairs for multi-word suggestions
+            CREATE TABLE IF NOT EXISTS argument_sequences (
+                command TEXT NOT NULL COLLATE NOCASE,
+                first_argument TEXT NOT NULL COLLATE NOCASE,
+                second_argument TEXT NOT NULL COLLATE NOCASE,
+                usage_count INTEGER NOT NULL DEFAULT 0,
+                first_seen TEXT NOT NULL,
+                last_used TEXT NOT NULL,
+                PRIMARY KEY (command, first_argument, second_argument)
+            );
+
             -- Command history table: recent command executions (ring buffer)
             CREATE TABLE IF NOT EXISTS command_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -164,6 +175,7 @@ public class PersistenceManager : IDisposable
             -- Indexes for performance
             CREATE INDEX IF NOT EXISTS idx_arguments_command ON arguments(command);
             CREATE INDEX IF NOT EXISTS idx_co_occurrences_command_arg ON co_occurrences(command, argument);
+            CREATE INDEX IF NOT EXISTS idx_argument_sequences_command_first ON argument_sequences(command, first_argument);
             CREATE INDEX IF NOT EXISTS idx_history_timestamp ON command_history(timestamp DESC);
             CREATE INDEX IF NOT EXISTS idx_sequences_prev ON command_sequences(prev_command);
         ";
@@ -300,6 +312,37 @@ public class PersistenceManager : IDisposable
                         cmd.Parameters.AddWithValue("@command", command);
                         cmd.Parameters.AddWithValue("@flags", flags);
                         cmd.Parameters.AddWithValue("@count", flagDelta);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+
+                // Upsert argument sequences (using delta tracking)
+                foreach (var seqKv in knowledge.ArgumentSequences)
+                {
+                    var sequence = seqKv.Value;
+
+                    // Calculate delta for this sequence
+                    var seqDelta = graph.GetArgumentSequenceDelta(command, sequence.FirstArgument, sequence.SecondArgument, sequence.UsageCount);
+
+                    // Only save if there's a delta (skip if no new usage)
+                    if (seqDelta > 0)
+                    {
+                        using var cmd = connection.CreateCommand();
+                        cmd.Transaction = transaction;
+                        cmd.CommandText = @"
+                            INSERT INTO argument_sequences (command, first_argument, second_argument, usage_count, first_seen, last_used)
+                            VALUES (@command, @first, @second, @usage, @firstSeen, @lastUsed)
+                            ON CONFLICT (command, first_argument, second_argument) DO UPDATE SET
+                                usage_count = usage_count + @usage,
+                                first_seen = MIN(first_seen, @firstSeen),
+                                last_used = MAX(last_used, @lastUsed)
+                        ";
+                        cmd.Parameters.AddWithValue("@command", command);
+                        cmd.Parameters.AddWithValue("@first", sequence.FirstArgument);
+                        cmd.Parameters.AddWithValue("@second", sequence.SecondArgument);
+                        cmd.Parameters.AddWithValue("@usage", seqDelta);
+                        cmd.Parameters.AddWithValue("@firstSeen", sequence.FirstSeen.ToString("O"));
+                        cmd.Parameters.AddWithValue("@lastUsed", sequence.LastUsed.ToString("O"));
                         cmd.ExecuteNonQuery();
                     }
                 }
@@ -537,6 +580,28 @@ public class PersistenceManager : IDisposable
                 var count = reader.GetInt32(2);
 
                 graph.InitializeFlagCombination(command, flags, count);
+            }
+        }
+
+        // Load argument sequences
+        using (var cmd = connection.CreateCommand())
+        {
+            cmd.CommandText = @"
+                SELECT command, first_argument, second_argument, usage_count, first_seen, last_used
+                FROM argument_sequences
+            ";
+            using var reader = cmd.ExecuteReader();
+
+            while (reader.Read())
+            {
+                var command = reader.GetString(0);
+                var firstArg = reader.GetString(1);
+                var secondArg = reader.GetString(2);
+                var usageCount = reader.GetInt32(3);
+                var firstSeen = DateTime.Parse(reader.GetString(4)).ToUniversalTime();
+                var lastUsed = DateTime.Parse(reader.GetString(5)).ToUniversalTime();
+
+                graph.InitializeArgumentSequence(command, firstArg, secondArg, usageCount, firstSeen, lastUsed);
             }
         }
 

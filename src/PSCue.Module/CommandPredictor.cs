@@ -163,6 +163,7 @@ public class CommandPredictor : ICommandPredictor
         // "scoop" + "alias" => "scoop alias"
         // "scoop al" + "alias" => "scoop alias"
         // "scoop update" + "*" => "scoop update *"
+        // "git che" + "checkout master" => "git checkout master" (multi-word completion)
         // "cd dotnet" + "D:\path\dotnet\" => "cd D:\path\dotnet\" (navigation paths replace last word)
 
         // Find the last word boundary (space) in input
@@ -172,9 +173,24 @@ public class CommandPredictor : ICommandPredictor
         // This prevents false matches like "claude plugin" + "install" => "claude pluginstall"
         var startIndex = lastSpaceIndex >= 0 ? lastSpaceIndex + 1 : 0;
 
+        // Get the last word from input (the word being completed)
+        var lastWord = input[startIndex..];
+
+        // Check if completionText is a multi-word completion (contains spaces)
+        // If so, check if its first word matches the partial word being completed
+        if (completionText.Contains(' '))
+        {
+            var firstCompletionWord = completionText.AsSpan(0, completionText.IndexOf(' '));
+            if (firstCompletionWord.StartsWith(lastWord, StringComparison.OrdinalIgnoreCase))
+            {
+                // Replace the partial word with the full multi-word completion
+                // "git che" + "checkout master" => "git checkout master"
+                return string.Concat(input[..startIndex], completionText);
+            }
+        }
+
         // Only match if the completionText starts with the ENTIRE last word
         // Don't match partial words like "in" from "plugin"
-        var lastWord = input[startIndex..];
         if (completionText.AsSpan().StartsWith(lastWord, StringComparison.OrdinalIgnoreCase))
         {
             return string.Concat(input[..startIndex], completionText);

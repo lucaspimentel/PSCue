@@ -237,6 +237,9 @@ public class GenericPredictor
             return suggestion;
         }).ToList();
 
+        // Add multi-word suggestions for common argument combinations
+        AddMultiWordSuggestions(command, suggestions, wordToComplete, maxResults);
+
         // Add context-based suggestions (e.g., next command in sequence)
         AddContextSuggestions(command, contextArguments, wordToComplete, context, suggestions);
 
@@ -382,6 +385,68 @@ public class GenericPredictor
             {
                 suggestion.Score *= 1.2;
                 suggestion.Score = Math.Min(1.0, suggestion.Score);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Adds multi-word suggestions by combining single-word suggestions with common next arguments.
+    /// For example, if "checkout" is suggested, also suggest "checkout master" if that's a common sequence.
+    /// </summary>
+    private void AddMultiWordSuggestions(string command, List<PredictionSuggestion> suggestions, string wordToComplete, int maxResults)
+    {
+        // Minimum usage count to consider a sequence for multi-word suggestion
+        const int minUsageThreshold = 3;
+
+        // Only generate multi-word suggestions for the top single-word suggestions
+        var topSuggestions = suggestions
+            .Where(s => !s.Text.Contains(' ')) // Only single words
+            .Where(s => !s.IsFlag) // Skip flags for now
+            .Take(5) // Top 5 candidates
+            .ToList();
+
+        foreach (var singleWord in topSuggestions)
+        {
+            // Get sequences that start with this suggestion
+            var sequences = _argumentGraph.GetSequencesStartingWith(command, singleWord.Text, maxResults: 3);
+
+            foreach (var seq in sequences)
+            {
+                // Only suggest sequences that are used frequently enough
+                if (seq.UsageCount < minUsageThreshold)
+                    continue;
+
+                // Build the multi-word suggestion
+                var multiWordText = $"{seq.FirstArgument} {seq.SecondArgument}";
+
+                // Filter by wordToComplete if present
+                if (!string.IsNullOrEmpty(wordToComplete))
+                {
+                    // Check if either the first word or the multi-word text matches
+                    var firstWordMatches = seq.FirstArgument.StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase);
+                    var multiWordMatches = multiWordText.StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase);
+
+                    if (!firstWordMatches && !multiWordMatches)
+                        continue;
+                }
+
+                // Check if this multi-word suggestion already exists
+                if (suggestions.Any(s => s.Text.Equals(multiWordText, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+
+                // Calculate score: slightly boost sequences that are used very frequently
+                var baseScore = seq.GetScore(_argumentGraph.GetCommandKnowledge(command)?.TotalUsageCount ?? 1);
+                var adjustedScore = baseScore * 0.95; // Slightly lower than single-word to prefer single words when ambiguous
+
+                // Add the multi-word suggestion
+                suggestions.Add(new PredictionSuggestion
+                {
+                    Text = multiWordText,
+                    Description = $"used {seq.UsageCount}x together",
+                    Score = adjustedScore,
+                    IsFlag = false,
+                    Source = "multi-word"
+                });
             }
         }
     }
