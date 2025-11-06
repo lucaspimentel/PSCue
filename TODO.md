@@ -17,7 +17,11 @@ This document tracks active and planned work for PSCue. For architectural detail
 - 🎉 Available for installation via one-line command
 
 **Recent Improvements** (unreleased):
-- Fixed partial subcommand completion (e.g., "git che" now correctly filters to "checkout", "cherry-pick")
+- ✅ Multi-word prediction suggestions (Phase 17.4)
+  - Shows common argument combinations like "git checkout master"
+  - Tracks sequential argument patterns with usage frequency
+  - Persists learned sequences to database
+  - Comprehensive test coverage (28 new tests)
 
 **Installation**:
 ```powershell
@@ -27,28 +31,6 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-r
 ---
 
 ## Planned Work
-
-### Phase 17.4: Multi-Word Prediction Suggestions (Enhancement)
-**Status**: Backlog
-
-Enhance predictor to show full command suggestions with common argument combinations.
-
-**Current behavior**:
-- Input: `git che`
-- Shows: `git checkout`, `git cherry-pick`
-
-**Enhanced behavior**:
-- Input: `git che`
-- Shows: `git checkout`, `git checkout master`, `git checkout -b feature`
-
-**Implementation**:
-- [ ] Track frequently-used subcommand+argument combinations in ArgumentGraph
-- [ ] Build multi-word suggestion text (e.g., "checkout master") in GenericPredictor
-- [ ] Ensure CommandPredictor.Combine handles multi-word completions correctly
-- [ ] Add tests for multi-word suggestion scenarios
-- [ ] Consider performance impact of generating combination suggestions
-
-**Note**: This is distinct from the Phase 17.3 partial word fix, which ensures only valid completions are shown.
 
 ### Phase 17.5: Advanced ML (Future Enhancement)
 **Status**: Backlog

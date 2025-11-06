@@ -8,13 +8,14 @@
 
 - **🚀 Fast Tab Completion**: Native AOT executable for <10ms startup time
 - **💡 Inline Predictions**: Smart command suggestions as you type using `ICommandPredictor`
+- **🎯 Multi-Word Suggestions**: Shows common argument combinations (e.g., `git checkout master`)
 - **🤖 ML-Based Predictions**: N-gram sequence learning predicts your next command (e.g., `git add` → `git commit`)
 - **⚡ PowerShell Module Functions**: Native PowerShell functions for learning and database management
 - **🧠 Universal Learning System**: Learns from ALL commands (not just pre-configured ones) and adapts to your workflow patterns
 - **🔒 Privacy & Security**: Built-in sensitive data detection - never learns commands with API keys, passwords, or tokens
 - **💾 Cross-Session Persistence**: Learning data persists across PowerShell sessions using SQLite with concurrent session support
 - **🎯 Context-Aware Suggestions**: Detects command sequences and boosts relevant suggestions based on recent activity
-- **⚡ High Performance**: <1ms cache lookups, <20ms total prediction time (within PowerShell's timeout)
+- **⚡ High Performance**: <1ms overhead for learning, <20ms total prediction time (within PowerShell's timeout)
 - **🆘 Error Suggestions**: Provides helpful recovery suggestions when commands fail (e.g., git errors)
 - **🔌 Cross-platform**: Windows (x64) and Linux (x64) support
 - **📦 Zero Configuration**: Works out of the box after installation
@@ -61,14 +62,16 @@ PSCue provides detailed completions for these commands:
 
 - **kubectl**, **docker**, **cargo**, **npm**, **dotnet**, **go**, **terraform**, and hundreds more
 - Tracks which flags and arguments you use most frequently
+- **Multi-word suggestions**: Shows common argument combinations (e.g., `git checkout master`, `docker run -it`)
 - **ML-based command sequence prediction**: Learns which commands you typically run after others (e.g., `git add` → `git commit`)
 - Detects command workflows and suggests next steps based on n-gram analysis
 - Provides context-aware suggestions based on recent activity
 - Fully automatic - no configuration needed
 
-**Example**: Never used kubectl before? After you run `kubectl get pods`, `kubectl describe pod`, etc., PSCue learns these patterns and will suggest them next time you type `kubectl`.
-
-**ML Prediction Example**: After typing `git add file.txt`, PSCue's ML engine predicts you'll likely run `git commit` next and boosts that suggestion based on your historical command sequences.
+**Examples**:
+- **Learning**: After running `kubectl get pods`, `kubectl describe pod`, PSCue learns these patterns and suggests them next time you type `kubectl`
+- **Multi-word**: After frequently running `git checkout master`, PSCue suggests the full `checkout master` combination alongside `checkout`
+- **ML Prediction**: After typing `git add file.txt`, PSCue's ML engine predicts you'll likely run `git commit` next based on your historical command sequences
 
 ## Installation
 
@@ -419,16 +422,15 @@ TabExpansion2 'git checkout ma' 15
   - Context-aware suggestions based on recent command history
   - Command sequence detection for workflows (git add → commit → push, docker build → run, etc.)
   - Privacy controls via `PSCUE_IGNORE_PATTERNS` environment variable
-  - **65 new unit tests** covering all learning components
   - Components: CommandHistory (ring buffer), ArgumentGraph (knowledge graph), ContextAnalyzer, GenericPredictor, Hybrid CommandPredictor
+  - Comprehensive test coverage for all learning components
 
 - **Test Coverage Improvements**
-  - Added 67 comprehensive tests for critical components (CommandPredictor, FeedbackProvider)
-  - **252 total tests passing** (140 ArgumentCompleter + 112 Module)
-  - Fixed the "pluginstall" bug with 23 CommandPredictor.Combine tests
-  - Added 26 FeedbackProvider tests covering command parsing, privacy filtering, and learning integration
+  - Comprehensive tests for critical components (CommandPredictor, FeedbackProvider)
+  - Fixed the "pluginstall" bug with thorough CommandPredictor.Combine tests
+  - Extensive FeedbackProvider tests covering command parsing, privacy filtering, and learning integration
   - Uses reflection to properly test internal PowerShell SDK components
-  - All critical gaps addressed: CommandPredictor (95% coverage), FeedbackProvider (90% coverage)
+  - High coverage for CommandPredictor and FeedbackProvider
   - Removed 44 IPC tests (Phase 16.7 - IPC layer removed)
 
 ### Configuration

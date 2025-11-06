@@ -1,11 +1,12 @@
 # PSCue Technical Details
 
-**Last Updated**: 2025-10-31
+**Last Updated**: 2025-11-06
 
 This document provides technical details about PSCue's architecture, implementation, and internal workings. For user-facing documentation, see [README.md](README.md). For development guidelines, see [CLAUDE.md](CLAUDE.md).
 
 ## Table of Contents
 
+- [Multi-Word Prediction Suggestions](#multi-word-prediction-suggestions)
 - [Navigation Path Learning](#navigation-path-learning)
 - [PowerShell Module Functions](#powershell-module-functions)
 - [Architecture Diagram](#architecture-diagram)
@@ -39,6 +40,166 @@ PSCue uses a dual-component architecture with direct in-process communication fo
 - Faster module loading (no server startup)
 - Easier debugging (no cross-process communication)
 - More reliable (no connection timeouts)
+
+## Multi-Word Prediction Suggestions
+
+**Completed**: 2025-11-06
+
+Enhanced learning system to track and suggest sequential argument patterns like "git checkout master" alongside single-word suggestions.
+
+### Sequence Tracking (`ArgumentGraph.cs`)
+
+**Problem**: Users frequently type common argument combinations (e.g., "git checkout master", "docker run -it") but only saw single-word suggestions.
+
+**Solution**: Track consecutive argument pairs and suggest frequently-used combinations.
+
+**Implementation**:
+```csharp
+// ArgumentGraph.cs:12-69
+public class ArgumentSequence
+{
+    public string FirstArgument { get; set; }   // e.g., "checkout"
+    public string SecondArgument { get; set; }  // e.g., "master"
+    public int UsageCount { get; set; }
+    public DateTime FirstSeen { get; set; }
+    public DateTime LastUsed { get; set; }
+    public double GetScore(int totalUsageCount, int decayDays = 30) { ... }
+}
+
+// ArgumentGraph.cs:299-336
+public void RecordUsage(string command, string[] arguments, ...)
+{
+    // Track argument sequences for multi-word suggestions
+    for (int i = 0; i < arguments.Length - 1; i++)
+    {
+        var first = arguments[i];
+        var second = arguments[i + 1];
+
+        // Skip flag-to-flag pairs (handled separately)
+        if (firstIsFlag && secondIsFlag) continue;
+
+        // Skip navigation commands (paths too specific)
+        if (isNavigationCommand) continue;
+
+        // Record sequence
+        var sequenceKey = $"{first}|{second}";
+        var sequence = knowledge.ArgumentSequences.GetOrAdd(...);
+        sequence.UsageCount++;
+        sequence.LastUsed = now;
+    }
+}
+
+// ArgumentGraph.cs:441-461
+public List<ArgumentSequence> GetSequencesStartingWith(string command, string firstArgument, int maxResults = 5)
+{
+    // Returns sequences sorted by frequency + recency score
+}
+```
+
+**Pruning**: Up to 50 sequences per command (LRU eviction).
+
+### Multi-Word Generation (`GenericPredictor.cs`)
+
+**Problem**: How to blend single-word and multi-word suggestions without overwhelming the user.
+
+**Solution**: Generate multi-word suggestions for top single-word candidates only.
+
+**Implementation**:
+```csharp
+// GenericPredictor.cs:392-452
+private void AddMultiWordSuggestions(string command, List<PredictionSuggestion> suggestions, ...)
+{
+    const int minUsageThreshold = 3;  // Only suggest if used 3+ times
+
+    // Get top 5 single-word suggestions
+    var topSuggestions = suggestions
+        .Where(s => !s.Text.Contains(' ') && !s.IsFlag)
+        .Take(5);
+
+    foreach (var singleWord in topSuggestions)
+    {
+        // Get sequences starting with this word
+        var sequences = _argumentGraph.GetSequencesStartingWith(command, singleWord.Text);
+
+        foreach (var seq in sequences)
+        {
+            if (seq.UsageCount < minUsageThreshold) continue;
+
+            var multiWordText = $"{seq.FirstArgument} {seq.SecondArgument}";
+            suggestions.Add(new PredictionSuggestion {
+                Text = multiWordText,
+                Description = $"used {seq.UsageCount}x together",
+                Score = baseScore * 0.95  // Slightly lower than single-word
+            });
+        }
+    }
+}
+```
+
+**Strategy**:
+- Minimum 3 usage threshold prevents noise
+- Only top 5 single-words get multi-word expansions
+- Score multiplier (0.95×) prefers flexibility
+- Deduplicates against existing suggestions
+
+### Multi-Word Combine (`CommandPredictor.cs`)
+
+**Problem**: How to properly combine input with multi-word completions.
+
+**Solution**: Detect multi-word completions and match first word against partial input.
+
+**Implementation**:
+```csharp
+// CommandPredictor.cs:179-190
+internal static string Combine(ReadOnlySpan<char> input, string completionText)
+{
+    var lastWord = input[startIndex..];
+
+    // Check if completionText is multi-word
+    if (completionText.Contains(' '))
+    {
+        var firstWord = completionText.AsSpan(0, completionText.IndexOf(' '));
+        if (firstWord.StartsWith(lastWord, StringComparison.OrdinalIgnoreCase))
+        {
+            // "git che" + "checkout master" => "git checkout master"
+            return string.Concat(input[..startIndex], completionText);
+        }
+    }
+    // ... existing single-word logic
+}
+```
+
+### Persistence (`PersistenceManager.cs`)
+
+**Database Schema**:
+```sql
+CREATE TABLE argument_sequences (
+    command TEXT NOT NULL COLLATE NOCASE,
+    first_argument TEXT NOT NULL COLLATE NOCASE,
+    second_argument TEXT NOT NULL COLLATE NOCASE,
+    usage_count INTEGER NOT NULL DEFAULT 0,
+    first_seen TEXT NOT NULL,
+    last_used TEXT NOT NULL,
+    PRIMARY KEY (command, first_argument, second_argument)
+);
+
+CREATE INDEX idx_argument_sequences_command_first
+    ON argument_sequences(command, first_argument);
+```
+
+**Save/Load**: Delta tracking with additive merge (same as other learning data).
+
+**Performance**:
+- Recording: ~1-2 dictionary ops per command (<1ms)
+- Memory: ~64 bytes per sequence, max 50/command (~3KB)
+- Generation: ~50 lookups for 5 candidates (<1ms)
+- **Total overhead: Negligible**
+
+**Benefits**:
+- Faster workflow completion (one suggestion instead of two keystrokes)
+- Learns personal patterns (e.g., your most-used git branches)
+- Cross-session persistence
+- Works with any command (docker, kubectl, npm, etc.)
 
 ## Navigation Path Learning
 

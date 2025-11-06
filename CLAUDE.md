@@ -5,10 +5,12 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 
 **Key Features**:
 - **Generic Learning**: Learns from ALL commands (not just predefined ones) with context-aware suggestions
+- **Multi-Word Suggestions**: Shows common argument combinations (e.g., "git checkout master")
 - **Cross-Session Persistence**: SQLite database stores learned data across sessions
 - **Directory-Aware Navigation**: Smart cd/Set-Location suggestions with path normalization
+- **ML Sequence Prediction**: N-gram based next-command prediction
+- **Privacy Protection**: Filters sensitive data (passwords, tokens, keys)
 - **PowerShell Module Functions**: 7 functions for learning and database management (no IPC overhead)
-- **Comprehensive Test Coverage**: Full test suite for all components
 
 **Supported Commands**: git, gh, gt (Graphite), az, azd, func, code, scoop, winget, wt (Windows Terminal), chezmoi, tre, lsd, dust, cd/Set-Location
 
@@ -17,15 +19,18 @@ For completed work history, see COMPLETED.md.
 ## Architecture
 - **ArgumentCompleter** (`pscue-completer.exe`): NativeAOT exe, <10ms startup, computes completions locally with full dynamic arguments support
 - **Module** (`PSCue.Module.dll`): Long-lived, implements `ICommandPredictor` + `IFeedbackProvider` (7.4+), provides PowerShell module functions
-- **Learning System (Phase 11)**:
+- **Learning System**:
   - **CommandHistory**: Ring buffer tracking last 100 commands
   - **ArgumentGraph**: Knowledge graph of command → arguments with frequency + recency scoring
+    - **ArgumentSequences**: Tracks consecutive argument pairs for multi-word suggestions (up to 50 per command)
   - **ContextAnalyzer**: Detects command sequences and workflow patterns
-  - **GenericPredictor**: Generates suggestions from learned data for ANY command
-  - **Hybrid CommandPredictor**: Blends known completions + generic learning
-- **Persistence (Phase 12)**:
+  - **SequencePredictor**: ML-based n-gram prediction for next commands
+  - **GenericPredictor**: Generates single-word and multi-word suggestions from learned data for ANY command
+  - **Hybrid CommandPredictor**: Blends known completions + generic learning + ML predictions
+- **Persistence**:
   - **PersistenceManager**: SQLite-based cross-session storage
   - **Database Location**: `~/.local/share/PSCue/learned-data.db` (Linux/macOS), `%LOCALAPPDATA%\PSCue\learned-data.db` (Windows)
+  - **Tables**: commands, arguments, co_occurrences, flag_combinations, argument_sequences, command_history, command_sequences
   - **Auto-save**: Every 5 minutes + on module unload
   - **Concurrent Access**: SQLite WAL mode handles multiple PowerShell sessions safely
   - **Additive Merging**: Frequencies summed, timestamps use max (most recent)
@@ -47,26 +52,22 @@ src/
 ## Key Files & Line References
 - `src/PSCue.Module/ModuleInitializer.cs`: Module lifecycle, subsystem registration
 - `src/PSCue.Module/PSCueModule.cs`: Static module state container for PowerShell functions
-- `src/PSCue.Module/ArgumentGraph.cs`: Knowledge graph with path normalization (Phase 14)
-- `src/PSCue.Module/GenericPredictor.cs`: Context-aware suggestions with path filtering (Phase 14)
-- `src/PSCue.Module/CommandPredictor.cs`: Absolute path handling in Combine method (Phase 14)
-- `src/PSCue.Module/SequencePredictor.cs`: N-gram ML prediction for command sequences (Phase 17.1)
-- `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence (~770 lines)
+- `src/PSCue.Module/ArgumentGraph.cs`: Knowledge graph with path normalization + argument sequences (multi-word)
+- `src/PSCue.Module/GenericPredictor.cs`: Context-aware suggestions with multi-word generation
+- `src/PSCue.Module/CommandPredictor.cs`: Hybrid predictor with multi-word Combine support
+- `src/PSCue.Module/SequencePredictor.cs`: N-gram ML prediction for command sequences
+- `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence with 7 tables
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
-- `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system (Phase 16)
-- `module/Functions/DatabaseManagement.ps1`: PowerShell functions for database queries (Phase 16)
-- `module/Functions/Debugging.ps1`: PowerShell functions for testing/diagnostics (Phase 16)
-- `test/PSCue.Module.Tests/CommandPredictorTests.cs`: CommandPredictor.Combine tests (Phase 14-15)
-- `test/PSCue.Module.Tests/FeedbackProviderTests.cs`: FeedbackProvider tests (Phase 15)
-- `test/PSCue.Module.Tests/ArgumentGraphTests.cs`: Path normalization tests (Phase 14)
-- `test/PSCue.Module.Tests/GenericPredictorTests.cs`: Context-aware filtering tests (Phase 14)
-- `test/PSCue.Module.Tests/SequencePredictorTests.cs`: N-gram predictor unit tests (Phase 17.1)
-- `test/PSCue.Module.Tests/SequencePersistenceIntegrationTests.cs`: Sequence persistence tests (Phase 17.1)
-- `test/PSCue.Module.Tests/SequencePerformanceTests.cs`: Performance benchmarks (<1ms, <20ms) (Phase 17.1)
-- `test/PSCue.Module.Tests/PersistenceManagerTests.cs`: Unit tests for persistence
-- `test/PSCue.Module.Tests/PersistenceConcurrencyTests.cs`: Multi-session concurrency
-- `test/PSCue.Module.Tests/PersistenceEdgeCaseTests.cs`: Edge cases & error handling
-- `test/PSCue.Module.Tests/PersistenceIntegrationTests.cs`: End-to-end integration
+- `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system
+- `module/Functions/DatabaseManagement.ps1`: PowerShell functions for database queries
+- `module/Functions/Debugging.ps1`: PowerShell functions for testing/diagnostics
+- `test/PSCue.Module.Tests/ArgumentGraphTests.cs`: Argument graph + sequence tracking tests
+- `test/PSCue.Module.Tests/GenericPredictorTests.cs`: Generic predictor + multi-word tests
+- `test/PSCue.Module.Tests/CommandPredictorTests.cs`: Command predictor + Combine tests
+- `test/PSCue.Module.Tests/SequencePredictorTests.cs`: N-gram predictor unit tests
+- `test/PSCue.Module.Tests/PersistenceManagerTests.cs`: Persistence unit tests
+- `test/PSCue.Module.Tests/PersistenceConcurrencyTests.cs`: Multi-session concurrency tests
+- `test/PSCue.Module.Tests/PersistenceIntegrationTests.cs`: End-to-end integration tests
 
 ## Common Tasks
 ```bash
@@ -209,3 +210,4 @@ $env:PSCUE_IGNORE_PATTERNS = "aws *,terraform *,*custom-secret*"
 - **Includes**: Functions/ directory fix from v0.1.0
 
 When adding support for new commands, add the completer registration in module/PSCue.psm1
+- don't mention TODO phases in code (like "// Add multi-word suggestions (Phase 17.4)")
