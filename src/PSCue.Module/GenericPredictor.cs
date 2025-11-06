@@ -75,7 +75,15 @@ public class GenericPredictor
 
         var command = parts[0];
         var arguments = parts.Skip(1).ToList();
-        var wordToComplete = arguments.Count > 0 ? arguments[^1] : string.Empty;
+
+        // Check if the command line ends with a space
+        var endsWithSpace = commandLine.EndsWith(' ');
+
+        // If we have arguments and no trailing space, the last part is being completed
+        var wordToComplete = arguments.Count > 0 && !endsWithSpace ? arguments[^1] : string.Empty;
+
+        // Remove the word being completed from arguments list for context analysis
+        var contextArguments = !string.IsNullOrEmpty(wordToComplete) ? arguments.Take(arguments.Count - 1).ToList() : arguments;
 
         // Check if this is a navigation command
         var isNavigationCommand = command.Equals("cd", StringComparison.OrdinalIgnoreCase)
@@ -196,8 +204,16 @@ public class GenericPredictor
         // Get context from recent history
         var context = _contextAnalyzer.AnalyzeContext(_history, command);
 
-        // Get learned suggestions from argument graph
-        var learnedSuggestions = _argumentGraph.GetSuggestions(command, arguments.ToArray(), maxResults * 2);
+        // Get learned suggestions from argument graph (using contextArguments, not including the word being completed)
+        var learnedSuggestions = _argumentGraph.GetSuggestions(command, contextArguments.ToArray(), maxResults * 2);
+
+        // Filter suggestions by wordToComplete if present
+        if (!string.IsNullOrEmpty(wordToComplete))
+        {
+            learnedSuggestions = learnedSuggestions
+                .Where(s => s.Argument.StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
 
         // Convert to prediction suggestions and apply context boosts
         var suggestions = learnedSuggestions.Select(stats =>
@@ -222,7 +238,7 @@ public class GenericPredictor
         }).ToList();
 
         // Add context-based suggestions (e.g., next command in sequence)
-        AddContextSuggestions(command, arguments, context, suggestions);
+        AddContextSuggestions(command, contextArguments, wordToComplete, context, suggestions);
 
         // Sort by score and return top N
         return suggestions
@@ -284,7 +300,7 @@ public class GenericPredictor
     /// <summary>
     /// Adds context-based suggestions (e.g., next command in workflow).
     /// </summary>
-    private void AddContextSuggestions(string command, List<string> arguments, CommandContext context, List<PredictionSuggestion> suggestions)
+    private void AddContextSuggestions(string command, List<string> arguments, string wordToComplete, CommandContext context, List<PredictionSuggestion> suggestions)
     {
         // Get ML-based sequence predictions if available (n-gram predictor)
         if (_sequencePredictor != null && arguments.Count == 0)
@@ -300,6 +316,10 @@ public class GenericPredictor
                     var subcommand = nextCommand.Substring(command.Length).Trim();
                     if (!string.IsNullOrEmpty(subcommand) && !subcommand.Contains(' '))
                     {
+                        // Filter by wordToComplete if present
+                        if (!string.IsNullOrEmpty(wordToComplete) && !subcommand.StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase))
+                            continue;
+
                         // Don't add if already in suggestions
                         if (!suggestions.Any(s => s.Text.Equals(subcommand, StringComparison.OrdinalIgnoreCase)))
                         {
@@ -334,6 +354,10 @@ public class GenericPredictor
                     var subcommand = nextCmd.Substring(command.Length).Trim();
                     if (!string.IsNullOrEmpty(subcommand) && !subcommand.Contains(' '))
                     {
+                        // Filter by wordToComplete if present
+                        if (!string.IsNullOrEmpty(wordToComplete) && !subcommand.StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase))
+                            continue;
+
                         // Don't add if already in suggestions
                         if (!suggestions.Any(s => s.Text.Equals(subcommand, StringComparison.OrdinalIgnoreCase)))
                         {

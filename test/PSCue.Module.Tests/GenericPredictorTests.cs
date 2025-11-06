@@ -474,4 +474,151 @@ public class GenericPredictorTests
             try { Directory.Delete(targetDir); } catch { }
         }
     }
+
+    [Fact]
+    public void GetSuggestions_PartialSubcommand_FiltersToMatchingOnly()
+    {
+        // Arrange
+        var predictor = CreatePredictor(out _, out var graph);
+        // Learn several git commands
+        graph.RecordUsage("git", new[] { "checkout" }, null);
+        graph.RecordUsage("git", new[] { "cherry-pick" }, null);
+        graph.RecordUsage("git", new[] { "commit" }, null);
+        graph.RecordUsage("git", new[] { "status" }, null);
+        graph.RecordUsage("git", new[] { "pull" }, null);
+
+        // Act - user types "git che" (partial word)
+        var suggestions = predictor.GetSuggestions("git che");
+
+        // Assert - should only show subcommands starting with "che"
+        Assert.NotEmpty(suggestions);
+        Assert.Contains(suggestions, s => s.Text == "checkout");
+        Assert.Contains(suggestions, s => s.Text == "cherry-pick");
+        // Should NOT suggest unrelated commands
+        Assert.DoesNotContain(suggestions, s => s.Text == "commit");
+        Assert.DoesNotContain(suggestions, s => s.Text == "status");
+        Assert.DoesNotContain(suggestions, s => s.Text == "pull");
+    }
+
+    [Fact]
+    public void GetSuggestions_PartialSubcommand_DoesNotAppendExtraArguments()
+    {
+        // Arrange
+        var predictor = CreatePredictor(out _, out var graph);
+        // Learn git checkout with additional arguments
+        graph.RecordUsage("git", new[] { "checkout", "main" }, null);
+        graph.RecordUsage("git", new[] { "checkout", "-b", "feature" }, null);
+        // Learn other git commands
+        graph.RecordUsage("git", new[] { "pull" }, null);
+        graph.RecordUsage("git", new[] { "status" }, null);
+
+        // Act - user types "git che" (partial word)
+        var suggestions = predictor.GetSuggestions("git che");
+
+        // Assert - should only suggest subcommands starting with "che", not additional arguments
+        Assert.NotEmpty(suggestions);
+        Assert.All(suggestions, s =>
+        {
+            // All suggestions should start with "che"
+            Assert.StartsWith("che", s.Text, StringComparison.OrdinalIgnoreCase);
+        });
+
+        // Should NOT contain "pull", "status", "main", "-b", "feature"
+        Assert.DoesNotContain(suggestions, s => s.Text == "pull");
+        Assert.DoesNotContain(suggestions, s => s.Text == "status");
+        Assert.DoesNotContain(suggestions, s => s.Text == "main");
+        Assert.DoesNotContain(suggestions, s => s.Text == "-b");
+        Assert.DoesNotContain(suggestions, s => s.Text == "feature");
+    }
+
+    [Fact]
+    public void GetSuggestions_CompleteSubcommandWithSpace_ShowsArguments()
+    {
+        // Arrange
+        var predictor = CreatePredictor(out _, out var graph);
+        graph.RecordUsage("git", new[] { "checkout", "main" }, null);
+        graph.RecordUsage("git", new[] { "checkout", "-b" }, null);
+
+        // Act - user types "git checkout " (complete word with trailing space)
+        var suggestions = predictor.GetSuggestions("git checkout ");
+
+        // Assert - should suggest arguments for checkout
+        Assert.NotEmpty(suggestions);
+        Assert.Contains(suggestions, s => s.Text == "main");
+        Assert.Contains(suggestions, s => s.Text == "-b");
+    }
+
+    [Fact]
+    public void GetSuggestions_PartialFlag_FiltersToMatchingFlags()
+    {
+        // Arrange
+        var predictor = CreatePredictor(out _, out var graph);
+        graph.RecordUsage("git", new[] { "commit", "-m", "message" }, null);
+        graph.RecordUsage("git", new[] { "commit", "-a" }, null);
+        graph.RecordUsage("git", new[] { "commit", "--amend" }, null);
+
+        // Act - user types "git commit -" (partial flag)
+        var suggestions = predictor.GetSuggestions("git commit -");
+
+        // Assert - should only show flags starting with "-"
+        Assert.NotEmpty(suggestions);
+        Assert.All(suggestions, s =>
+        {
+            Assert.StartsWith("-", s.Text);
+        });
+        // Should not contain "message" (it's not a flag)
+        Assert.DoesNotContain(suggestions, s => s.Text == "message");
+    }
+
+    [Fact]
+    public void GetSuggestions_PartialArgument_FiltersToMatchingArguments()
+    {
+        // Arrange
+        var predictor = CreatePredictor(out _, out var graph);
+        graph.RecordUsage("git", new[] { "checkout", "main" }, null);
+        graph.RecordUsage("git", new[] { "checkout", "master" }, null);
+        graph.RecordUsage("git", new[] { "checkout", "feature" }, null);
+
+        // Act - user types "git checkout ma" (partial branch name)
+        var suggestions = predictor.GetSuggestions("git checkout ma");
+
+        // Assert - should only show branches starting with "ma"
+        Assert.NotEmpty(suggestions);
+        Assert.Contains(suggestions, s => s.Text == "main");
+        Assert.Contains(suggestions, s => s.Text == "master");
+        Assert.DoesNotContain(suggestions, s => s.Text == "feature");
+    }
+
+    [Fact]
+    public void GetSuggestions_MLPredictions_FilteredByPartialSubcommand()
+    {
+        // Arrange
+        var history = new CommandHistory();
+        var graph = new ArgumentGraph();
+        var analyzer = new ContextAnalyzer();
+        var sequencePredictor = new SequencePredictor(ngramOrder: 2);
+        var predictor = new GenericPredictor(history, graph, analyzer, sequencePredictor);
+
+        // Record sequence: git checkout -> git commit
+        sequencePredictor.RecordSequence(new[] { "git checkout", "git commit" });
+        sequencePredictor.RecordSequence(new[] { "git checkout", "git commit" });
+        sequencePredictor.RecordSequence(new[] { "git checkout", "git commit" });
+
+        graph.RecordUsage("git", new[] { "checkout" }, null);
+        graph.RecordUsage("git", new[] { "commit" }, null);
+        graph.RecordUsage("git", new[] { "cherry-pick" }, null);
+
+        // Act - user types "git che" after checkout (partial word)
+        history.Add("git", "git checkout main", new[] { "checkout", "main" }, success: true);
+        var suggestions = predictor.GetSuggestions("git che");
+
+        // Assert - ML predictions should also be filtered by "che"
+        Assert.NotEmpty(suggestions);
+        Assert.All(suggestions, s =>
+        {
+            Assert.StartsWith("che", s.Text, StringComparison.OrdinalIgnoreCase);
+        });
+        // Should NOT suggest "commit" even though ML would predict it
+        Assert.DoesNotContain(suggestions, s => s.Text == "commit");
+    }
 }
