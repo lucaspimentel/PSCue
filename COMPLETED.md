@@ -29,6 +29,7 @@ For current and future work, see [TODO.md](TODO.md).
 - **Phase 16.6**: Removed Unused CompletionCache ✅
 - **Phase 17.1**: ML-Based N-gram Sequence Prediction ✅
 - **Phase 17.2**: Privacy & Security - Sensitive Data Protection ✅
+- **Phase 17.3**: Partial Word Completion Filtering ✅
 - **CI/CD & Distribution**: GitHub Actions Automated Releases ✅
 
 ---
@@ -1213,6 +1214,47 @@ Multi-layered filtering to prevent learning commands with sensitive information.
 - Added dedicated "Privacy & Security" section to README.md
 - Updated CLAUDE.md with filtering details
 - Updated TODO.md
+
+### Phase 17.3: Partial Word Completion Filtering ✅
+
+**Completed**: 2025-11-06
+
+Fixed incorrect suggestion behavior when typing partial subcommands like "git chec".
+
+**Problem**:
+When users typed partial words (e.g., "git chec"), the predictor incorrectly suggested additional arguments after the partial word:
+- `git chec pull`
+- `git chec status`
+- `git chec log`
+
+These suggestions didn't make sense because "chec" itself needed to be completed to "checkout" first.
+
+**Solution**:
+Enhanced `GenericPredictor.GetSuggestions` (`src/PSCue.Module/GenericPredictor.cs:66-377`) to:
+1. Detect when command line ends with a partial word (no trailing space)
+2. Extract the word being completed
+3. Filter all suggestions to only show items starting with the partial word
+4. Apply filtering to both learned suggestions and ML-based predictions
+
+**Changes**:
+- `GenericPredictor.GetSuggestions`: Added partial word detection and filtering logic
+- `GenericPredictor.AddContextSuggestions`: Added wordToComplete parameter for filtering context-based and ML predictions
+- Added 6 comprehensive tests in `test/PSCue.Module.Tests/GenericPredictorTests.cs:478-623`:
+  - Partial subcommand filtering
+  - Avoiding extra argument suggestions
+  - Complete subcommand with space handling
+  - Partial flag filtering
+  - Partial argument filtering
+  - ML prediction filtering
+
+**Behavior**:
+- `git che` → Shows: `checkout`, `cherry-pick` (only items starting with "che")
+- `git checkout ` → Shows: `main`, `-b`, etc. (arguments for checkout)
+- `git commit -` → Shows: `-m`, `-a`, `--amend` (flags starting with "-")
+
+**Impact**: Prediction behavior now matches Tab completion expectations, providing cleaner and more intuitive suggestions.
+
+---
 
 ### CI/CD & Distribution: GitHub Actions Automated Releases ✅
 

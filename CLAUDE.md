@@ -156,6 +156,7 @@ public void TestLearningAccess()
 2. **NativeAOT reference errors**: Put shared code in PSCue.Shared, not ArgumentCompleter
 3. **Module functions return null**: Module may not be fully initialized. Check PSCueModule.KnowledgeGraph != null before use.
 4. **Corrupted database prevents initialization**: Use `Clear-PSCueLearning -Force` to delete database files without requiring module initialization.
+5. **Partial word completion**: When implementing predictor features, always check if the command line ends with a space. If not, the last word is being completed and suggestions should be filtered by `StartsWith(wordToComplete)`.
 
 ## Documentation
 - **Implementation status**:

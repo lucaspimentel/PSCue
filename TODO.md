@@ -1,6 +1,6 @@
 # PSCue - Task List
 
-**Last Updated**: 2025-11-05
+**Last Updated**: 2025-11-06
 
 This document tracks active and planned work for PSCue. For architectural details, see [TECHNICAL_DETAILS.md](TECHNICAL_DETAILS.md). For completed work, see [COMPLETED.md](COMPLETED.md).
 
@@ -11,9 +11,13 @@ This document tracks active and planned work for PSCue. For architectural detail
 **Latest Release**: v0.2.0 (2025-11-05)
 - ✅ ML-based N-gram sequence prediction (Phase 17.1)
 - ✅ Privacy & security - sensitive data protection (Phase 17.2)
+- ✅ Partial word completion filtering (Phase 17.3)
 - ✅ Automated CI/CD with GitHub Actions
 - ✅ Production-ready with comprehensive test coverage
 - 🎉 Available for installation via one-line command
+
+**Recent Improvements** (unreleased):
+- Fixed partial subcommand completion (e.g., "git che" now correctly filters to "checkout", "cherry-pick")
 
 **Installation**:
 ```powershell
