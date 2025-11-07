@@ -22,6 +22,13 @@ This document tracks active and planned work for PSCue. For architectural detail
   - Tracks sequential argument patterns with usage frequency
   - Persists learned sequences to database
   - Comprehensive test coverage (28 new tests)
+- 🚧 Dynamic workflow learning (Phase 18.1) - **In Progress**
+  - Learns command → next command transitions with timing data
+  - Time-sensitive scoring adjusts predictions based on timing patterns
+  - SQLite persistence with workflow_transitions table
+  - Automatic learning via FeedbackProvider integration
+  - Configuration via environment variables
+  - **Next**: CommandPredictor integration for inline predictions
 
 **Installation**:
 ```powershell
@@ -40,7 +47,39 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-r
 - [ ] Background pre-computation for heavy ML
 - [ ] Research ONNX Runtime + NativeAOT compatibility
 
-### Phase 18: Future Enhancements
+### Phase 18.1: Dynamic Workflow Learning
+**Status**: 🚧 In Progress (~75% complete)
+
+**Completed**:
+- ✅ WorkflowLearner.cs core infrastructure (~500 lines)
+- ✅ SQLite schema extension (workflow_transitions table)
+- ✅ Module initialization and lifecycle integration
+- ✅ FeedbackProvider integration (automatic learning)
+- ✅ Configuration via environment variables
+- ✅ PersistenceManager save/load methods
+
+**In Progress**:
+- 🔄 CommandPredictor integration (show workflow predictions inline)
+
+**Remaining**:
+- [ ] Comprehensive testing (~25 unit tests)
+- [ ] Integration tests (workflow recording & predictions)
+- [ ] PowerShell module functions (Get-PSCueWorkflows, etc.)
+- [ ] Documentation updates (README.md, design doc status)
+
+**See**: [WORKFLOW-IMPROVEMENTS.md](WORKFLOW-IMPROVEMENTS.md) for full design details
+
+### Phase 18.2+: Future Workflow Enhancements
+**Status**: Planned (see WORKFLOW-IMPROVEMENTS.md)
+
+- [ ] Time-based workflow detection (Phase 18.2)
+- [ ] Workflow chains 3+ commands (Phase 18.3)
+- [ ] Project-type detection (Phase 18.4)
+- [ ] Workflow interruption recovery (Phase 18.5)
+- [ ] Error-driven workflow adjustment (Phase 18.6)
+- [ ] Multi-tool workflows (Phase 18.7)
+
+### Phase 19: Distribution & Packaging
 **Status**: Backlog
 
 - [ ] Copy AI model scripts to `ai/` directory
@@ -48,8 +87,6 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-r
 - [ ] Publish to PowerShell Gallery
 - [ ] Add Homebrew formula (macOS/Linux)
 - [ ] Cloud sync (sync learned data across machines, opt-in)
-- [ ] Advanced learning: command sequences, workflow detection
-- [ ] Semantic argument understanding (detect file paths, URLs, etc.)
 
 ### Distribution & Package Managers
 **Status**: In Progress

@@ -6,6 +6,7 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 **Key Features**:
 - **Generic Learning**: Learns from ALL commands (not just predefined ones) with context-aware suggestions
 - **Multi-Word Suggestions**: Shows common argument combinations (e.g., "git checkout master")
+- **Workflow Learning**: Learns command sequences and predicts next command based on usage patterns (Phase 18.1)
 - **Cross-Session Persistence**: SQLite database stores learned data across sessions
 - **Directory-Aware Navigation**: Smart cd/Set-Location suggestions with path normalization
 - **ML Sequence Prediction**: N-gram based next-command prediction
@@ -25,12 +26,13 @@ For completed work history, see COMPLETED.md.
     - **ArgumentSequences**: Tracks consecutive argument pairs for multi-word suggestions (up to 50 per command)
   - **ContextAnalyzer**: Detects command sequences and workflow patterns
   - **SequencePredictor**: ML-based n-gram prediction for next commands
+  - **WorkflowLearner**: Learns command → next command transitions with timing data (Phase 18.1)
   - **GenericPredictor**: Generates single-word and multi-word suggestions from learned data for ANY command
-  - **Hybrid CommandPredictor**: Blends known completions + generic learning + ML predictions
+  - **Hybrid CommandPredictor**: Blends known completions + generic learning + ML predictions + workflow patterns
 - **Persistence**:
   - **PersistenceManager**: SQLite-based cross-session storage
   - **Database Location**: `~/.local/share/PSCue/learned-data.db` (Linux/macOS), `%LOCALAPPDATA%\PSCue\learned-data.db` (Windows)
-  - **Tables**: commands, arguments, co_occurrences, flag_combinations, argument_sequences, command_history, command_sequences
+  - **Tables**: commands, arguments, co_occurrences, flag_combinations, argument_sequences, command_history, command_sequences, workflow_transitions
   - **Auto-save**: Every 5 minutes + on module unload
   - **Concurrent Access**: SQLite WAL mode handles multiple PowerShell sessions safely
   - **Additive Merging**: Frequencies summed, timestamps use max (most recent)
@@ -56,7 +58,8 @@ src/
 - `src/PSCue.Module/GenericPredictor.cs`: Context-aware suggestions with multi-word generation
 - `src/PSCue.Module/CommandPredictor.cs`: Hybrid predictor with multi-word Combine support
 - `src/PSCue.Module/SequencePredictor.cs`: N-gram ML prediction for command sequences
-- `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence with 7 tables
+- `src/PSCue.Module/WorkflowLearner.cs`: Dynamic workflow learning with timing-aware predictions (Phase 18.1)
+- `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence with 8 tables
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
 - `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system
 - `module/Functions/DatabaseManagement.ps1`: PowerShell functions for database queries
@@ -84,6 +87,7 @@ dotnet test --filter "FullyQualifiedName~Persistence"
 dotnet test --filter "FullyQualifiedName~FeedbackProvider"
 dotnet test --filter "FullyQualifiedName~CommandPredictor"
 dotnet test --filter "FullyQualifiedName~SequencePredictor"
+dotnet test --filter "FullyQualifiedName~WorkflowLearner"
 
 # Install locally
 ./scripts/install-local.ps1
@@ -183,6 +187,12 @@ $env:PSCUE_DECAY_DAYS = "30"             # Score decay period (days)
 $env:PSCUE_ML_ENABLED = "true"           # Enable ML sequence predictions (default: true)
 $env:PSCUE_ML_NGRAM_ORDER = "2"          # N-gram order: 2=bigrams, 3=trigrams (default: 2)
 $env:PSCUE_ML_NGRAM_MIN_FREQ = "3"       # Minimum frequency to suggest (default: 3 occurrences)
+
+# Workflow learning configuration (Phase 18.1: Dynamic workflow learning)
+$env:PSCUE_WORKFLOW_LEARNING = "true"            # Enable workflow learning (default: true)
+$env:PSCUE_WORKFLOW_MIN_FREQUENCY = "5"          # Min occurrences to suggest (default: 5)
+$env:PSCUE_WORKFLOW_MAX_TIME_DELTA = "15"        # Max minutes between commands (default: 15)
+$env:PSCUE_WORKFLOW_MIN_CONFIDENCE = "0.6"       # Min confidence threshold (default: 0.6)
 
 # Privacy & Security: Command filtering
 # BUILT-IN patterns (always active, cannot be disabled):
