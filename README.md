@@ -10,11 +10,13 @@
 - **💡 Inline Predictions**: Smart command suggestions as you type using `ICommandPredictor`
 - **🎯 Multi-Word Suggestions**: Shows common argument combinations (e.g., `git checkout master`)
 - **🤖 ML-Based Predictions**: N-gram sequence learning predicts your next command (e.g., `git add` → `git commit`)
+- **🔄 Workflow Learning**: Automatically learns command sequences and predicts next command based on your usage patterns
 - **⚡ PowerShell Module Functions**: Native PowerShell functions for learning and database management
 - **🧠 Universal Learning System**: Learns from ALL commands (not just pre-configured ones) and adapts to your workflow patterns
 - **🔒 Privacy & Security**: Built-in sensitive data detection - never learns commands with API keys, passwords, or tokens
 - **💾 Cross-Session Persistence**: Learning data persists across PowerShell sessions using SQLite with concurrent session support
 - **🎯 Context-Aware Suggestions**: Detects command sequences and boosts relevant suggestions based on recent activity
+- **⏱️ Time-Aware Predictions**: Adjusts workflow suggestions based on typical timing between commands
 - **⚡ High Performance**: <1ms overhead for learning, <20ms total prediction time (within PowerShell's timeout)
 - **🆘 Error Suggestions**: Provides helpful recovery suggestions when commands fail (e.g., git errors)
 - **🔌 Cross-platform**: Windows (x64) and Linux (x64) support
@@ -64,14 +66,16 @@ PSCue provides detailed completions for these commands:
 - Tracks which flags and arguments you use most frequently
 - **Multi-word suggestions**: Shows common argument combinations (e.g., `git checkout master`, `docker run -it`)
 - **ML-based command sequence prediction**: Learns which commands you typically run after others (e.g., `git add` → `git commit`)
+- **Workflow learning**: Automatically learns command sequences and predicts next command with timing-aware confidence
 - Detects command workflows and suggests next steps based on n-gram analysis
 - Provides context-aware suggestions based on recent activity
 - Fully automatic - no configuration needed
 
 **Examples**:
-- **Learning**: After running `kubectl get pods`, `kubectl describe pod`, PSCue learns these patterns and suggests them next time you type `kubectl`
+- **Argument Learning**: After running `kubectl get pods`, `kubectl describe pod`, PSCue learns these patterns and suggests them next time you type `kubectl`
 - **Multi-word**: After frequently running `git checkout master`, PSCue suggests the full `checkout master` combination alongside `checkout`
 - **ML Prediction**: After typing `git add file.txt`, PSCue's ML engine predicts you'll likely run `git commit` next based on your historical command sequences
+- **Workflow Prediction**: After running `cargo build` → `cargo test` 10+ times, PSCue predicts `cargo test` when you finish `cargo build`
 
 ## Installation
 
@@ -552,6 +556,55 @@ Write-Host "In memory: $inMemory | In database: $inDb"
 - Linux: `~/.local/share/PSCue/learned-data.db`
 
 For detailed documentation on database functions, schema, and use cases, see [DATABASE-FUNCTIONS.md](DATABASE-FUNCTIONS.md).
+
+### Workflow Management
+
+PSCue automatically learns command workflow patterns (which commands you typically run after others) and uses this to predict your next command:
+
+```powershell
+# View learned workflows
+Get-PSCueWorkflows                      # Show all learned workflows
+Get-PSCueWorkflows -Command "git add"   # Filter workflows starting from specific command
+Get-PSCueWorkflows -AsJson              # Output as JSON
+
+# View workflow statistics
+Get-PSCueWorkflowStats                  # Summary: total transitions, unique commands
+Get-PSCueWorkflowStats -Detailed        # Include top 10 workflows and database size
+Get-PSCueWorkflowStats -AsJson          # JSON output
+
+# Export/Import workflows (for backup or sharing)
+Export-PSCueWorkflows -Path ~/workflows.json
+Import-PSCueWorkflows -Path ~/workflows.json         # Replace current workflows
+Import-PSCueWorkflows -Path ~/workflows.json -Merge  # Merge with existing workflows
+
+# Clear workflow data
+Clear-PSCueWorkflows                    # Interactive confirmation (ConfirmImpact=High)
+Clear-PSCueWorkflows -Confirm:$false    # Skip confirmation
+Clear-PSCueWorkflows -WhatIf            # Preview what would be cleared
+```
+
+**How Workflow Learning Works:**
+- Automatically tracks command → next command transitions
+- Records frequency and typical timing between commands
+- Adjusts predictions based on time since last command
+- Only suggests workflows seen 5+ times (configurable via `$env:PSCUE_WORKFLOW_MIN_FREQUENCY`)
+- Filters out commands more than 15 minutes apart (configurable via `$env:PSCUE_WORKFLOW_MAX_TIME_DELTA`)
+
+**Example Workflow:**
+```powershell
+# After running this sequence 10+ times:
+cargo build
+cargo test
+git add .
+git commit
+
+# PSCue learns the pattern and predicts:
+PS> cargo build<Enter>
+PS> cargo █  # Inline suggestion: "cargo test" (based on workflow)
+
+PS> cargo test<Enter>
+PS> git █    # Inline suggestion: "git add" (cross-tool workflow)
+```
 
 ### Debugging & Diagnostics
 
