@@ -29,4 +29,10 @@ public static class PSCueModule
     /// Learns command sequences (n-grams) for ML-based next-command prediction.
     /// </summary>
     public static SequencePredictor? SequencePredictor { get; internal set; }
+
+    /// <summary>
+    /// Gets the workflow learner instance.
+    /// Learns command workflow patterns (command → next command transitions) with timing data.
+    /// </summary>
+    public static WorkflowLearner? WorkflowLearner { get; internal set; }
 }

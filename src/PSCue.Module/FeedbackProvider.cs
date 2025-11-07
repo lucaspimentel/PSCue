@@ -379,6 +379,7 @@ public class FeedbackProvider : IFeedbackProvider
             var commandHistory = PSCueModule.CommandHistory;
             var argumentGraph = PSCueModule.KnowledgeGraph;
             var sequencePredictor = PSCueModule.SequencePredictor;
+            var workflowLearner = PSCueModule.WorkflowLearner;
 
             // Get current working directory for path normalization
             string? workingDirectory = null;
@@ -391,6 +392,17 @@ public class FeedbackProvider : IFeedbackProvider
                 // Ignore errors getting working directory
             }
 
+            // Get previous command for workflow learning
+            CommandHistoryEntry? previousCommand = null;
+            if (commandHistory != null)
+            {
+                var recentCommands = commandHistory.GetRecent(2);
+                if (recentCommands.Count >= 1)
+                {
+                    previousCommand = recentCommands[0]; // Most recent command before this one
+                }
+            }
+
             // Add to command history (with working directory)
             if (commandHistory != null)
             {
@@ -401,6 +413,20 @@ public class FeedbackProvider : IFeedbackProvider
                 {
                     var recentCommands = commandHistory.GetRecent(5).Select(e => e.Command).ToArray();
                     sequencePredictor.RecordSequence(recentCommands);
+                }
+
+                // Record workflow transition (only for successful commands)
+                if (success && workflowLearner != null && previousCommand != null)
+                {
+                    var currentTime = DateTime.UtcNow;
+                    var timeDelta = currentTime - previousCommand.Timestamp;
+
+                    // Record the transition (from previous command to current command)
+                    workflowLearner.RecordTransition(
+                        fromCommand: previousCommand.CommandLine,
+                        toCommand: commandLine,
+                        timeDelta: timeDelta
+                    );
                 }
             }
 
