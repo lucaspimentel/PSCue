@@ -172,12 +172,24 @@ public class PersistenceManager : IDisposable
                 PRIMARY KEY (prev_command, next_command)
             );
 
+            -- Workflow transitions table: tracks command workflow patterns with timing data
+            CREATE TABLE IF NOT EXISTS workflow_transitions (
+                from_command TEXT NOT NULL COLLATE NOCASE,
+                to_command TEXT NOT NULL COLLATE NOCASE,
+                frequency INTEGER NOT NULL DEFAULT 0,
+                total_time_delta_ms INTEGER NOT NULL DEFAULT 0,
+                first_seen TEXT NOT NULL,
+                last_seen TEXT NOT NULL,
+                PRIMARY KEY (from_command, to_command)
+            );
+
             -- Indexes for performance
             CREATE INDEX IF NOT EXISTS idx_arguments_command ON arguments(command);
             CREATE INDEX IF NOT EXISTS idx_co_occurrences_command_arg ON co_occurrences(command, argument);
             CREATE INDEX IF NOT EXISTS idx_argument_sequences_command_first ON argument_sequences(command, first_argument);
             CREATE INDEX IF NOT EXISTS idx_history_timestamp ON command_history(timestamp DESC);
             CREATE INDEX IF NOT EXISTS idx_sequences_prev ON command_sequences(prev_command);
+            CREATE INDEX IF NOT EXISTS idx_workflow_from ON workflow_transitions(from_command);
         ";
         command.ExecuteNonQuery();
     }
@@ -496,6 +508,99 @@ public class PersistenceManager : IDisposable
     }
 
     /// <summary>
+    /// Saves workflow transitions to the database using delta-based additive merging.
+    /// </summary>
+    public void SaveWorkflowTransitions(Dictionary<string, Dictionary<string, WorkflowTransition>> workflows)
+    {
+        if (workflows == null)
+            throw new ArgumentNullException(nameof(workflows));
+
+        using var connection = CreateConnection();
+
+        // Use Serializable isolation to ensure atomic writes
+        using var transaction = connection.BeginTransaction(IsolationLevel.Serializable);
+
+        try
+        {
+            foreach (var (fromCommand, transitions) in workflows)
+            {
+                foreach (var (toCommand, workflow) in transitions)
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.Transaction = transaction;
+                    cmd.CommandText = @"
+                        INSERT INTO workflow_transitions (from_command, to_command, frequency, total_time_delta_ms, first_seen, last_seen)
+                        VALUES (@fromCmd, @toCmd, @frequency, @timeDelta, @firstSeen, @lastSeen)
+                        ON CONFLICT (from_command, to_command) DO UPDATE SET
+                            frequency = frequency + @frequency,
+                            total_time_delta_ms = total_time_delta_ms + @timeDelta,
+                            first_seen = MIN(first_seen, @firstSeen),
+                            last_seen = MAX(last_seen, @lastSeen)
+                    ";
+                    cmd.Parameters.AddWithValue("@fromCmd", fromCommand);
+                    cmd.Parameters.AddWithValue("@toCmd", toCommand);
+                    cmd.Parameters.AddWithValue("@frequency", workflow.Frequency);
+                    cmd.Parameters.AddWithValue("@timeDelta", workflow.TotalTimeDeltaMs);
+                    cmd.Parameters.AddWithValue("@firstSeen", workflow.FirstSeen.ToString("O"));
+                    cmd.Parameters.AddWithValue("@lastSeen", workflow.LastSeen.ToString("O"));
+                    cmd.ExecuteNonQuery();
+                }
+            }
+
+            transaction.Commit();
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Loads workflow transitions from the database.
+    /// Returns a dictionary of from_command -> (to_command -> WorkflowTransition).
+    /// </summary>
+    public Dictionary<string, Dictionary<string, WorkflowTransition>> LoadWorkflowTransitions()
+    {
+        var workflows = new Dictionary<string, Dictionary<string, WorkflowTransition>>(StringComparer.OrdinalIgnoreCase);
+
+        using var connection = CreateConnection();
+
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = @"
+            SELECT from_command, to_command, frequency, total_time_delta_ms, first_seen, last_seen
+            FROM workflow_transitions
+        ";
+        using var reader = cmd.ExecuteReader();
+
+        while (reader.Read())
+        {
+            var fromCommand = reader.GetString(0);
+            var toCommand = reader.GetString(1);
+            var frequency = reader.GetInt32(2);
+            var timeDeltaMs = reader.GetInt64(3);
+            var firstSeen = DateTime.Parse(reader.GetString(4)).ToUniversalTime();
+            var lastSeen = DateTime.Parse(reader.GetString(5)).ToUniversalTime();
+
+            if (!workflows.ContainsKey(fromCommand))
+            {
+                workflows[fromCommand] = new Dictionary<string, WorkflowTransition>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            workflows[fromCommand][toCommand] = new WorkflowTransition
+            {
+                NextCommand = toCommand,
+                Frequency = frequency,
+                TotalTimeDeltaMs = timeDeltaMs,
+                FirstSeen = firstSeen,
+                LastSeen = lastSeen
+            };
+        }
+
+        return workflows;
+    }
+
+    /// <summary>
     /// Loads the ArgumentGraph from the database.
     /// </summary>
     public ArgumentGraph LoadArgumentGraph(int maxCommands = 500, int maxArgumentsPerCommand = 100, int scoreDecayDays = 30)
@@ -674,6 +779,7 @@ public class PersistenceManager : IDisposable
                 DELETE FROM flag_combinations;
                 DELETE FROM command_history;
                 DELETE FROM command_sequences;
+                DELETE FROM workflow_transitions;
             ";
             cmd.ExecuteNonQuery();
 

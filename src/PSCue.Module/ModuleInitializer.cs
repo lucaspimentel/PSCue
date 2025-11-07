@@ -45,6 +45,12 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                 var ngramOrder = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_ML_NGRAM_ORDER"), out var no) ? no : 2; // Default: bigrams
                 var ngramMinFreq = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_ML_NGRAM_MIN_FREQ"), out var mf) ? mf : 3; // Default: 3 occurrences
 
+                // Workflow learning configuration (Phase 18.1: Dynamic workflow learning)
+                var workflowEnabled = Environment.GetEnvironmentVariable("PSCUE_WORKFLOW_LEARNING")?.Equals("false", StringComparison.OrdinalIgnoreCase) != true; // Default: true
+                var workflowMinFreq = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_WORKFLOW_MIN_FREQUENCY"), out var wf) ? wf : 5; // Default: 5 occurrences
+                var workflowMaxTime = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_WORKFLOW_MAX_TIME_DELTA"), out var wt) ? wt : 15; // Default: 15 minutes
+                var workflowMinConf = double.TryParse(Environment.GetEnvironmentVariable("PSCUE_WORKFLOW_MIN_CONFIDENCE"), out var wc) ? wc : 0.6; // Default: 0.6
+
                 // Initialize persistence manager and load learned data
                 PSCueModule.Persistence = new PersistenceManager();
                 PSCueModule.KnowledgeGraph = PSCueModule.Persistence.LoadArgumentGraph(maxCommands, maxArgs, decayDays);
@@ -56,6 +62,14 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                     PSCueModule.SequencePredictor = new SequencePredictor(ngramOrder, ngramMinFreq);
                     var sequences = PSCueModule.Persistence.LoadCommandSequences();
                     PSCueModule.SequencePredictor.Initialize(sequences);
+                }
+
+                // Initialize workflow learner if enabled
+                if (workflowEnabled)
+                {
+                    PSCueModule.WorkflowLearner = new WorkflowLearner(workflowMinFreq, workflowMaxTime, workflowMinConf, decayDays);
+                    var workflows = PSCueModule.Persistence.LoadWorkflowTransitions();
+                    PSCueModule.WorkflowLearner.Initialize(workflows);
                 }
 
                 _contextAnalyzer = new ContextAnalyzer();
@@ -162,6 +176,17 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                         PSCueModule.SequencePredictor.ClearDelta();
                     }
                 }
+
+                // Save workflow learning data if enabled
+                if (PSCueModule.WorkflowLearner != null)
+                {
+                    var workflowDelta = PSCueModule.WorkflowLearner.GetDelta();
+                    if (workflowDelta.Count > 0)
+                    {
+                        PSCueModule.Persistence.SaveWorkflowTransitions(workflowDelta);
+                        PSCueModule.WorkflowLearner.ClearDelta();
+                    }
+                }
             }
         }
         catch (Exception ex)
@@ -193,6 +218,16 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                         PSCueModule.Persistence.SaveCommandSequences(delta);
                     }
                 }
+
+                // Save workflow learning data if enabled
+                if (PSCueModule.WorkflowLearner != null)
+                {
+                    var workflowDelta = PSCueModule.WorkflowLearner.GetDelta();
+                    if (workflowDelta.Count > 0)
+                    {
+                        PSCueModule.Persistence.SaveWorkflowTransitions(workflowDelta);
+                    }
+                }
             }
         }
         catch (Exception ex)
@@ -207,6 +242,10 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
         // Cleanup SequencePredictor
         PSCueModule.SequencePredictor?.Dispose();
         PSCueModule.SequencePredictor = null;
+
+        // Cleanup WorkflowLearner
+        PSCueModule.WorkflowLearner?.Dispose();
+        PSCueModule.WorkflowLearner = null;
 
         // Cleanup persistence manager
         PSCueModule.Persistence?.Dispose();
