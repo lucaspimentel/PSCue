@@ -31,6 +31,8 @@ For current and future work, see [TODO.md](TODO.md).
 - **Phase 17.2**: Privacy & Security - Sensitive Data Protection ✅
 - **Phase 17.3**: Partial Word Completion Filtering ✅
 - **Phase 17.4**: Multi-Word Prediction Suggestions ✅
+- **Phase 18.1**: Dynamic Workflow Learning ✅
+- **Phase 18.2**: Time-Based Workflow Detection ✅ (completed as part of 18.1)
 - **CI/CD & Distribution**: GitHub Actions Automated Releases ✅
 
 ---
@@ -1404,6 +1406,116 @@ git push origin main vX.Y.Z
 
 # 3. GitHub Actions automatically builds and publishes
 ```
+
+### Phase 18.1: Dynamic Workflow Learning ✅
+
+**Completed**: 2025-11-07
+
+Automatically learns command workflow patterns (command → next command transitions) and predicts the next command based on usage patterns with timing awareness.
+
+**Core Implementation** (`src/PSCue.Module/WorkflowLearner.cs` - 500+ lines):
+- **WorkflowTransition** class: Tracks frequency, time deltas, timestamps, and confidence
+- **WorkflowSuggestion** class: Prediction results with command, confidence, source, and reason
+- **WorkflowLearner** class: Main learning engine with in-memory graph and persistence support
+- **Command normalization**: Extracts base command + subcommand (e.g., "git commit" from "git commit -m 'test'")
+- **Memory management**: LRU eviction keeps top 20 transitions per command
+- **Time-sensitive scoring**: Adjusts confidence based on timing patterns (1.5× to 0.8× boost)
+- **Confidence calculation**: 70% frequency + 30% recency with exponential decay
+
+**Database Integration** (`src/PSCue.Module/PersistenceManager.cs`):
+- New `workflow_transitions` table (8 tables total now)
+- Columns: `from_command`, `to_command`, `frequency`, `total_time_delta_ms`, `first_seen`, `last_seen`
+- Indexed on `from_command` for fast lookups (<2ms target)
+- Additive merging for concurrent session support
+- Save/load methods: `SaveWorkflowTransitions()`, `LoadWorkflowTransitions()`
+
+**Module Integration**:
+- **ModuleInitializer.cs**: Load/save lifecycle, auto-save every 5 minutes, configuration from env vars
+- **PSCueModule.cs**: Added `WorkflowLearner` static property
+- **FeedbackProvider.cs**: Records transitions after successful commands with time delta tracking
+- **CommandPredictor.cs**: Shows workflow predictions at empty prompt and filters by partial command
+
+**PowerShell Functions** (`module/Functions/WorkflowManagement.ps1` - 460+ lines):
+1. `Get-PSCueWorkflows`: View learned patterns with filtering and formatting
+2. `Get-PSCueWorkflowStats`: Summary and detailed statistics with top workflows
+3. `Clear-PSCueWorkflows`: Clear with confirmation (ConfirmImpact=High)
+4. `Export-PSCueWorkflows`: Backup to JSON with metadata
+5. `Import-PSCueWorkflows`: Restore with merge option
+
+**Configuration** (Environment Variables):
+- `PSCUE_WORKFLOW_LEARNING`: Enable/disable (default: true)
+- `PSCUE_WORKFLOW_MIN_FREQUENCY`: Min occurrences to suggest (default: 5)
+- `PSCUE_WORKFLOW_MAX_TIME_DELTA`: Max minutes between commands (default: 15)
+- `PSCUE_WORKFLOW_MIN_CONFIDENCE`: Min confidence threshold (default: 0.6)
+
+**Comprehensive Testing** (`test/PSCue.Module.Tests/WorkflowLearnerTests.cs` - 485+ lines):
+- 35+ unit tests covering all functionality
+- Constructor validation, transition recording, prediction queries
+- Time-sensitive scoring, persistence, memory management
+- WorkflowTransition confidence and time delta calculations
+
+**Documentation Updates**:
+- `CLAUDE.md`: Architecture, configuration, key files
+- `README.md`: Features, workflow management section with examples
+- `TODO.md`: Marked Phase 18.1 as complete
+- `WORKFLOW-IMPROVEMENTS.md`: Design doc with implementation status
+
+**Commits**:
+1. `d638466`: feat: implement Phase 18.1 dynamic workflow learning
+2. `d1f3159`: docs: update documentation for Phase 18.1 implementation
+3. `fa997c8`: feat: integrate WorkflowLearner with CommandPredictor
+4. `5945511`: test: add comprehensive tests for WorkflowLearner
+5. `154bcad`: feat: add PowerShell workflow management functions
+6. `b46c9b8`: docs: update README.md with workflow learning features
+
+**Example Workflow**:
+```powershell
+# After running this sequence 10+ times:
+cargo build
+cargo test
+git add .
+
+# PSCue learns the pattern and predicts:
+PS> cargo build<Enter>
+PS> cargo █  # Inline suggestion: "cargo test" (85% confidence)
+
+PS> cargo test<Enter>
+PS> git █    # Inline suggestion: "git add" (70% confidence, cross-tool)
+```
+
+### Phase 18.2: Time-Based Workflow Detection ✅
+
+**Completed**: 2025-11-07 (as part of Phase 18.1)
+
+Time-sensitive scoring was implemented directly in Phase 18.1 as part of the `WorkflowLearner` core functionality.
+
+**Features**:
+- **Time delta tracking**: Records time between command executions in milliseconds
+- **Average time calculation**: `TotalTimeDeltaMs / Frequency` for typical workflow timing
+- **Time-sensitive scoring** (`GetTimeSensitiveScore()` method):
+  - Within expected timeframe (ratio < 1.5): 1.5× confidence boost
+  - Moderately delayed (ratio < 5): 1.2× boost
+  - Significantly delayed (ratio < 30): 1.0× (no boost)
+  - Very old (ratio ≥ 30): 0.8× penalty (weak relationship)
+- **Database schema**: `total_time_delta_ms` column in `workflow_transitions` table
+- **Configuration**: `PSCUE_WORKFLOW_MAX_TIME_DELTA` filters out transitions >15 minutes
+
+**Example**:
+```powershell
+# User typically runs "git commit" 30 seconds after "git add"
+
+# Scenario 1: Quick succession (matches pattern)
+PS> git add .<Enter>
+# 30 seconds later...
+PS> git c█  # "git commit" suggested with 1.5× boost (high confidence)
+
+# Scenario 2: Delayed (doesn't match timing pattern)
+PS> git add .<Enter>
+# 2 hours later...
+PS> git c█  # "git commit" suggested with 0.8× penalty (lower confidence)
+```
+
+**Result**: Predictions are more accurate by considering not just frequency but also typical timing patterns in workflows.
 
 ## Notes
 

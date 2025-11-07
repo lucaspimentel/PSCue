@@ -22,13 +22,16 @@ This document tracks active and planned work for PSCue. For architectural detail
   - Tracks sequential argument patterns with usage frequency
   - Persists learned sequences to database
   - Comprehensive test coverage (28 new tests)
-- 🚧 Dynamic workflow learning (Phase 18.1) - **In Progress**
+- ✅ Dynamic workflow learning (Phase 18.1) - **COMPLETE**
   - Learns command → next command transitions with timing data
   - Time-sensitive scoring adjusts predictions based on timing patterns
-  - SQLite persistence with workflow_transitions table
+  - SQLite persistence with workflow_transitions table (8 tables total)
   - Automatic learning via FeedbackProvider integration
+  - CommandPredictor integration for inline predictions
+  - 5 PowerShell functions for workflow management
+  - 35+ comprehensive tests
   - Configuration via environment variables
-  - **Next**: CommandPredictor integration for inline predictions
+  - Full documentation in README.md and WORKFLOW-IMPROVEMENTS.md
 
 **Installation**:
 ```powershell
@@ -89,36 +92,38 @@ Add a PowerShell function with smart tab completion for directory navigation, le
 - [ ] Research ONNX Runtime + NativeAOT compatibility
 
 ### Phase 18.1: Dynamic Workflow Learning
-**Status**: 🚧 In Progress (~75% complete)
+**Status**: ✅ **COMPLETE** (2025-11-07)
 
 **Completed**:
 - ✅ WorkflowLearner.cs core infrastructure (~500 lines)
-- ✅ SQLite schema extension (workflow_transitions table)
+- ✅ SQLite schema extension (workflow_transitions table - 8 tables total)
 - ✅ Module initialization and lifecycle integration
 - ✅ FeedbackProvider integration (automatic learning)
-- ✅ Configuration via environment variables
+- ✅ CommandPredictor integration (inline predictions at empty prompt)
+- ✅ Configuration via environment variables (4 new vars)
 - ✅ PersistenceManager save/load methods
+- ✅ Comprehensive testing (35+ unit tests)
+- ✅ PowerShell module functions (5 functions: Get/Stats/Clear/Export/Import)
+- ✅ Documentation updates (CLAUDE.md, README.md, TODO.md)
 
-**In Progress**:
-- 🔄 CommandPredictor integration (show workflow predictions inline)
+**Phase 18.2 (Time-Based Detection)** also completed as part of 18.1:
+- ✅ Time-sensitive scoring with timing pattern awareness
+- ✅ Time delta tracking in database
+- ✅ Confidence adjustments based on timing (1.5× to 0.8× boost)
 
-**Remaining**:
-- [ ] Comprehensive testing (~25 unit tests)
-- [ ] Integration tests (workflow recording & predictions)
-- [ ] PowerShell module functions (Get-PSCueWorkflows, etc.)
-- [ ] Documentation updates (README.md, design doc status)
+**See**: [COMPLETED.md](COMPLETED.md) for detailed implementation notes
+**Design**: [WORKFLOW-IMPROVEMENTS.md](WORKFLOW-IMPROVEMENTS.md) for full design details
 
-**See**: [WORKFLOW-IMPROVEMENTS.md](WORKFLOW-IMPROVEMENTS.md) for full design details
-
-### Phase 18.2+: Future Workflow Enhancements
+### Phase 18.3+: Future Workflow Enhancements
 **Status**: Planned (see WORKFLOW-IMPROVEMENTS.md)
 
-- [ ] Time-based workflow detection (Phase 18.2)
-- [ ] Workflow chains 3+ commands (Phase 18.3)
+- [ ] Workflow chains 3+ commands / trigrams (Phase 18.3)
 - [ ] Project-type detection (Phase 18.4)
 - [ ] Workflow interruption recovery (Phase 18.5)
 - [ ] Error-driven workflow adjustment (Phase 18.6)
 - [ ] Multi-tool workflows (Phase 18.7)
+
+**Note**: Phase 18.2 (Time-Based Detection) was completed as part of Phase 18.1.
 
 ### Phase 19: Distribution & Packaging
 **Status**: Backlog
