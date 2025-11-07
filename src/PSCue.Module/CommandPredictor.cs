@@ -46,11 +46,22 @@ public class CommandPredictor : ICommandPredictor
 
         if (input.Length == 0)
         {
-            return default;
+            // Empty input - show workflow predictions for next command
+            return GetWorkflowPredictions();
         }
 
         var inputString = input.ToString();
         var command = ExtractCommand(inputString);
+
+        // Check if user is starting to type a new command (no arguments yet)
+        // If so, include workflow predictions in suggestions
+        var hasArguments = inputString.Contains(' ');
+        List<WorkflowSuggestion>? workflowSuggestions = null;
+
+        if (!hasArguments && _enableGenericLearning)
+        {
+            workflowSuggestions = GetWorkflowSuggestionsForCommand(inputString);
+        }
 
         // Get known completions (for supported commands)
         // Skip dynamic arguments (git branches, scoop packages, etc.) for fast predictor responses
@@ -70,8 +81,8 @@ public class CommandPredictor : ICommandPredictor
             }
         }
 
-        // Merge suggestions
-        var mergedSuggestions = MergeSuggestions(input, knownCompletions, genericSuggestions);
+        // Merge suggestions (including workflow predictions)
+        var mergedSuggestions = MergeSuggestions(input, knownCompletions, genericSuggestions, workflowSuggestions);
 
         if (mergedSuggestions.Count == 0)
         {
@@ -82,21 +93,123 @@ public class CommandPredictor : ICommandPredictor
     }
 
     /// <summary>
-    /// Merges known completions with generic learned suggestions.
+    /// Gets workflow predictions for the next command based on command history.
+    /// </summary>
+    private SuggestionPackage GetWorkflowPredictions()
+    {
+        if (!_enableGenericLearning)
+        {
+            return default;
+        }
+
+        try
+        {
+            var workflowLearner = PSCueModule.WorkflowLearner;
+            var commandHistory = PSCueModule.CommandHistory;
+
+            if (workflowLearner == null || commandHistory == null)
+            {
+                return default;
+            }
+
+            // Get the most recent command
+            var recentCommands = commandHistory.GetRecent(1);
+            if (recentCommands.Count == 0)
+            {
+                return default;
+            }
+
+            var lastCommand = recentCommands[0];
+            var timeSinceLastCommand = DateTime.UtcNow - lastCommand.Timestamp;
+
+            // Get workflow predictions
+            var predictions = workflowLearner.GetNextCommandPredictions(
+                lastCommand.CommandLine,
+                timeSinceLastCommand,
+                maxResults: 5
+            );
+
+            if (predictions.Count == 0)
+            {
+                return default;
+            }
+
+            // Convert to PredictiveSuggestions
+            var suggestions = predictions
+                .Select(p => new PredictiveSuggestion(p.Command, p.Reason))
+                .ToList();
+
+            return new SuggestionPackage(suggestions);
+        }
+        catch
+        {
+            // Silently ignore errors
+            return default;
+        }
+    }
+
+    /// <summary>
+    /// Gets workflow suggestions that match the partial command being typed.
+    /// </summary>
+    private List<WorkflowSuggestion>? GetWorkflowSuggestionsForCommand(string partialCommand)
+    {
+        try
+        {
+            var workflowLearner = PSCueModule.WorkflowLearner;
+            var commandHistory = PSCueModule.CommandHistory;
+
+            if (workflowLearner == null || commandHistory == null)
+            {
+                return null;
+            }
+
+            // Get the most recent command
+            var recentCommands = commandHistory.GetRecent(1);
+            if (recentCommands.Count == 0)
+            {
+                return null;
+            }
+
+            var lastCommand = recentCommands[0];
+            var timeSinceLastCommand = DateTime.UtcNow - lastCommand.Timestamp;
+
+            // Get workflow predictions
+            var predictions = workflowLearner.GetNextCommandPredictions(
+                lastCommand.CommandLine,
+                timeSinceLastCommand,
+                maxResults: 5
+            );
+
+            // Filter predictions that start with the partial command
+            return predictions
+                .Where(p => p.Command.StartsWith(partialCommand, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+        catch
+        {
+            // Silently ignore errors
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Merges known completions with generic learned suggestions and workflow predictions.
     /// Deduplicates and ranks by score.
     ///
     /// Blending strategy:
     /// - Known completions: Scored 1.0 to 0.5 based on order
     /// - Generic suggestions: Scored by frequency (0.6) + recency (0.4)
     /// - ML sequence predictions: Scored by n-gram probability + recency (via GenericPredictor)
+    /// - Workflow predictions: Scored by confidence (learned patterns)
     /// - Overlap boost: If suggestion appears in both, boost score by 1.2×
     ///
-    /// Final score = (0.3 × frequency/recency) + (0.3 × n-gram) + (0.4 × known completions)
+    /// Final score = (0.25 × frequency/recency) + (0.25 × n-gram) + (0.25 × workflow) + (0.25 × known completions)
     /// </summary>
     private List<PredictiveSuggestion> MergeSuggestions(
         ReadOnlySpan<char> input,
         List<ICompletion> knownCompletions,
-        List<PredictionSuggestion>? genericSuggestions)
+        List<PredictionSuggestion>? genericSuggestions,
+        List<WorkflowSuggestion>? workflowSuggestions = null)
     {
         var suggestions = new Dictionary<string, (string fullText, string? tooltip, double score)>(StringComparer.OrdinalIgnoreCase);
 
@@ -134,6 +247,35 @@ public class CommandPredictor : ICommandPredictor
                 {
                     // New suggestion from generic learning (including ML sequences)
                     suggestions[g.Text] = (fullText, g.Description, g.Score);
+                }
+            }
+        }
+
+        // Merge in workflow predictions
+        if (workflowSuggestions != null)
+        {
+            foreach (var w in workflowSuggestions)
+            {
+                var fullText = Combine(input, w.Command);
+                var tooltip = $"Workflow: {w.Reason}";
+
+                if (suggestions.TryGetValue(w.Command, out var existing))
+                {
+                    // Already exists - boost the score if workflow confidence is high
+                    var boostedScore = Math.Max(existing.score, w.Confidence) * 1.3;
+                    boostedScore = Math.Min(1.0, boostedScore);
+
+                    // Combine tooltips
+                    var combinedTooltip = !string.IsNullOrEmpty(existing.tooltip)
+                        ? $"{existing.tooltip} | {tooltip}"
+                        : tooltip;
+
+                    suggestions[w.Command] = (fullText, combinedTooltip, boostedScore);
+                }
+                else
+                {
+                    // New suggestion from workflow learning
+                    suggestions[w.Command] = (fullText, tooltip, w.Confidence);
                 }
             }
         }
