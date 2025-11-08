@@ -2,7 +2,17 @@
 
 This directory contains PowerShell test scripts for manually testing PSCue functionality.
 
-**Note**: Many scripts in this directory reference IPC and CompletionCache, which were removed in Phase 16 and Phase 16.6. These scripts are archived for historical reference but may no longer work. The current integration test script is `test-module-functions.ps1`.
+**Note**: Many scripts in this directory reference IPC and CompletionCache, which were removed in Phase 16. These scripts are archived for historical reference and may no longer work.
+
+## Current Active Test Scripts
+
+The following scripts work with the current PSCue architecture:
+
+- **test-module-functions.ps1** - Comprehensive test of all 12 PowerShell module functions
+- **test-database-functions.ps1** - Tests database query functions
+- **test-empty-state.ps1** - Validates Get- functions work with empty data
+- **test-feedback-provider.ps1** - Tests learning system (PowerShell 7.4+)
+- **test-inline-predictions.ps1** - Tests inline prediction functionality
 
 ## Test Scripts
 
@@ -313,27 +323,26 @@ pwsh -NoProfile -File test-scripts/test-empty-state.ps1
 
 ## Automated Tests
 
-PSCue has **296 unit tests** covering ArgumentCompleter logic, IPC server behavior, cache filtering, learning system, persistence, and integration scenarios.
+PSCue has comprehensive unit test coverage for ArgumentCompleter logic, learning system, persistence, workflow learning, and integration scenarios.
 
 For automated unit and integration tests, see:
-- `test/PSCue.ArgumentCompleter.Tests/` - **91 tests**
+- `test/PSCue.ArgumentCompleter.Tests/`
   - CommandCompleter logic tests
   - Completion generation for all supported commands
-  - **Windows Terminal (wt)**: 24 tests including alias support, partial matching, tooltip verification
+  - **Windows Terminal (wt)**: alias support, partial matching, tooltip verification
   - **SetLocationCommand**: directory navigation, caching, context detection
   - Platform-specific tests (Windows/Linux/macOS)
-- `test/PSCue.Module.Tests/` - **205 tests**
-  - CompletionCache tests (cache key generation, get/set, hit counting)
-  - IPC filtering tests (filtering behavior, cache storage, real-world scenarios)
-  - IPC server integration tests (end-to-end request/response)
-  - IPC server error handling, concurrency, and lifecycle tests
-  - CommandPredictor tests including Combine method
+- `test/PSCue.Module.Tests/`
+  - CommandPredictor tests including Combine method and workflow predictions
   - FeedbackProvider tests for learning system
   - Learning system tests (CommandHistory, ArgumentGraph, ContextAnalyzer, GenericPredictor)
+  - N-gram sequence prediction tests (SequencePredictor)
+  - Workflow learning tests (WorkflowLearner) - 35+ tests
   - Persistence tests (SQLite storage, concurrency, edge cases, integration)
-  - IPC cache filtering and subcommand navigation tests
+  - Multi-word prediction tests (ArgumentSequences)
 
 Run all tests:
 ```powershell
-dotnet test  # All 296 tests
+dotnet test
+dotnet test --filter "FullyQualifiedName~WorkflowLearner"  # Run workflow tests only
 ```

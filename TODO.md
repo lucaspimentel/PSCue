@@ -1,6 +1,6 @@
 # PSCue - Task List
 
-**Last Updated**: 2025-11-06
+**Last Updated**: 2025-11-08
 
 This document tracks active and planned work for PSCue. For architectural details, see [TECHNICAL_DETAILS.md](TECHNICAL_DETAILS.md). For completed work, see [COMPLETED.md](COMPLETED.md).
 
@@ -142,13 +142,16 @@ dotnet test --filter "FullyQualifiedName~ModuleFunctions"
 ./scripts/install-local.ps1
 ```
 
-### Module Functions (Phase 16)
+### Module Functions (Phase 16 + Phase 18.1)
 ```powershell
 # Learning Management
 Get-PSCueLearning, Clear-PSCueLearning, Export-PSCueLearning, Import-PSCueLearning, Save-PSCueLearning
 
 # Database Management
 Get-PSCueDatabaseStats, Get-PSCueDatabaseHistory
+
+# Workflow Management (Phase 18.1)
+Get-PSCueWorkflows, Get-PSCueWorkflowStats, Clear-PSCueWorkflows, Export-PSCueWorkflows, Import-PSCueWorkflows
 
 # Debugging
 Test-PSCueCompletion, Get-PSCueModuleInfo

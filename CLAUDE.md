@@ -11,7 +11,7 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 - **Directory-Aware Navigation**: Smart cd/Set-Location suggestions with path normalization
 - **ML Sequence Prediction**: N-gram based next-command prediction
 - **Privacy Protection**: Filters sensitive data (passwords, tokens, keys)
-- **PowerShell Module Functions**: 7 functions for learning and database management (no IPC overhead)
+- **PowerShell Module Functions**: 12 functions for learning, database, and workflow management (no IPC overhead)
 
 **Supported Commands**: git, gh, gt (Graphite), az, azd, func, code, scoop, winget, wt (Windows Terminal), chezmoi, tre, lsd, dust, cd/Set-Location
 
@@ -63,11 +63,13 @@ src/
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
 - `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system
 - `module/Functions/DatabaseManagement.ps1`: PowerShell functions for database queries
+- `module/Functions/WorkflowManagement.ps1`: PowerShell functions for workflow management (Phase 18.1)
 - `module/Functions/Debugging.ps1`: PowerShell functions for testing/diagnostics
 - `test/PSCue.Module.Tests/ArgumentGraphTests.cs`: Argument graph + sequence tracking tests
 - `test/PSCue.Module.Tests/GenericPredictorTests.cs`: Generic predictor + multi-word tests
 - `test/PSCue.Module.Tests/CommandPredictorTests.cs`: Command predictor + Combine tests
 - `test/PSCue.Module.Tests/SequencePredictorTests.cs`: N-gram predictor unit tests
+- `test/PSCue.Module.Tests/WorkflowLearnerTests.cs`: Workflow learning tests (Phase 18.1)
 - `test/PSCue.Module.Tests/PersistenceManagerTests.cs`: Persistence unit tests
 - `test/PSCue.Module.Tests/PersistenceConcurrencyTests.cs`: Multi-session concurrency tests
 - `test/PSCue.Module.Tests/PersistenceIntegrationTests.cs`: End-to-end integration tests
@@ -103,6 +105,13 @@ Save-PSCueLearning                                 # Force save to disk
 # Database Management (direct SQLite queries)
 Get-PSCueDatabaseStats [-Detailed] [-AsJson]       # Database stats (reads DB directly)
 Get-PSCueDatabaseHistory [-Last <n>] [-Command <name>] [-AsJson]  # Query DB history
+
+# Workflow Management (Phase 18.1)
+Get-PSCueWorkflows [-Command <string>] [-AsJson]   # View learned workflows
+Get-PSCueWorkflowStats [-Detailed] [-AsJson]       # Workflow statistics
+Clear-PSCueWorkflows [-WhatIf] [-Confirm]          # Clear workflows (memory + DB)
+Export-PSCueWorkflows -Path <path>                 # Export workflows to JSON
+Import-PSCueWorkflows -Path <path> [-Merge]        # Import workflows from JSON
 
 # Debugging & Testing
 Test-PSCueCompletion -InputString <string>         # Test completions
