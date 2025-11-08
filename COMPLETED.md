@@ -31,6 +31,7 @@ For current and future work, see [TODO.md](TODO.md).
 - **Phase 17.2**: Privacy & Security - Sensitive Data Protection ✅
 - **Phase 17.3**: Partial Word Completion Filtering ✅
 - **Phase 17.4**: Multi-Word Prediction Suggestions ✅
+- **Phase 17.5**: Smart Directory Navigation (`pcd` command) ✅
 - **Phase 18.1**: Dynamic Workflow Learning ✅
 - **Phase 18.2**: Time-Based Workflow Detection ✅ (completed as part of 18.1)
 - **CI/CD & Distribution**: GitHub Actions Automated Releases ✅
@@ -1406,6 +1407,64 @@ git push origin main vX.Y.Z
 
 # 3. GitHub Actions automatically builds and publishes
 ```
+
+### Phase 17.5: Smart Directory Navigation (`pcd` command) ✅
+
+**Completed**: 2025-11-08
+
+Added a PowerShell function with intelligent tab completion for directory navigation, leveraging PSCue's learned `cd` command data without interfering with native `cd` completion.
+
+**Core Implementation** (`module/Functions/PCD.ps1` - ~110 lines):
+- **`Invoke-PCD` function**: PowerShell function that calls `Set-Location` with the provided path
+- **`pcd` alias**: Short, convenient alias for quick navigation
+- **Tab completion**: Registered via `Register-ArgumentCompleter` for both `Invoke-PCD` and `pcd`
+  - Direct in-process access to `PSCueModule.KnowledgeGraph` (<1ms, no IPC overhead)
+  - Queries learned `cd` command data via `GetSuggestions("cd", @())`
+  - Filters results by `$wordToComplete` using `StartsWith` matching
+  - Returns `CompletionResult` objects with usage count and last used date tooltips
+- **Graceful fallback**: Returns empty if module not initialized, letting native completion take over
+- **Home directory support**: Handles empty argument (navigates to `~`)
+- **Path quoting**: Automatically quotes paths with spaces
+
+**Module Integration** (`module/PSCue.psm1`):
+- Added dot-source for `PCD.ps1`
+- Also added missing `WorkflowManagement.ps1` dot-source
+
+**Module Manifest** (`module/PSCue.psd1`):
+- Added `Invoke-PCD` to `FunctionsToExport`
+- Added `pcd` to `AliasesToExport`
+- Fixed missing workflow management functions in exports
+
+**Comprehensive Testing** (`test/PSCue.Module.Tests/PCDTests.cs` - ~425 lines):
+- **ArgumentGraph integration tests**: Verify learned directory suggestions and ordering
+- **Tab completion simulation tests**: Test filtering, sorting, and `CompletionResult` generation
+- **Scoring and ranking tests**: Verify frequency-based ordering
+- **Edge cases**: Root directories, relative paths, special characters, long paths
+- **Performance tests**: Ensure <10ms completion time with large datasets
+- **Module lifecycle tests**: Handle uninitialized module gracefully
+
+**Documentation Updates**:
+- `README.md`: Added "Smart Directory Navigation with `pcd`" section with examples
+- `CLAUDE.md`: Added `pcd` to function reference and key files list
+- `TODO.md`: Marked Phase 17.5 as complete with implementation details
+
+**Design Decisions**:
+- **In-process completion**: Direct `PSCueModule.KnowledgeGraph` access avoids IPC overhead
+- **Non-invasive**: Separate `pcd` command doesn't interfere with native `cd` tab completion
+- **Reuses existing data**: ArgumentGraph already tracks `cd` command with all paths
+- **User choice**: Users can use `pcd` for smart suggestions or `cd` for native completion
+- **PSReadLine integration**: Menu display handled by PSReadLine (`MenuComplete`, `ListView`)
+
+**Future Enhancement Ideas** (documented in TODO.md):
+- Fuzzy matching (e.g., "dt" → "D:\source\datadog\dd-trace-dotnet")
+- Frecency scoring (frequency + recency blend) for better ranking
+- Multi-segment substring matching (e.g., "dog/trace" → "datadog/dd-trace-dotnet")
+- Working directory proximity (prefer subdirectories of current location)
+
+**Key Metrics**:
+- Tab completion performance: <1ms (direct in-process access)
+- Tooltips show: "Used N times (last: YYYY-MM-DD)"
+- Suggestions ordered by: Score (frequency + recency decay)
 
 ### Phase 18.1: Dynamic Workflow Learning ✅
 

@@ -21,17 +21,22 @@ This document tracks active and planned work for PSCue. For architectural detail
   - Shows common argument combinations like "git checkout master"
   - Tracks sequential argument patterns with usage frequency
   - Persists learned sequences to database
-  - Comprehensive test coverage (28 new tests)
-- ✅ Dynamic workflow learning (Phase 18.1) - **COMPLETE**
+- ✅ Dynamic workflow learning (Phase 18.1)
   - Learns command → next command transitions with timing data
   - Time-sensitive scoring adjusts predictions based on timing patterns
   - SQLite persistence with workflow_transitions table (8 tables total)
   - Automatic learning via FeedbackProvider integration
   - CommandPredictor integration for inline predictions
   - 5 PowerShell functions for workflow management
-  - 35+ comprehensive tests
   - Configuration via environment variables
   - Full documentation in README.md and WORKFLOW-IMPROVEMENTS.md
+- ✅ Smart directory navigation with `pcd` command (Phase 17.5)
+  - PowerShell function with intelligent tab completion
+  - Learns from cd/Set-Location command usage
+  - In-process access to learning data (<1ms)
+  - Non-invasive: separate command, doesn't interfere with native cd
+  - Shows usage count and last used date in tooltips
+  - Graceful fallback when no learned data available
 
 **Installation**:
 ```powershell
@@ -43,32 +48,40 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-r
 ## Planned Work
 
 ### Phase 17.5: Smart Directory Navigation (`pcd` command)
-**Status**: Planned
+**Status**: ✅ **COMPLETE** (2025-11-08)
 
 Add a PowerShell function with smart tab completion for directory navigation, leveraging PSCue's learned directory data without interfering with native `cd` completion.
 
-**Implementation**:
-- [ ] Create `module/Functions/PCD.ps1` with `Invoke-PCD` function
-  - [ ] Function logic: call `Set-Location` with best match from learned data
-  - [ ] Fallback to native behavior if no learned data available
-  - [ ] Handle empty argument (cd to home directory)
-  - [ ] Tab completion: `Register-ArgumentCompleter -CommandName` (in-process)
-    - [ ] Query `PSCueModule.KnowledgeGraph.GetSuggestions("cd", @())`
-    - [ ] Filter by `$wordToComplete` (substring matching)
-    - [ ] Return `CompletionResult` objects with full path tooltip
-  - [ ] Create alias: `pcd` (PowerShell Change Directory)
-- [ ] Update `module/PSCue.psd1`:
-  - [ ] Add to `FunctionsToExport`: `'Invoke-PCD'`
-  - [ ] Add to `AliasesToExport`: `'pcd'`
-  - [ ] Add to `NestedModules` if needed (or dot-source in PSCue.psm1)
-- [ ] Tests in `test/PSCue.Module.Tests/PCDTests.cs`:
-  - [ ] Test function returns learned directories
-  - [ ] Test tab completion ScriptBlock
-  - [ ] Test fallback behavior when no learned data
-  - [ ] Test filtering by partial input
-- [ ] Documentation:
-  - [ ] Update README.md with `pcd` command usage
-  - [ ] Update CLAUDE.md quick reference
+**Completed**:
+- ✅ Created `module/Functions/PCD.ps1` with `Invoke-PCD` function
+  - ✅ Function logic: calls `Set-Location` with argument
+  - ✅ Fallback to native behavior if no learned data available
+  - ✅ Handles empty argument (cd to home directory)
+  - ✅ Tab completion: `Register-ArgumentCompleter -CommandName` (in-process)
+    - ✅ Queries `PSCueModule.KnowledgeGraph.GetSuggestions("cd", @())`
+    - ✅ Filters by `$wordToComplete` (StartsWith matching)
+    - ✅ Returns `CompletionResult` objects with usage count and last used date tooltip
+  - ✅ Created alias: `pcd` (PowerShell Change Directory)
+- ✅ Updated `module/PSCue.psd1`:
+  - ✅ Added to `FunctionsToExport`: `'Invoke-PCD'`
+  - ✅ Added to `AliasesToExport`: `'pcd'`
+  - ✅ Also added missing workflow management functions to exports
+- ✅ Created comprehensive tests in `test/PSCue.Module.Tests/PCDTests.cs`:
+  - ✅ 19 tests covering all functionality
+  - ✅ ArgumentGraph integration tests
+  - ✅ Tab completion simulation tests
+  - ✅ Scoring and ranking tests
+  - ✅ Edge cases and performance tests
+- ✅ Documentation:
+  - ✅ Updated README.md with `pcd` command usage and examples
+  - ✅ Updated CLAUDE.md quick reference
+
+**Files Modified**:
+- `module/Functions/PCD.ps1` (new file, ~110 lines)
+- `module/PSCue.psd1` (added function/alias exports)
+- `test/PSCue.Module.Tests/PCDTests.cs` (new file, ~425 lines, 19 tests)
+- `README.md` (added pcd usage section)
+- `CLAUDE.md` (added pcd to function reference)
 
 **Design Decisions**:
 - **In-process completion**: Direct call to `PSCueModule.KnowledgeGraph` (<1ms, no IPC overhead)

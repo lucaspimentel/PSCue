@@ -11,7 +11,8 @@
 - **🎯 Multi-Word Suggestions**: Shows common argument combinations (e.g., `git checkout master`)
 - **🤖 ML-Based Predictions**: N-gram sequence learning predicts your next command (e.g., `git add` → `git commit`)
 - **🔄 Workflow Learning**: Automatically learns command sequences and predicts next command based on your usage patterns
-- **⚡ PowerShell Module Functions**: Native PowerShell functions for learning and database management
+- **📁 Smart Directory Navigation**: `pcd` command with intelligent tab completion based on your cd history
+- **⚡ PowerShell Module Functions**: Native PowerShell functions for learning, database, workflow, and navigation management
 - **🧠 Universal Learning System**: Learns from ALL commands (not just pre-configured ones) and adapts to your workflow patterns
 - **🔒 Privacy & Security**: Built-in sensitive data detection - never learns commands with API keys, passwords, or tokens
 - **💾 Cross-Session Persistence**: Learning data persists across PowerShell sessions using SQLite with concurrent session support
@@ -142,6 +143,31 @@ az group list --<Tab>   # Shows available flags: --output, --query, etc.
 cd src<Tab>             # Completes to subdirectories: src/, srcBackup/, etc.
 cd ../<Tab>             # Shows sibling directories (parent's subdirectories)
 cd ~/<Tab>              # Shows home directory subdirectories
+```
+
+### Smart Directory Navigation with `pcd`
+
+**NEW**: PSCue includes a smart directory navigation command that learns from your `cd` usage:
+
+```powershell
+pcd datadog<Tab>        # Shows learned directories: D:\source\datadog, sorted by frequency
+pcd                     # Changes to home directory (same as cd ~)
+```
+
+The `pcd` (PowerShell Change Directory) command provides:
+- **Smart Tab completion**: Shows directories you've visited frequently, ranked by usage
+- **Fast suggestions**: Direct in-process access to learning data (<1ms)
+- **Non-invasive**: Separate from native `cd` - use what works best for you
+- **Automatic learning**: Learns from your `cd` command usage
+
+Example workflow:
+```powershell
+cd D:\source\datadog\dd-trace-dotnet   # Navigate normally
+cd D:\source\lucaspimentel\PSCue       # PSCue learns these paths
+
+# Later, use smart completion:
+pcd dat<Tab>            # Suggests: D:\source\datadog
+pcd psc<Tab>            # Suggests: D:\source\lucaspimentel\PSCue
 ```
 
 ### Inline Predictions

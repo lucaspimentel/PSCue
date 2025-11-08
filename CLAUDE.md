@@ -11,7 +11,8 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 - **Directory-Aware Navigation**: Smart cd/Set-Location suggestions with path normalization
 - **ML Sequence Prediction**: N-gram based next-command prediction
 - **Privacy Protection**: Filters sensitive data (passwords, tokens, keys)
-- **PowerShell Module Functions**: 12 functions for learning, database, and workflow management (no IPC overhead)
+- **PowerShell Module Functions**: 14 functions for learning, database, workflow management, and smart navigation (no IPC overhead)
+- **Smart Directory Navigation**: `pcd` command with intelligent tab completion based on learned cd usage (Phase 17.5)
 
 **Supported Commands**: git, gh, gt (Graphite), az, azd, func, code, scoop, winget, wt (Windows Terminal), chezmoi, tre, lsd, dust, cd/Set-Location
 
@@ -64,12 +65,14 @@ src/
 - `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system
 - `module/Functions/DatabaseManagement.ps1`: PowerShell functions for database queries
 - `module/Functions/WorkflowManagement.ps1`: PowerShell functions for workflow management (Phase 18.1)
+- `module/Functions/PCD.ps1`: PowerShell smart directory navigation function (Phase 17.5)
 - `module/Functions/Debugging.ps1`: PowerShell functions for testing/diagnostics
 - `test/PSCue.Module.Tests/ArgumentGraphTests.cs`: Argument graph + sequence tracking tests
 - `test/PSCue.Module.Tests/GenericPredictorTests.cs`: Generic predictor + multi-word tests
 - `test/PSCue.Module.Tests/CommandPredictorTests.cs`: Command predictor + Combine tests
 - `test/PSCue.Module.Tests/SequencePredictorTests.cs`: N-gram predictor unit tests
 - `test/PSCue.Module.Tests/WorkflowLearnerTests.cs`: Workflow learning tests (Phase 18.1)
+- `test/PSCue.Module.Tests/PCDTests.cs`: Smart directory navigation tests (Phase 17.5)
 - `test/PSCue.Module.Tests/PersistenceManagerTests.cs`: Persistence unit tests
 - `test/PSCue.Module.Tests/PersistenceConcurrencyTests.cs`: Multi-session concurrency tests
 - `test/PSCue.Module.Tests/PersistenceIntegrationTests.cs`: End-to-end integration tests
@@ -112,6 +115,10 @@ Get-PSCueWorkflowStats [-Detailed] [-AsJson]       # Workflow statistics
 Clear-PSCueWorkflows [-WhatIf] [-Confirm]          # Clear workflows (memory + DB)
 Export-PSCueWorkflows -Path <path>                 # Export workflows to JSON
 Import-PSCueWorkflows -Path <path> [-Merge]        # Import workflows from JSON
+
+# Smart Directory Navigation (Phase 17.5)
+pcd [path]                                         # PowerShell Change Directory with smart tab completion
+Invoke-PCD [path]                                  # Long-form function name
 
 # Debugging & Testing
 Test-PSCueCompletion -InputString <string>         # Test completions
