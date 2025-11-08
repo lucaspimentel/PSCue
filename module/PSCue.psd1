@@ -74,6 +74,14 @@
         # Database Management
         'Get-PSCueDatabaseStats',
         'Get-PSCueDatabaseHistory',
+        # Workflow Management
+        'Get-PSCueWorkflows',
+        'Get-PSCueWorkflowStats',
+        'Clear-PSCueWorkflows',
+        'Export-PSCueWorkflows',
+        'Import-PSCueWorkflows',
+        # Navigation
+        'Invoke-PCD',
         # Debugging
         'Test-PSCueCompletion',
         'Get-PSCueModuleInfo'
@@ -86,7 +94,7 @@
     VariablesToExport = @()
 
     # Aliases to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no aliases to export.
-    AliasesToExport = @()
+    AliasesToExport = @('pcd')
 
     # DSC resources to export from this module
     # DscResourcesToExport = @()
