@@ -107,7 +107,7 @@ public class WorkflowLearnerTests
     public void RecordTransition_BelowMinFrequency_ShouldNotPredict()
     {
         // Arrange
-        var learner = new WorkflowLearner(minFrequency: 5, minConfidence: 0.0);
+        var learner = new WorkflowLearner(minFrequency: 5, minConfidence: 0.01);
 
         // Act - Record only 3 times (below threshold)
         for (int i = 0; i < 3; i++)
