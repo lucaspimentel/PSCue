@@ -12,6 +12,12 @@ namespace PSCue.Module;
 public class WorkflowTransition
 {
     /// <summary>
+    /// Default timing in seconds when no timing data is available.
+    /// Used as fallback when AverageTimeDelta is zero.
+    /// </summary>
+    private const double DefaultTimingSeconds = 60.0;
+
+    /// <summary>
     /// The next command in the workflow.
     /// </summary>
     public string NextCommand { get; set; } = string.Empty;
@@ -76,7 +82,7 @@ public class WorkflowTransition
         // Calculate time proximity boost
         double avgSeconds = AverageTimeDelta.TotalSeconds;
         if (avgSeconds == 0)
-            avgSeconds = 60; // Default 1 minute if no timing data
+            avgSeconds = DefaultTimingSeconds;
 
         double actualSeconds = timeSinceLastCommand.TotalSeconds;
         double ratio = actualSeconds / avgSeconds;
@@ -420,6 +426,8 @@ public class WorkflowLearner : IDisposable
             return parts[0];
 
         // For commands with subcommands (git, docker, kubectl, etc.), return "command subcommand"
+        // Add new commands here when they use subcommand pattern (e.g., "kubectl get", "docker run")
+        // This list should match commands that PSCue provides explicit completions for
         var multiPartCommands = new[] { "git", "docker", "kubectl", "npm", "dotnet", "cargo", "gh", "az", "func", "scoop" };
 
         if (multiPartCommands.Contains(parts[0], StringComparer.OrdinalIgnoreCase) && parts.Length >= 2)

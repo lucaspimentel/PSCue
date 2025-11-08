@@ -26,7 +26,7 @@ public class CommandHistoryEntry
     public string[] Arguments { get; set; } = Array.Empty<string>();
 
     /// <summary>
-    /// When this command was executed.
+    /// When this command was executed (always UTC).
     /// </summary>
     public DateTime Timestamp { get; set; }
 
