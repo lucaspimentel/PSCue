@@ -147,28 +147,65 @@ cd ~/<Tab>              # Shows home directory subdirectories
 
 ### Smart Directory Navigation with `pcd`
 
-**NEW**: PSCue includes a smart directory navigation command that learns from your `cd` usage:
+**NEW**: PSCue includes an enhanced smart directory navigation command that learns from your `cd` usage with powerful fuzzy matching and intelligent scoring:
 
 ```powershell
-pcd datadog<Tab>        # Shows learned directories: D:\source\datadog, sorted by frequency
-pcd                     # Changes to home directory (same as cd ~)
+pcd datadog<Tab>        # Shows learned directories with fuzzy matching
+pcd datadog             # Best-match navigation: finds "D:\source\datadog" even without Tab
+pcd ~                   # Home directory (well-known shortcut)
+pcd ..                  # Parent directory (well-known shortcut)
 ```
 
 The `pcd` (PowerShell Change Directory) command provides:
-- **Smart Tab completion**: Shows directories you've visited frequently, ranked by usage
-- **Fast suggestions**: Direct in-process access to learning data (<1ms)
-- **Non-invasive**: Separate from native `cd` - use what works best for you
-- **Automatic learning**: Learns from your `cd` command usage
 
-Example workflow:
+**Core Features**:
+- **Well-known shortcuts**: Instant access to `~` (home), `..` (parent), `.` (current)
+- **Fuzzy matching**: Find directories even with typos or partial matches
+- **Frecency scoring**: Balances frequency + recency for better suggestions
+- **Distance scoring**: Prefers directories near your current location
+- **Best-match navigation**: `pcd datadog` automatically finds best match if exact path doesn't exist
+- **Optional recursive search**: Find directories by name in subdirectories
+
+**Advanced Scoring Algorithm**:
+- **Match quality** (10%): Exact > Prefix > Fuzzy matching
+- **Frequency** (50%): How often you visit this directory
+- **Recency** (30%): When you last visited (exponential decay)
+- **Distance** (20%): Proximity to current directory (parent/child/sibling)
+
+**Configuration** via environment variables:
 ```powershell
-cd D:\source\datadog\dd-trace-dotnet   # Navigate normally
-cd D:\source\lucaspimentel\PSCue       # PSCue learns these paths
+# Scoring weights (customize to your workflow)
+$env:PSCUE_PCD_FREQUENCY_WEIGHT = "0.5"  # Default: 50% weight
+$env:PSCUE_PCD_RECENCY_WEIGHT = "0.3"    # Default: 30% weight
+$env:PSCUE_PCD_DISTANCE_WEIGHT = "0.2"   # Default: 20% weight
 
-# Later, use smart completion:
-pcd dat<Tab>            # Suggests: D:\source\datadog
-pcd psc<Tab>            # Suggests: D:\source\lucaspimentel\PSCue
+# Recursive filesystem search (disabled by default for performance)
+$env:PSCUE_PCD_RECURSIVE_SEARCH = "true" # Default: false
+$env:PSCUE_PCD_MAX_DEPTH = "3"           # Default: 3 levels deep
 ```
+
+Example workflows:
+```powershell
+# Normal navigation - PSCue learns your patterns
+cd D:\source\datadog\dd-trace-dotnet
+cd D:\source\lucaspimentel\PSCue
+
+# Smart tab completion with fuzzy matching
+pcd dat<Tab>            # Suggests: D:\source\datadog (prefix match)
+pcd trace<Tab>          # Suggests: D:\source\datadog\dd-trace-dotnet (substring match)
+pcd datdog<Tab>         # Suggests: D:\source\datadog (fuzzy match, typo tolerant)
+
+# Best-match navigation (no Tab needed!)
+pcd datadog             # Navigates to "D:\source\datadog" automatically
+                        # Shows: "No exact match, navigating to: D:\source\datadog"
+
+# Well-known shortcuts (highest priority)
+pcd ~                   # Home directory
+pcd ..                  # Parent directory
+pcd .                   # Current directory
+```
+
+**Performance**: Tab completion <10ms, Best-match resolution <50ms
 
 ### Inline Predictions
 

@@ -8,7 +8,7 @@ This directory contains PowerShell test scripts for manually testing PSCue funct
 
 The following scripts work with the current PSCue architecture:
 
-- **test-module-functions.ps1** - Comprehensive test of all 12 PowerShell module functions
+- **test-module-functions.ps1** - Comprehensive test of PowerShell module functions
 - **test-database-functions.ps1** - Tests database query functions
 - **test-empty-state.ps1** - Validates Get- functions work with empty data
 - **test-feedback-provider.ps1** - Tests learning system (PowerShell 7.4+)
@@ -323,7 +323,7 @@ pwsh -NoProfile -File test-scripts/test-empty-state.ps1
 
 ## Automated Tests
 
-PSCue has comprehensive unit test coverage for ArgumentCompleter logic, learning system, persistence, workflow learning, and integration scenarios.
+PSCue has comprehensive unit test coverage for ArgumentCompleter logic, learning system, persistence, workflow learning, smart directory navigation, and integration scenarios.
 
 For automated unit and integration tests, see:
 - `test/PSCue.ArgumentCompleter.Tests/`
@@ -337,12 +337,14 @@ For automated unit and integration tests, see:
   - FeedbackProvider tests for learning system
   - Learning system tests (CommandHistory, ArgumentGraph, ContextAnalyzer, GenericPredictor)
   - N-gram sequence prediction tests (SequencePredictor)
-  - Workflow learning tests (WorkflowLearner) - 35+ tests
+  - Workflow learning tests (WorkflowLearner)
   - Persistence tests (SQLite storage, concurrency, edge cases, integration)
   - Multi-word prediction tests (ArgumentSequences)
+  - Smart directory navigation tests (PCDTests, PcdEnhancedTests)
 
 Run all tests:
 ```powershell
 dotnet test
 dotnet test --filter "FullyQualifiedName~WorkflowLearner"  # Run workflow tests only
+dotnet test --filter "FullyQualifiedName~PcdEnhanced"     # Run enhanced PCD tests only
 ```

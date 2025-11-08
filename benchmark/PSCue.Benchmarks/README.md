@@ -11,6 +11,8 @@ This project uses [BenchmarkDotNet](https://benchmarkdotnet.org/) to measure PSC
 | Tab completion (with dynamic args) | <50ms | ✅ Yes - includes git branches, etc. |
 | Learning feedback | <5ms | ✅ Yes - runs after every command |
 | ML prediction | <20ms | ✅ Yes - PowerShell prediction timeout |
+| PCD tab completion | <10ms | ✅ Yes - user-facing latency |
+| PCD best-match navigation | <50ms | ✅ Yes - directory search |
 
 ## Running Benchmarks
 

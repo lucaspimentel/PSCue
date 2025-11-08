@@ -27,16 +27,23 @@ This document tracks active and planned work for PSCue. For architectural detail
   - SQLite persistence with workflow_transitions table (8 tables total)
   - Automatic learning via FeedbackProvider integration
   - CommandPredictor integration for inline predictions
-  - 5 PowerShell functions for workflow management
+  - PowerShell functions for workflow management
   - Configuration via environment variables
   - Full documentation in README.md and WORKFLOW-IMPROVEMENTS.md
-- ✅ Smart directory navigation with `pcd` command (Phase 17.5)
-  - PowerShell function with intelligent tab completion
+- ✅ Smart directory navigation with `pcd` command (Phases 17.5 + 17.6)
+  - PowerShell function with enhanced intelligent tab completion
   - Learns from cd/Set-Location command usage
+  - **Phase 17.6 Enhancements**:
+    - Fuzzy matching with Levenshtein distance + substring matching
+    - Frecency scoring: configurable blend of frequency (50%), recency (30%), distance (20%)
+    - Distance-aware scoring: prefers nearby directories (parent/child/sibling)
+    - Best-match navigation: `pcd datadog` finds match without Tab
+    - Well-known shortcuts (~, .., .) with highest priority
+    - Optional recursive filesystem search
+    - Match type indicators in tooltips
   - In-process access to learning data (<1ms)
   - Non-invasive: separate command, doesn't interfere with native cd
-  - Shows usage count and last used date in tooltips
-  - Graceful fallback when no learned data available
+  - Performance: <10ms tab completion, <50ms best-match
 
 **Installation**:
 ```powershell
@@ -77,9 +84,9 @@ Add a PowerShell function with smart tab completion for directory navigation, le
   - ✅ Updated CLAUDE.md quick reference
 
 **Files Modified**:
-- `module/Functions/PCD.ps1` (new file, ~110 lines)
+- `module/Functions/PCD.ps1` (new file)
 - `module/PSCue.psd1` (added function/alias exports)
-- `test/PSCue.Module.Tests/PCDTests.cs` (new file, ~425 lines, 19 tests)
+- `test/PSCue.Module.Tests/PCDTests.cs` (new file)
 - `README.md` (added pcd usage section)
 - `CLAUDE.md` (added pcd to function reference)
 
@@ -90,13 +97,95 @@ Add a PowerShell function with smart tab completion for directory navigation, le
 - **Name choice**: `pcd` = PowerShell/PSCue Change Directory (alternatives: `scd`, `lcd`, `qcd`, `cue`)
 - **Display**: PSReadLine handles menu display (`MenuComplete`, `ListView`) - we just return ordered results
 
-**Future Enhancements** (algorithm improvements):
-- [ ] Fuzzy matching (e.g., "dt" → "D:\source\datadog\dd-trace-dotnet")
-- [ ] Frecency scoring (frequency + recency blend) for better ranking
-- [ ] Multi-segment substring matching (e.g., "dog/trace" → "datadog/dd-trace-dotnet")
-- [ ] Working directory proximity (prefer subdirectories of current location)
+**Note**: See Phase 17.6 below for enhanced algorithm improvements (fuzzy matching, frecency scoring, distance awareness).
 
-### Phase 17.6: Advanced ML (Future Enhancement)
+### Phase 17.6: Enhanced PCD Algorithm
+**Status**: ✅ **COMPLETE** (2025-11-08)
+
+Enhance the `pcd` command with advanced matching, scoring, and navigation features.
+
+**Goals**:
+1. **Well-known shortcuts**: Fast handling of `~`, `..`, `.` with highest priority
+2. **Fuzzy matching**: Levenshtein distance + substring matching for flexible directory finding
+3. **Frecency scoring**: Configurable blend of frequency + recency + distance
+4. **Distance scoring**: Boost directories closer to current location (parent/child/sibling)
+5. **Recursive search**: Optional deep filesystem search for matching directories
+6. **Best-match navigation**: `pcd <name>` finds best match if no exact path exists
+
+**Implementation Plan**:
+
+**Core Engine** (✅ COMPLETE):
+- [x] Create `src/PSCue.Module/PCDCompletionEngine.cs` with multi-stage algorithm
+  - [x] Stage 1: Well-known shortcuts (~, .., .) with priority 1000/999/998
+  - [x] Stage 2: Learned directories with enhanced scoring
+    - [x] Match scoring: Exact (1.0) > Prefix (0.9) > Fuzzy (0.0-0.8)
+    - [x] Fuzzy matching: Substring + Levenshtein distance
+    - [x] Frecency: Configurable weights (default: 50% frequency, 30% recency, 20% distance)
+    - [x] Distance scoring: Same dir (1.0), Parent (0.9), Child (0.85-0.5), Sibling (0.7), Ancestor (0.6-0.1)
+  - [x] Stage 3: Recursive filesystem search (optional, configurable depth)
+
+**PowerShell Integration** (✅ COMPLETE):
+- [x] Update `module/Functions/PCD.ps1` (205 lines total)
+  - [x] Tab completion: Use `PcdCompletionEngine.GetSuggestions()`
+    - [x] Create engine instance with config from env vars
+    - [x] Call `GetSuggestions($wordToComplete, $currentDirectory, 20)`
+    - [x] Convert `PcdSuggestion` objects to `CompletionResult`
+    - [x] Show match type indicators in tooltips
+  - [x] `Invoke-PCD` function: Smart path resolution with best-match fallback
+    - [x] If path doesn't exist, use engine to find best match
+    - [x] Show message: "No exact match, navigating to: <best-match>"
+    - [x] Fall back to Set-Location error if no good matches
+  - [x] Read configuration from environment variables
+
+**Testing** (✅ COMPLETE):
+- [x] Create `test/PSCue.Module.Tests/PcdEnhancedTests.cs`
+  - [x] Well-known shortcuts tests
+  - [x] Fuzzy matching tests
+  - [x] Frecency scoring tests
+  - [x] Distance scoring tests
+  - [x] Recursive search tests
+  - [x] Best-match navigation tests
+  - [x] Performance tests
+  - [x] Edge cases and error handling
+  - [x] Tooltip and display tests
+  - [x] All tests passing ✅
+
+**Documentation** (✅ COMPLETE):
+- [x] Update `README.md`: Enhanced features section with full algorithm details
+- [x] Update `CLAUDE.md`: Algorithm details and file references
+- [x] Update `TODO.md`: Mark Phase 17.6 complete
+
+**Environment Variables**:
+```powershell
+# Scoring weights (must sum to ~1.0 with match weight)
+$env:PSCUE_PCD_FREQUENCY_WEIGHT = "0.5"  # Default: 0.5 (50%)
+$env:PSCUE_PCD_RECENCY_WEIGHT = "0.3"    # Default: 0.3 (30%)
+$env:PSCUE_PCD_DISTANCE_WEIGHT = "0.2"   # Default: 0.2 (20%)
+
+# Recursive search (disabled by default for performance)
+$env:PSCUE_PCD_RECURSIVE_SEARCH = "true"  # Default: false
+$env:PSCUE_PCD_MAX_DEPTH = "3"            # Default: 3 levels deep
+```
+
+**Files Modified**:
+- `src/PSCue.Module/PcdCompletionEngine.cs` (new file) ✅
+- `module/Functions/PCD.ps1` (enhanced) ✅
+- `test/PSCue.Module.Tests/PcdEnhancedTests.cs` (new file) ✅
+- `README.md` (enhanced pcd section) ✅
+- `CLAUDE.md` (algorithm details + file references) ✅
+- `TODO.md` (Phase 17.6 marked complete) ✅
+
+**Key Achievements**:
+- Multi-stage completion algorithm: Shortcuts → Learned → Recursive
+- Fuzzy matching with Levenshtein distance + substring matching
+- Configurable frecency scoring (frequency + recency + distance)
+- Distance-aware scoring for nearby directories
+- Best-match navigation without Tab completion
+- Comprehensive test coverage for all features
+- Full documentation in README and CLAUDE.md
+- Performance targets met: <10ms tab completion, <50ms best-match
+
+### Phase 17.7: Advanced ML (Future Enhancement)
 **Status**: Backlog
 
 - [ ] Semantic embeddings for argument similarity (ONNX Runtime)

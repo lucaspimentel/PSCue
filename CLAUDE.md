@@ -12,7 +12,7 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 - **ML Sequence Prediction**: N-gram based next-command prediction
 - **Privacy Protection**: Filters sensitive data (passwords, tokens, keys)
 - **PowerShell Module Functions**: 14 functions for learning, database, workflow management, and smart navigation (no IPC overhead)
-- **Smart Directory Navigation**: `pcd` command with intelligent tab completion based on learned cd usage (Phase 17.5)
+- **Smart Directory Navigation**: `pcd` command with enhanced fuzzy matching, frecency scoring, and best-match navigation (Phases 17.5 + 17.6)
 
 **Supported Commands**: git, gh, gt (Graphite), az, azd, func, code, scoop, winget, wt (Windows Terminal), chezmoi, tre, lsd, dust, cd/Set-Location
 
@@ -30,6 +30,7 @@ For completed work history, see COMPLETED.md.
   - **WorkflowLearner**: Learns command → next command transitions with timing data (Phase 18.1)
   - **GenericPredictor**: Generates single-word and multi-word suggestions from learned data for ANY command
   - **Hybrid CommandPredictor**: Blends known completions + generic learning + ML predictions + workflow patterns
+  - **PcdCompletionEngine**: Enhanced directory navigation with fuzzy matching, frecency scoring, distance awareness (Phase 17.6)
 - **Persistence**:
   - **PersistenceManager**: SQLite-based cross-session storage
   - **Database Location**: `~/.local/share/PSCue/learned-data.db` (Linux/macOS), `%LOCALAPPDATA%\PSCue\learned-data.db` (Windows)
@@ -61,11 +62,12 @@ src/
 - `src/PSCue.Module/SequencePredictor.cs`: N-gram ML prediction for command sequences
 - `src/PSCue.Module/WorkflowLearner.cs`: Dynamic workflow learning with timing-aware predictions (Phase 18.1)
 - `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence with 8 tables
+- `src/PSCue.Module/PcdCompletionEngine.cs`: Enhanced PCD algorithm with fuzzy matching, frecency scoring (Phase 17.6)
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
 - `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system
 - `module/Functions/DatabaseManagement.ps1`: PowerShell functions for database queries
 - `module/Functions/WorkflowManagement.ps1`: PowerShell functions for workflow management (Phase 18.1)
-- `module/Functions/PCD.ps1`: PowerShell smart directory navigation function (Phase 17.5)
+- `module/Functions/PCD.ps1`: PowerShell smart directory navigation function (Phases 17.5 + 17.6 enhanced)
 - `module/Functions/Debugging.ps1`: PowerShell functions for testing/diagnostics
 - `test/PSCue.Module.Tests/ArgumentGraphTests.cs`: Argument graph + sequence tracking tests
 - `test/PSCue.Module.Tests/GenericPredictorTests.cs`: Generic predictor + multi-word tests
@@ -73,6 +75,7 @@ src/
 - `test/PSCue.Module.Tests/SequencePredictorTests.cs`: N-gram predictor unit tests
 - `test/PSCue.Module.Tests/WorkflowLearnerTests.cs`: Workflow learning tests (Phase 18.1)
 - `test/PSCue.Module.Tests/PCDTests.cs`: Smart directory navigation tests (Phase 17.5)
+- `test/PSCue.Module.Tests/PcdEnhancedTests.cs`: Enhanced PCD algorithm tests (Phase 17.6)
 - `test/PSCue.Module.Tests/PersistenceManagerTests.cs`: Persistence unit tests
 - `test/PSCue.Module.Tests/PersistenceConcurrencyTests.cs`: Multi-session concurrency tests
 - `test/PSCue.Module.Tests/PersistenceIntegrationTests.cs`: End-to-end integration tests
@@ -116,9 +119,18 @@ Clear-PSCueWorkflows [-WhatIf] [-Confirm]          # Clear workflows (memory + D
 Export-PSCueWorkflows -Path <path>                 # Export workflows to JSON
 Import-PSCueWorkflows -Path <path> [-Merge]        # Import workflows from JSON
 
-# Smart Directory Navigation (Phase 17.5)
-pcd [path]                                         # PowerShell Change Directory with smart tab completion
+# Smart Directory Navigation (Phase 17.5 + 17.6 Enhanced)
+pcd [path]                                         # PowerShell Change Directory with enhanced smart tab completion
 Invoke-PCD [path]                                  # Long-form function name
+
+# Algorithm (Phase 17.6 - PcdCompletionEngine):
+# - Multi-stage: Well-known shortcuts → Learned directories → Optional recursive filesystem search
+# - Fuzzy matching: Substring + Levenshtein distance for typo tolerance
+# - Frecency scoring: Configurable blend (default: 50% frequency, 30% recency, 20% distance)
+# - Distance scoring: Parent (0.9), Child (0.85-0.5), Sibling (0.7), Ancestor (0.6-0.1)
+# - Best-match navigation: Automatically finds closest match if exact path doesn't exist
+# - Well-known shortcuts (~, .., .) get highest priority (1000/999/998)
+# - Performance: <10ms tab completion, <50ms best-match resolution
 
 # Debugging & Testing
 Test-PSCueCompletion -InputString <string>         # Test completions
@@ -140,6 +152,8 @@ Get-PSCueModuleInfo [-AsJson]                      # Module diagnostics
 - Total Tab completion: <50ms
 - Module function calls: <5ms
 - Database queries: <10ms
+- PCD tab completion: <10ms
+- PCD best-match navigation: <50ms
 
 ## Supported Commands
 git, gh, gt, az, azd, func, code, scoop, winget, wt, chezmoi, tre, lsd, dust, cd (Set-Location/sl/chdir)

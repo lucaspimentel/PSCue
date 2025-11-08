@@ -4,17 +4,24 @@
 function Invoke-PCD {
     <#
     .SYNOPSIS
-    Change directory with smart suggestions from PSCue's learned data.
+    Change directory with enhanced smart suggestions from PSCue's learned data.
 
     .DESCRIPTION
     PowerShell Change Directory (pcd) provides intelligent directory navigation
-    by leveraging PSCue's learned data from your cd/Set-Location command history.
+    with fuzzy matching, frecency scoring (frequency + recency), and optional
+    recursive filesystem search.
 
-    Tab completion shows frequently and recently used directories, ranked by
-    PSCue's scoring algorithm (frequency + recency decay).
+    Features:
+    - Well-known shortcuts: ~, .., .
+    - Fuzzy matching: Finds directories even with typos
+    - Frecency scoring: Balances frequency and recency
+    - Distance scoring: Prefers nearby directories
+    - Best-match navigation: Automatically finds closest match if exact path doesn't exist
+    - Optional recursive search: Finds directories by name in subdirectories
 
     .PARAMETER Path
     The directory path to change to. Supports tab completion with learned suggestions.
+    If the path doesn't exist exactly, pcd will find the best fuzzy match.
     If not specified, changes to the user's home directory.
 
     .EXAMPLE
@@ -22,16 +29,27 @@ function Invoke-PCD {
     Changes to the specified directory.
 
     .EXAMPLE
+    pcd datadog
+    If "datadog" doesn't exist in current directory, finds best match like "D:\source\datadog".
+
+    .EXAMPLE
     pcd
     Changes to the user's home directory.
 
     .EXAMPLE
     pcd dat<TAB>
-    Tab completion shows learned directories matching "dat".
+    Tab completion shows learned directories matching "dat" with fuzzy matching.
 
     .NOTES
-    This function uses PSCue's ArgumentGraph to retrieve learned directory data.
+    This function uses PSCue's PcdCompletionEngine with enhanced scoring.
     If the module is not fully initialized, falls back to native Set-Location behavior.
+
+    Configuration via environment variables:
+    - $env:PSCUE_PCD_FREQUENCY_WEIGHT (default: 0.5)
+    - $env:PSCUE_PCD_RECENCY_WEIGHT (default: 0.3)
+    - $env:PSCUE_PCD_DISTANCE_WEIGHT (default: 0.2)
+    - $env:PSCUE_PCD_RECURSIVE_SEARCH (default: false)
+    - $env:PSCUE_PCD_MAX_DEPTH (default: 3)
     #>
     [CmdletBinding()]
     [Alias('pcd')]
@@ -46,9 +64,63 @@ function Invoke-PCD {
         return
     }
 
-    # Use Set-Location to change directory
-    # This handles path resolution, validation, and error messages
-    Set-Location $Path
+    # Try Set-Location first - if it works, we're done
+    if (Test-Path -LiteralPath $Path -PathType Container) {
+        Set-Location -LiteralPath $Path
+        return
+    }
+
+    # Path doesn't exist - try to find best match using PcdCompletionEngine
+    if ($null -eq [PSCue.Module.PSCueModule]::KnowledgeGraph) {
+        # Not initialized - fall back to Set-Location error
+        Set-Location $Path
+        return
+    }
+
+    try {
+        # Get current directory
+        $currentDir = (Get-Location).Path
+
+        # Read configuration from environment variables
+        $frequencyWeight = if ($env:PSCUE_PCD_FREQUENCY_WEIGHT) { [double]$env:PSCUE_PCD_FREQUENCY_WEIGHT } else { 0.5 }
+        $recencyWeight = if ($env:PSCUE_PCD_RECENCY_WEIGHT) { [double]$env:PSCUE_PCD_RECENCY_WEIGHT } else { 0.3 }
+        $distanceWeight = if ($env:PSCUE_PCD_DISTANCE_WEIGHT) { [double]$env:PSCUE_PCD_DISTANCE_WEIGHT } else { 0.2 }
+        $maxDepth = if ($env:PSCUE_PCD_MAX_DEPTH) { [int]$env:PSCUE_PCD_MAX_DEPTH } else { 3 }
+        $enableRecursive = if ($env:PSCUE_PCD_RECURSIVE_SEARCH) { $env:PSCUE_PCD_RECURSIVE_SEARCH -eq 'true' } else { $false }
+
+        # Create PcdCompletionEngine with configuration
+        $engine = [PSCue.Module.PcdCompletionEngine]::new(
+            [PSCue.Module.PSCueModule]::KnowledgeGraph,
+            30,  # scoreDecayDays
+            $frequencyWeight,
+            $recencyWeight,
+            $distanceWeight,
+            $maxDepth,
+            $enableRecursive
+        )
+
+        # Get best match
+        $suggestions = $engine.GetSuggestions($Path, $currentDir, 1)
+
+        if ($suggestions -and $suggestions.Count -gt 0) {
+            $bestMatch = $suggestions[0]
+
+            # Verify the matched path exists
+            if (Test-Path -LiteralPath $bestMatch.Path -PathType Container) {
+                Write-Host "No exact match, navigating to: $($bestMatch.Path)" -ForegroundColor Yellow
+                Set-Location -LiteralPath $bestMatch.Path
+                return
+            }
+        }
+
+        # No matches found - fall back to Set-Location error
+        Set-Location $Path
+    }
+    catch {
+        # If anything goes wrong, fall back to Set-Location
+        Write-Debug "PSCue pcd best-match error: $_"
+        Set-Location $Path
+    }
 }
 
 # Register tab completion for Invoke-PCD and pcd alias
@@ -63,40 +135,61 @@ Register-ArgumentCompleter -CommandName 'Invoke-PCD', 'pcd' -ParameterName 'Path
     }
 
     try {
-        # Get learned directory suggestions for 'cd' command
-        # Note: ArgumentGraph normalizes paths, so we get clean suggestions
-        $suggestions = [PSCue.Module.PSCueModule]::KnowledgeGraph.GetSuggestions('cd', @())
+        # Get current directory
+        $currentDir = (Get-Location).Path
 
-        # Filter suggestions based on partial input
-        if (-not [string]::IsNullOrWhiteSpace($wordToComplete)) {
-            # Support both substring and StartsWith matching for flexibility
-            # StartsWith is faster and more predictable for path completion
-            $suggestions = $suggestions | Where-Object {
-                $_.Argument -like "$wordToComplete*"
-            }
-        }
+        # Read configuration from environment variables
+        $frequencyWeight = if ($env:PSCUE_PCD_FREQUENCY_WEIGHT) { [double]$env:PSCUE_PCD_FREQUENCY_WEIGHT } else { 0.5 }
+        $recencyWeight = if ($env:PSCUE_PCD_RECENCY_WEIGHT) { [double]$env:PSCUE_PCD_RECENCY_WEIGHT } else { 0.3 }
+        $distanceWeight = if ($env:PSCUE_PCD_DISTANCE_WEIGHT) { [double]$env:PSCUE_PCD_DISTANCE_WEIGHT } else { 0.2 }
+        $maxDepth = if ($env:PSCUE_PCD_MAX_DEPTH) { [int]$env:PSCUE_PCD_MAX_DEPTH } else { 3 }
+        $enableRecursive = if ($env:PSCUE_PCD_RECURSIVE_SEARCH) { $env:PSCUE_PCD_RECURSIVE_SEARCH -eq 'true' } else { $false }
 
-        # Convert to CompletionResult objects
-        # Note: GetSuggestions already returns results ordered by score (frequency + recency)
+        # Create PcdCompletionEngine with configuration
+        $engine = [PSCue.Module.PcdCompletionEngine]::new(
+            [PSCue.Module.PSCueModule]::KnowledgeGraph,
+            30,  # scoreDecayDays
+            $frequencyWeight,
+            $recencyWeight,
+            $distanceWeight,
+            $maxDepth,
+            $enableRecursive
+        )
+
+        # Get suggestions using enhanced algorithm
+        $suggestions = $engine.GetSuggestions($wordToComplete, $currentDir, 20)
+
+        # Convert PcdSuggestion objects to CompletionResult objects
         $suggestions | ForEach-Object {
-            $argument = $_.Argument
-            $usageCount = $_.UsageCount
-            $lastUsed = $_.LastUsed
-            $tooltip = "Used $usageCount times (last: $($lastUsed.ToString('yyyy-MM-dd')))"
+            $path = $_.Path
+            $displayPath = $_.DisplayPath
+            $matchType = $_.MatchType
+            $tooltip = $_.Tooltip
+
+            # Add match type indicator to tooltip
+            $matchIndicator = switch ($matchType) {
+                'WellKnown' { '[shortcut]' }
+                'Exact' { '[exact]' }
+                'Prefix' { '[prefix]' }
+                'Fuzzy' { '[fuzzy]' }
+                'Filesystem' { '[found]' }
+                default { '[learned]' }
+            }
+            $fullTooltip = "$matchIndicator $tooltip"
 
             # Create CompletionResult with proper quoting if path contains spaces
-            $completionText = if ($argument -match '\s') {
+            $completionText = if ($path -match '\s') {
                 # Quote paths with spaces
-                "`"$argument`""
+                "`"$path`""
             } else {
-                $argument
+                $path
             }
 
             [System.Management.Automation.CompletionResult]::new(
                 $completionText,    # completionText (what gets inserted)
-                $argument,          # listItemText (what's shown in list)
+                $displayPath,       # listItemText (what's shown in list)
                 'ParameterValue',   # resultType
-                $tooltip            # toolTip
+                $fullTooltip        # toolTip
             )
         }
     }
