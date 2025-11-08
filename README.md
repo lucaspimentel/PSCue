@@ -415,10 +415,10 @@ TabExpansion2 'git checkout ma' 15
   - Personalized completions based on command history
   - Error recovery suggestions for git commands
 - [x] **PowerShell Module Functions** (Phase 16)
-  - 7 native PowerShell functions for learning and database management
+  - 12 native PowerShell functions for learning, database, and workflow management
   - Direct in-process access (no external tools needed)
   - Pipeline support, tab completion, comprehensive help
-  - Functions: Get-PSCueLearning, Clear-PSCueLearning, Export-PSCueLearning, Import-PSCueLearning, Save-PSCueLearning, Get-PSCueDatabaseStats, Get-PSCueDatabaseHistory, Test-PSCueCompletion, Get-PSCueModuleInfo
+  - Functions: Get-PSCueLearning, Clear-PSCueLearning, Export-PSCueLearning, Import-PSCueLearning, Save-PSCueLearning, Get-PSCueDatabaseStats, Get-PSCueDatabaseHistory, Get-PSCueWorkflows, Get-PSCueWorkflowStats, Clear-PSCueWorkflows, Export-PSCueWorkflows, Import-PSCueWorkflows, Test-PSCueCompletion, Get-PSCueModuleInfo
 
 - [x] **Generic Command Learning** ✅ **COMPLETE**
   - Universal command learning (learns from ALL commands, not just pre-configured ones)
@@ -453,6 +453,12 @@ $env:PSCUE_DECAY_DAYS = "30"             # Score decay period (days)
 $env:PSCUE_ML_ENABLED = "true"           # Enable ML sequence predictions
 $env:PSCUE_ML_NGRAM_ORDER = "2"          # N-gram order: 2=bigrams, 3=trigrams
 $env:PSCUE_ML_NGRAM_MIN_FREQ = "3"       # Minimum frequency to suggest (occurrences)
+
+# Workflow learning configuration (enabled by default)
+$env:PSCUE_WORKFLOW_LEARNING = "true"            # Enable workflow learning
+$env:PSCUE_WORKFLOW_MIN_FREQUENCY = "5"          # Min occurrences to suggest
+$env:PSCUE_WORKFLOW_MAX_TIME_DELTA = "15"        # Max minutes between commands
+$env:PSCUE_WORKFLOW_MIN_CONFIDENCE = "0.6"       # Min confidence threshold
 
 # Privacy: ignore sensitive commands (comma-separated wildcards)
 $env:PSCUE_IGNORE_PATTERNS = "aws *,*secret*,*password*"

@@ -6,9 +6,11 @@ This project uses [BenchmarkDotNet](https://benchmarkdotnet.org/) to measure PSC
 
 | Scenario | Target | Critical? |
 |----------|--------|-----------|
-| IPC connection timeout | <10ms | ✅ Yes - adds to every Tab press |
-| Local completions (no dynamic args) | <50ms | ✅ Yes - total Tab completion time |
-| Full Tab completion with IPC fallback | <50ms | ✅ Yes - user-facing latency |
+| ArgumentCompleter startup | <10ms | ✅ Yes - NativeAOT startup time |
+| Tab completion (no dynamic args) | <50ms | ✅ Yes - user-facing latency |
+| Tab completion (with dynamic args) | <50ms | ✅ Yes - includes git branches, etc. |
+| Learning feedback | <5ms | ✅ Yes - runs after every command |
+| ML prediction | <20ms | ✅ Yes - PowerShell prediction timeout |
 
 ## Running Benchmarks
 
@@ -17,53 +19,67 @@ This project uses [BenchmarkDotNet](https://benchmarkdotnet.org/) to measure PSC
 dotnet run -c Release --project benchmark/PSCue.Benchmarks/
 
 # Run specific benchmark
-dotnet run -c Release --project benchmark/PSCue.Benchmarks/ --filter *IpcClientAsync*
+dotnet run -c Release --project benchmark/PSCue.Benchmarks/ --filter *ArgumentCompleter*
 ```
 
 ## Benchmark Scenarios
 
-### 1. IPC Unavailable (Async Timeout + Fallback)
-Measures the cost of attempting IPC connection when server is not running. This is the **critical async overhead** we're testing.
+### 1. ArgumentCompleter Startup
+Measures NativeAOT executable startup time. Critical for Tab completion responsiveness.
 
 **What it measures:**
-- Async method overhead
-- CancellationToken timeout handling
-- Named pipe connection attempt + failure
-- Should complete in <10ms (connection timeout)
+- Process creation overhead
+- Module initialization
+- First completion generation
+- Should complete in <10ms
 
-### 2. Local Completions (Fallback Logic)
-Measures the fallback path when IPC is unavailable. This is pure completion logic without I/O.
+### 2. Tab Completion (Static Args)
+Measures completion generation for commands with static arguments (no dynamic data).
 
 **What it measures:**
-- Parsing command line
-- Matching completions
-- No dynamic arguments (fast path)
+- Command parsing
+- Static completion matching
+- Result formatting
 - Should complete in <50ms
 
-### 3. Full Tab Completion (IPC Unavailable)
-End-to-end scenario simulating real Tab press when server isn't running.
+### 3. Tab Completion (Dynamic Args)
+Measures completion with dynamic arguments (git branches, scoop packages, etc.).
 
 **What it measures:**
-- IPC attempt (will timeout)
-- Fallback to local completions
-- Total user-facing latency
-- Should complete in <50ms total
+- Dynamic data retrieval (git branch list, etc.)
+- Caching effectiveness
+- Total completion time
+- Should complete in <50ms
 
-### 4. Git Commit Flags
-Tests flag completion performance (common scenario).
+### 4. Learning Feedback
+Measures FeedbackProvider performance after command execution.
 
-### 5. Scoop Install
-Tests dynamic completion scenarios (Windows-only).
+**What it measures:**
+- Command history updates
+- ArgumentGraph updates
+- Privacy filtering
+- Should complete in <5ms
+
+### 5. ML Prediction
+Measures CommandPredictor inline suggestion generation.
+
+**What it measures:**
+- N-gram sequence lookup
+- Workflow prediction
+- Generic learning suggestions
+- Should complete in <20ms (PowerShell timeout)
 
 ## Interpreting Results
 
 Example output:
 ```
-| Method                                  | Mean      | Error    | StdDev   | Gen0   | Allocated |
-|---------------------------------------- |----------:|---------:|---------:|-------:|----------:|
-| IPC unavailable (async timeout)         |  12.05 ms | 0.045 ms | 0.042 ms |      - |    1.2 KB |
-| Local completions (fallback)            |   2.34 ms | 0.012 ms | 0.011 ms | 10.000 |   15.8 KB |
-| Full Tab completion (IPC unavailable)   |  14.39 ms | 0.067 ms | 0.063 ms | 10.000 |   17.0 KB |
+| Method                          | Mean      | Error    | StdDev   | Gen0   | Allocated |
+|-------------------------------- |----------:|---------:|---------:|-------:|----------:|
+| ArgumentCompleter_Startup       |   8.23 ms | 0.045 ms | 0.042 ms |      - |    1.2 KB |
+| TabCompletion_Static            |   2.34 ms | 0.012 ms | 0.011 ms | 10.000 |   15.8 KB |
+| TabCompletion_Dynamic           |  35.67 ms | 0.167 ms | 0.156 ms | 15.000 |   42.3 KB |
+| LearningFeedback                |   1.12 ms | 0.008 ms | 0.007 ms |  5.000 |    8.4 KB |
+| MLPrediction                    |  12.45 ms | 0.089 ms | 0.083 ms |  8.000 |   24.1 KB |
 ```
 
 **Key metrics:**
@@ -71,28 +87,23 @@ Example output:
 - **Allocated**: Memory allocated per operation - keep low to avoid GC pressure
 - **Gen0**: Number of Gen0 collections - fewer is better
 
-## What We're Testing
+## Current Architecture
 
-The async refactoring added these changes:
-- `async Task<IpcResponse?>` instead of sync + `Task.Wait()`
-- `CancellationToken` for timeout handling
-- `PipeOptions.Asynchronous` for true async I/O
-- Async Main method
+PSCue uses a dual-component design:
+- **ArgumentCompleter** (NativeAOT exe): Sub-10ms startup for Tab completion
+- **Module** (managed DLL): Long-lived process for predictions and learning
+- **No IPC**: ArgumentCompleter computes completions locally (fast enough)
+- **SQLite**: Cross-session persistence with concurrent access support
 
-**Question:** Does the async overhead hurt the <10ms startup + IPC target?
-
-**Expected results:**
-- ✅ IPC timeout should still be ~10ms (connection timeout setting)
-- ✅ Local completions should be <5ms (no I/O, pure CPU)
-- ✅ Full completion should be <15ms (timeout + fallback)
-
-If results exceed targets, we may need to:
-1. Revert to sync implementation
-2. Add hybrid approach (sync check + async I/O)
-3. Optimize timeout values
+**Key design decisions:**
+- Tab completion always computes locally (no IPC overhead)
+- Dynamic arguments (git branches, etc.) computed on every Tab press
+- Learning feedback runs after every command (sub-5ms target)
+- ML predictions cached for 20ms PowerShell timeout
 
 ## Notes
 
-- Benchmarks run with IPC server **not** running to isolate async overhead
-- Dynamic arguments disabled for consistent timing
+- Benchmarks should be run on representative hardware
+- Dynamic arguments (git branches) will vary by repository size
 - Results vary by machine - focus on relative performance vs targets
+- NativeAOT provides consistent startup times across runs
