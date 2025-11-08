@@ -95,9 +95,11 @@ foreach ($command in $SupportedCommands) {
 # CommandPredictor is loaded as a nested module from the PSD1
 # It auto-registers via IModuleAssemblyInitializer.OnImport()
 
-# Load PowerShell functions for learning, database, and debugging
+# Load PowerShell functions for learning, database, workflow, navigation, and debugging
 . $PSScriptRoot/Functions/LearningManagement.ps1
 . $PSScriptRoot/Functions/DatabaseManagement.ps1
+. $PSScriptRoot/Functions/WorkflowManagement.ps1
+. $PSScriptRoot/Functions/PCD.ps1
 . $PSScriptRoot/Functions/Debugging.ps1
 
 # Suggest enabling predictions if not already enabled
