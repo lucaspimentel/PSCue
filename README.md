@@ -159,7 +159,9 @@ pcd ..                  # Parent directory (well-known shortcut)
 The `pcd` (PowerShell Change Directory) command provides:
 
 **Core Features**:
-- **Well-known shortcuts**: Instant access to `~` (home), `..` (parent), `.` (current)
+- **Inline predictions**: See directory suggestions as you type (like other commands)
+- **Relative paths**: Shows shorter paths (e.g., `..`, `./src`) to reduce visual noise
+- **Well-known shortcuts**: Instant access to `~` (home), `..` (parent)
 - **Fuzzy matching**: Find directories even with typos or partial matches
 - **Frecency scoring**: Balances frequency + recency for better suggestions
 - **Distance scoring**: Prefers directories near your current location
@@ -190,10 +192,19 @@ Example workflows:
 cd D:\source\datadog\dd-trace-dotnet
 cd D:\source\lucaspimentel\PSCue
 
+# Inline predictions (as you type)
+pcd                     # Shows inline suggestions: ../datadog, ./src, etc.
+pcd d                   # Filters suggestions as you type
+
 # Smart tab completion with fuzzy matching
-pcd dat<Tab>            # Suggests: D:\source\datadog (prefix match)
-pcd trace<Tab>          # Suggests: D:\source\datadog\dd-trace-dotnet (substring match)
-pcd datdog<Tab>         # Suggests: D:\source\datadog (fuzzy match, typo tolerant)
+pcd dat<Tab>            # Suggests: ../datadog (prefix match, relative path)
+pcd trace<Tab>          # Suggests: ../datadog/dd-trace-dotnet (substring match)
+pcd datdog<Tab>         # Suggests: ../datadog (fuzzy match, typo tolerant)
+
+# Relative paths reduce visual noise
+pcd ..                  # Parent directory
+pcd ./src               # Child directory (shorter than full path)
+pcd ../other-project    # Sibling directory
 
 # Best-match navigation (no Tab needed!)
 pcd datadog             # Navigates to "D:\source\datadog" automatically
@@ -202,8 +213,9 @@ pcd datadog             # Navigates to "D:\source\datadog" automatically
 # Well-known shortcuts (highest priority)
 pcd ~                   # Home directory
 pcd ..                  # Parent directory
-pcd .                   # Current directory
 ```
+
+**Note**: Full paths are still shown in tooltips for reference.
 
 **Performance**: Tab completion <10ms, Best-match resolution <50ms
 
@@ -214,6 +226,7 @@ Type commands and see suggestions appear in gray text (powered by `ICommandPredi
 ```powershell
 git commit              # Suggests: -m "message" (based on history)
 gh pr create            # Suggests: --title "..." --body "..."
+pcd                     # Suggests: ../datadog, ./src, etc. (learned directories)
 ```
 
 Press `→` (right arrow) to accept the suggestion.

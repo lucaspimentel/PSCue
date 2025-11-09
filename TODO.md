@@ -30,20 +30,25 @@ This document tracks active and planned work for PSCue. For architectural detail
   - PowerShell functions for workflow management
   - Configuration via environment variables
   - Full documentation in README.md and WORKFLOW-IMPROVEMENTS.md
-- ✅ Smart directory navigation with `pcd` command (Phases 17.5 + 17.6)
-  - PowerShell function with enhanced intelligent tab completion
+- ✅ Smart directory navigation with `pcd` command (Phases 17.5 + 17.6 + 17.7)
+  - PowerShell function with inline predictions and tab completion
   - Learns from cd/Set-Location command usage
   - **Phase 17.6 Enhancements**:
     - Fuzzy matching with Levenshtein distance + substring matching
     - Frecency scoring: configurable blend of frequency (50%), recency (30%), distance (20%)
     - Distance-aware scoring: prefers nearby directories (parent/child/sibling)
     - Best-match navigation: `pcd datadog` finds match without Tab
-    - Well-known shortcuts (~, .., .) with highest priority
+    - Well-known shortcuts (~, ..) with highest priority
     - Optional recursive filesystem search
     - Match type indicators in tooltips
+  - **Phase 17.7 Enhancements** (2025-11-09):
+    - Inline predictions integrated with CommandPredictor
+    - Relative path conversion (e.g., .., ./src, ../sibling) to reduce visual noise
+    - Full paths still shown in tooltips
+    - Filters out unhelpful suggestions (current directory, "-")
   - In-process access to learning data (<1ms)
   - Non-invasive: separate command, doesn't interfere with native cd
-  - Performance: <10ms tab completion, <50ms best-match
+  - Performance: <10ms tab completion, <10ms predictor, <50ms best-match
 
 **Installation**:
 ```powershell
@@ -185,7 +190,44 @@ $env:PSCUE_PCD_MAX_DEPTH = "3"            # Default: 3 levels deep
 - Full documentation in README and CLAUDE.md
 - Performance targets met: <10ms tab completion, <50ms best-match
 
-### Phase 17.7: Advanced ML (Future Enhancement)
+### Phase 17.7: PCD Inline Predictions & Relative Paths
+**Status**: ✅ **COMPLETE** (2025-11-09)
+
+Enhance `pcd` with inline predictions and relative path display.
+
+**Completed**:
+- [x] Inline predictor integration
+  - [x] Add pcd command detection to CommandPredictor
+  - [x] Create GetPcdSuggestions() method
+  - [x] Support both "pcd" and "Invoke-PCD" commands
+  - [x] Show suggestions even for "pcd<space>" (always show predictions)
+  - [x] Return multiple suggestions (up to 5 for predictor)
+  - [x] Add environment variable helper methods
+- [x] Relative path conversion
+  - [x] Add ToRelativePath() method to PcdCompletionEngine
+  - [x] Convert parent directory to ".."
+  - [x] Convert child directories to "./subdir" when shorter
+  - [x] Convert sibling directories to "../sibling" when shorter
+  - [x] Fall back to absolute path if relative isn't shorter
+  - [x] Apply to both tab completion and inline predictor
+  - [x] Keep full paths in DisplayPath and tooltips
+- [x] Filter unhelpful suggestions
+  - [x] Don't suggest current directory (".")
+  - [x] Don't suggest previous directory ("-")
+  - [x] Don't suggest path that matches current directory
+
+**Files Modified**:
+- `src/PSCue.Module/CommandPredictor.cs` (added GetPcdSuggestions, env helpers)
+- `src/PSCue.Module/PcdCompletionEngine.cs` (added ToRelativePath, updated suggestions)
+- `test/PSCue.Module.Tests/PcdEnhancedTests.cs` (updated for filtering behavior)
+
+**Key Achievements**:
+- Inline predictions work like other commands (git, gh, etc.)
+- Relative paths reduce visual noise significantly
+- Full context still available in tooltips
+- Performance maintained: <10ms for predictor responses
+
+### Phase 17.8: Advanced ML (Future Enhancement)
 **Status**: Backlog
 
 - [ ] Semantic embeddings for argument similarity (ONNX Runtime)

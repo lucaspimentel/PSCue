@@ -12,7 +12,7 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 - **ML Sequence Prediction**: N-gram based next-command prediction
 - **Privacy Protection**: Filters sensitive data (passwords, tokens, keys)
 - **PowerShell Module Functions**: 14 functions for learning, database, workflow management, and smart navigation (no IPC overhead)
-- **Smart Directory Navigation**: `pcd` command with enhanced fuzzy matching, frecency scoring, and best-match navigation (Phases 17.5 + 17.6)
+- **Smart Directory Navigation**: `pcd` command with inline predictions, relative paths, fuzzy matching, frecency scoring, and best-match navigation (Phases 17.5 + 17.6 + 17.7)
 
 **Supported Commands**: git, gh, gt (Graphite), az, azd, func, code, scoop, winget, wt (Windows Terminal), chezmoi, tre, lsd, dust, cd/Set-Location
 
@@ -119,18 +119,25 @@ Clear-PSCueWorkflows [-WhatIf] [-Confirm]          # Clear workflows (memory + D
 Export-PSCueWorkflows -Path <path>                 # Export workflows to JSON
 Import-PSCueWorkflows -Path <path> [-Merge]        # Import workflows from JSON
 
-# Smart Directory Navigation (Phase 17.5 + 17.6 Enhanced)
-pcd [path]                                         # PowerShell Change Directory with enhanced smart tab completion
+# Smart Directory Navigation (Phases 17.5 + 17.6 + 17.7)
+pcd [path]                                         # PowerShell Change Directory with inline predictions + tab completion
 Invoke-PCD [path]                                  # Long-form function name
+
+# Features:
+# - Inline predictions: Shows directory suggestions as you type (integrated with CommandPredictor)
+# - Relative paths: Converts to relative format when shorter (e.g., .., ./src, ../sibling)
+# - Tab completion: Shows fuzzy-matched directories with frecency scoring
+# - Best-match navigation: Finds closest match if exact path doesn't exist
+# - Well-known shortcuts: ~, .. get highest priority (1000/999)
+# - Performance: <10ms tab completion, <10ms predictor, <50ms best-match
 
 # Algorithm (Phase 17.6 - PcdCompletionEngine):
 # - Multi-stage: Well-known shortcuts → Learned directories → Optional recursive filesystem search
 # - Fuzzy matching: Substring + Levenshtein distance for typo tolerance
 # - Frecency scoring: Configurable blend (default: 50% frequency, 30% recency, 20% distance)
 # - Distance scoring: Parent (0.9), Child (0.85-0.5), Sibling (0.7), Ancestor (0.6-0.1)
-# - Best-match navigation: Automatically finds closest match if exact path doesn't exist
-# - Well-known shortcuts (~, .., .) get highest priority (1000/999/998)
-# - Performance: <10ms tab completion, <50ms best-match resolution
+# - Relative path conversion: Shows .., ./child, ../sibling when shorter than absolute
+# - Full paths shown in tooltips for clarity
 
 # Debugging & Testing
 Test-PSCueCompletion -InputString <string>         # Test completions
