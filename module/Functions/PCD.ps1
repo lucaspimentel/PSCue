@@ -105,10 +105,13 @@ function Invoke-PCD {
         if ($suggestions -and $suggestions.Count -gt 0) {
             $bestMatch = $suggestions[0]
 
+            # Use the absolute path (DisplayPath) for navigation
+            $absolutePath = $bestMatch.DisplayPath
+
             # Verify the matched path exists
-            if (Test-Path -LiteralPath $bestMatch.Path -PathType Container) {
-                Write-Host "No exact match, navigating to: $($bestMatch.Path)" -ForegroundColor Yellow
-                Set-Location -LiteralPath $bestMatch.Path
+            if (Test-Path -LiteralPath $absolutePath -PathType Container) {
+                Write-Host "No exact match, navigating to: $absolutePath" -ForegroundColor Yellow
+                Set-Location -LiteralPath $absolutePath
                 return
             }
         }
@@ -160,9 +163,10 @@ Register-ArgumentCompleter -CommandName 'Invoke-PCD', 'pcd' -ParameterName 'Path
         $suggestions = $engine.GetSuggestions($wordToComplete, $currentDir, 20)
 
         # Convert PcdSuggestion objects to CompletionResult objects
-        $suggestions | ForEach-Object {
-            $path = $_.Path
-            $displayPath = $_.DisplayPath
+        # Filter out paths that don't exist on the filesystem
+        $suggestions | Where-Object { Test-Path -LiteralPath $_.DisplayPath -PathType Container } | ForEach-Object {
+            $relativePath = $_.Path          # Relative path (e.g., "..", "./src", "../sibling")
+            $fullPath = $_.DisplayPath       # Full absolute path
             $matchType = $_.MatchType
             $tooltip = $_.Tooltip
 
@@ -178,18 +182,21 @@ Register-ArgumentCompleter -CommandName 'Invoke-PCD', 'pcd' -ParameterName 'Path
             $fullTooltip = "$matchIndicator $tooltip"
 
             # Create CompletionResult with proper quoting if path contains spaces
-            $completionText = if ($path -match '\s') {
+            # Use absolute path for completion (what gets inserted) so navigation always works
+            # But show relative path in the list for better UX
+            # The fullPath already has trailing \ from PcdCompletionEngine normalization
+            $completionText = if ($fullPath -match '\s') {
                 # Quote paths with spaces
-                "`"$path`""
+                "`"$fullPath`""
             } else {
-                $path
+                $fullPath
             }
 
             [System.Management.Automation.CompletionResult]::new(
-                $completionText,    # completionText (what gets inserted)
-                $displayPath,       # listItemText (what's shown in list)
+                $completionText,    # completionText (what gets inserted - absolute path)
+                $relativePath,      # listItemText (what's shown in list - relative path)
                 'ParameterValue',   # resultType
-                $fullTooltip        # toolTip
+                $fullTooltip        # toolTip (shows full path)
             )
         }
     }

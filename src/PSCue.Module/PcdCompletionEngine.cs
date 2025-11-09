@@ -84,9 +84,19 @@ public class PcdCompletionEngine
             suggestions.AddRange(recursiveSuggestions);
         }
 
-        // Deduplicate and sort by score
+        // Normalize paths: ensure DisplayPath has trailing separator for consistency
+        foreach (var suggestion in suggestions)
+        {
+            if (!suggestion.DisplayPath.EndsWith(Path.DirectorySeparatorChar) &&
+                !suggestion.DisplayPath.EndsWith(Path.AltDirectorySeparatorChar))
+            {
+                suggestion.DisplayPath += Path.DirectorySeparatorChar;
+            }
+        }
+
+        // Deduplicate by DisplayPath (normalized full path) and sort by score
         return suggestions
-            .GroupBy(s => s.Path, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(s => s.DisplayPath, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.OrderByDescending(s => s.Score).First())
             .OrderByDescending(s => s.Score)
             .ThenByDescending(s => s.UsageCount)
@@ -106,7 +116,10 @@ public class PcdCompletionEngine
         if ("~".StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase))
         {
             var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            if (!string.IsNullOrEmpty(homeDir) && Directory.Exists(homeDir))
+            // Only suggest home directory if we're not already there
+            if (!string.IsNullOrEmpty(homeDir) &&
+                Directory.Exists(homeDir) &&
+                !homeDir.Equals(currentDirectory, StringComparison.OrdinalIgnoreCase))
             {
                 suggestions.Add(new PcdSuggestion
                 {
@@ -127,6 +140,7 @@ public class PcdCompletionEngine
             try
             {
                 var parentDir = Directory.GetParent(currentDirectory)?.FullName;
+                // Parent directory is by definition different from current, but check it exists
                 if (!string.IsNullOrEmpty(parentDir) && Directory.Exists(parentDir))
                 {
                     suggestions.Add(new PcdSuggestion
@@ -173,6 +187,10 @@ public class PcdCompletionEngine
 
             // Skip current directory paths (not useful in suggestions)
             if (path.Equals(currentDirectory, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            // Skip paths that don't exist on the filesystem
+            if (!Directory.Exists(path))
                 continue;
 
             // Calculate match score
@@ -481,10 +499,11 @@ public class PcdCompletionEngine
 
     /// <summary>
     /// Converts an absolute path to a relative path when possible to reduce visual noise.
+    /// Only returns relative paths that are valid from the current directory.
     /// </summary>
     /// <param name="absolutePath">The absolute path to convert.</param>
     /// <param name="currentDirectory">The current working directory.</param>
-    /// <returns>Relative path if shorter, otherwise absolute path.</returns>
+    /// <returns>Relative path if valid from current directory, otherwise absolute path.</returns>
     private string ToRelativePath(string absolutePath, string currentDirectory)
     {
         try
@@ -492,6 +511,15 @@ public class PcdCompletionEngine
             // Normalize paths for comparison
             var normAbsolute = Path.GetFullPath(absolutePath);
             var normCurrent = Path.GetFullPath(currentDirectory);
+
+            // Check if paths are on the same drive (Windows) or root (Unix)
+            var absoluteRoot = Path.GetPathRoot(normAbsolute);
+            var currentRoot = Path.GetPathRoot(normCurrent);
+            if (!string.Equals(absoluteRoot, currentRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                // Different drives/roots - must use absolute path
+                return normAbsolute;
+            }
 
             // If it's the parent directory, use ".."
             var parent = Directory.GetParent(normCurrent)?.FullName;
@@ -503,7 +531,10 @@ public class PcdCompletionEngine
             // If it's a child directory, use relative path
             if (normAbsolute.StartsWith(normCurrent + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
             {
-                var relativePath = "." + Path.DirectorySeparatorChar + normAbsolute.Substring(normCurrent.Length + 1);
+                var childPath = normAbsolute.Substring(normCurrent.Length + 1);
+                // Remove trailing separator from relative path for cleaner display
+                childPath = childPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var relativePath = "." + Path.DirectorySeparatorChar + childPath;
                 // Only use relative if it's shorter than absolute
                 if (relativePath.Length < normAbsolute.Length)
                 {
@@ -517,7 +548,8 @@ public class PcdCompletionEngine
                 var pathParent = Directory.GetParent(normAbsolute)?.FullName;
                 if (pathParent != null && pathParent.Equals(parent, StringComparison.OrdinalIgnoreCase))
                 {
-                    var relativePath = ".." + Path.DirectorySeparatorChar + Path.GetFileName(normAbsolute);
+                    var dirName = Path.GetFileName(normAbsolute.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                    var relativePath = ".." + Path.DirectorySeparatorChar + dirName;
                     // Only use relative if it's shorter than absolute
                     if (relativePath.Length < normAbsolute.Length)
                     {
