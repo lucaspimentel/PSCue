@@ -70,7 +70,7 @@ public class PcdEnhancedTests : IDisposable
     }
 
     [Fact]
-    public void GetSuggestions_WellKnownShortcut_SingleDot_ReturnsCurrentDirectory()
+    public void GetSuggestions_SingleDot_NotSuggested()
     {
         // Arrange
         var engine = new PcdCompletionEngine(_graph);
@@ -78,13 +78,26 @@ public class PcdEnhancedTests : IDisposable
         // Act
         var suggestions = engine.GetSuggestions(".", _testCurrentDir, 20);
 
-        // Assert
-        Assert.NotEmpty(suggestions);
+        // Assert - "." should NOT appear in suggestions (not useful in tab completion)
+        // Users can still type "pcd ." if they want, but it won't show in suggestions
         var currentResult = suggestions.FirstOrDefault(s => s.Path == ".");
-        Assert.NotNull(currentResult);
-        Assert.Equal(MatchType.WellKnown, currentResult.MatchType);
-        Assert.Equal(998.0, currentResult.Score); // Third highest priority
-        Assert.Contains("Current directory", currentResult.Tooltip);
+        Assert.Null(currentResult);
+    }
+
+    [Fact]
+    public void GetSuggestions_Dash_NotSuggested()
+    {
+        // Arrange - Record "-" (previous directory) usage
+        _graph.RecordUsage("cd", new[] { "-" }, null);
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act
+        var suggestions = engine.GetSuggestions("", _testCurrentDir, 20);
+
+        // Assert - "-" should NOT appear in suggestions (not useful in tab completion)
+        // Users can still type "pcd -" if they want, but it won't show in suggestions
+        var dashResult = suggestions.FirstOrDefault(s => s.Path == "-");
+        Assert.Null(dashResult);
     }
 
     [Fact]
@@ -97,12 +110,14 @@ public class PcdEnhancedTests : IDisposable
         // Act - Search with empty string to get all suggestions
         var suggestions = engine.GetSuggestions("", _testCurrentDir, 20);
 
-        // Assert - Well-known shortcuts should come first
+        // Assert - Well-known shortcuts should come first (only ~ and .. are suggested, not .)
         Assert.NotEmpty(suggestions);
-        var topSuggestions = suggestions.Take(3).ToList();
+        var topSuggestions = suggestions.Take(2).ToList();
         Assert.Contains(topSuggestions, s => s.MatchType == MatchType.WellKnown && s.Path == "~");
         Assert.Contains(topSuggestions, s => s.MatchType == MatchType.WellKnown && s.Path == "..");
-        Assert.Contains(topSuggestions, s => s.MatchType == MatchType.WellKnown && s.Path == ".");
+
+        // "." should NOT be in suggestions
+        Assert.DoesNotContain(suggestions, s => s.Path == ".");
     }
 
     #endregion
@@ -256,18 +271,18 @@ public class PcdEnhancedTests : IDisposable
     #region Distance Scoring Tests
 
     [Fact]
-    public void GetSuggestions_DistanceScore_SameDirectory_HighestScore()
+    public void GetSuggestions_CurrentDirectory_NotSuggested()
     {
-        // Arrange
+        // Arrange - Record current directory usage
         _graph.RecordUsage("cd", new[] { _testCurrentDir }, null);
-        var engine = new PcdCompletionEngine(_graph, distanceWeight: 1.0, frequencyWeight: 0.0, recencyWeight: 0.0);
+        var engine = new PcdCompletionEngine(_graph);
 
         // Act
         var suggestions = engine.GetSuggestions("", _testCurrentDir, 20);
 
-        // Assert - Same directory should have high distance score contribution
+        // Assert - Current directory should NOT appear in suggestions (not useful)
         var sameDir = suggestions.FirstOrDefault(s => s.Path == _testCurrentDir);
-        Assert.NotNull(sameDir);
+        Assert.Null(sameDir);
     }
 
     [Fact]

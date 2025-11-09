@@ -147,23 +147,8 @@ public class PcdCompletionEngine
             }
         }
 
-        // Current directory (.)
-        if (".".StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase) && wordToComplete.Length < 2)
-        {
-            if (Directory.Exists(currentDirectory))
-            {
-                suggestions.Add(new PcdSuggestion
-                {
-                    Path = ".",
-                    DisplayPath = currentDirectory,
-                    Score = 998.0,
-                    UsageCount = 0,
-                    LastUsed = DateTime.MinValue,
-                    MatchType = MatchType.WellKnown,
-                    Tooltip = $"Current directory: {currentDirectory}"
-                });
-            }
-        }
+        // Note: We don't suggest "." (current directory) as it's not useful in tab completion
+        // Users can still type "pcd ." if they want, but it won't show in suggestions
 
         return suggestions;
     }
@@ -180,6 +165,15 @@ public class PcdCompletionEngine
         foreach (var stats in learnedStats)
         {
             var path = stats.Argument;
+
+            // Skip paths that shouldn't appear in tab completion suggestions
+            // "-" (previous directory) and "." (current directory) can still be typed but won't show in suggestions
+            if (path == "-" || path == ".")
+                continue;
+
+            // Skip current directory paths (not useful in suggestions)
+            if (path.Equals(currentDirectory, StringComparison.OrdinalIgnoreCase))
+                continue;
 
             // Calculate match score
             var matchScore = CalculateMatchScore(path, wordToComplete);
