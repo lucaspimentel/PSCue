@@ -193,15 +193,18 @@ public class PcdCompletionEngine
                            (_recencyWeight * recencyScore) +
                            (_distanceWeight * distanceScore);
 
+            // Convert to relative path when possible (for tab completion and predictor)
+            var relativePath = ToRelativePath(path, currentDirectory);
+
             suggestions.Add(new PcdSuggestion
             {
-                Path = path,
-                DisplayPath = path,
+                Path = relativePath,
+                DisplayPath = path, // Keep full path for display/tooltips
                 Score = totalScore,
                 UsageCount = stats.UsageCount,
                 LastUsed = stats.LastUsed,
                 MatchType = DetermineMatchType(path, wordToComplete),
-                Tooltip = $"Used {stats.UsageCount} times (last: {stats.LastUsed:yyyy-MM-dd})"
+                Tooltip = $"{path} - Used {stats.UsageCount} times (last: {stats.LastUsed:yyyy-MM-dd})"
             });
         }
 
@@ -232,7 +235,7 @@ public class PcdCompletionEngine
 
         try
         {
-            RecursiveSearch(searchRoot, searchTerm, 0, suggestions, maxResults);
+            RecursiveSearch(searchRoot, searchTerm, currentDirectory, 0, suggestions, maxResults);
         }
         catch
         {
@@ -245,7 +248,7 @@ public class PcdCompletionEngine
     /// <summary>
     /// Recursively searches directories for matches.
     /// </summary>
-    private void RecursiveSearch(string directory, string searchTerm, int depth, List<PcdSuggestion> results, int maxResults)
+    private void RecursiveSearch(string directory, string searchTerm, string currentDirectory, int depth, List<PcdSuggestion> results, int maxResults)
     {
         if (depth > _maxRecursiveDepth || results.Count >= maxResults)
             return;
@@ -265,20 +268,23 @@ public class PcdCompletionEngine
                 var matchScore = CalculateFuzzyMatchScore(dirName, searchTerm);
                 if (matchScore > 0.3) // Threshold for fuzzy match
                 {
+                    // Convert to relative path when possible
+                    var relativePath = ToRelativePath(subDir, currentDirectory);
+
                     results.Add(new PcdSuggestion
                     {
-                        Path = subDir,
-                        DisplayPath = subDir,
+                        Path = relativePath,
+                        DisplayPath = subDir, // Keep full path for display/tooltips
                         Score = matchScore * 0.5, // Lower score than learned directories
                         UsageCount = 0,
                         LastUsed = DateTime.MinValue,
                         MatchType = MatchType.Filesystem,
-                        Tooltip = $"Found in filesystem (depth: {depth})"
+                        Tooltip = $"{subDir} - Found in filesystem (depth: {depth})"
                     });
                 }
 
                 // Recurse into subdirectory
-                RecursiveSearch(subDir, searchTerm, depth + 1, results, maxResults);
+                RecursiveSearch(subDir, searchTerm, currentDirectory, depth + 1, results, maxResults);
             }
         }
         catch
@@ -471,6 +477,63 @@ public class PcdCompletionEngine
         }
 
         return commonDepth;
+    }
+
+    /// <summary>
+    /// Converts an absolute path to a relative path when possible to reduce visual noise.
+    /// </summary>
+    /// <param name="absolutePath">The absolute path to convert.</param>
+    /// <param name="currentDirectory">The current working directory.</param>
+    /// <returns>Relative path if shorter, otherwise absolute path.</returns>
+    private string ToRelativePath(string absolutePath, string currentDirectory)
+    {
+        try
+        {
+            // Normalize paths for comparison
+            var normAbsolute = Path.GetFullPath(absolutePath);
+            var normCurrent = Path.GetFullPath(currentDirectory);
+
+            // If it's the parent directory, use ".."
+            var parent = Directory.GetParent(normCurrent)?.FullName;
+            if (parent != null && normAbsolute.Equals(parent, StringComparison.OrdinalIgnoreCase))
+            {
+                return "..";
+            }
+
+            // If it's a child directory, use relative path
+            if (normAbsolute.StartsWith(normCurrent + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                var relativePath = "." + Path.DirectorySeparatorChar + normAbsolute.Substring(normCurrent.Length + 1);
+                // Only use relative if it's shorter than absolute
+                if (relativePath.Length < normAbsolute.Length)
+                {
+                    return relativePath;
+                }
+            }
+
+            // If it's a sibling directory, use relative path via parent
+            if (parent != null)
+            {
+                var pathParent = Directory.GetParent(normAbsolute)?.FullName;
+                if (pathParent != null && pathParent.Equals(parent, StringComparison.OrdinalIgnoreCase))
+                {
+                    var relativePath = ".." + Path.DirectorySeparatorChar + Path.GetFileName(normAbsolute);
+                    // Only use relative if it's shorter than absolute
+                    if (relativePath.Length < normAbsolute.Length)
+                    {
+                        return relativePath;
+                    }
+                }
+            }
+
+            // Otherwise use absolute path
+            return normAbsolute;
+        }
+        catch
+        {
+            // If anything fails, return original path
+            return absolutePath;
+        }
     }
 
     /// <summary>

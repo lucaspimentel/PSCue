@@ -53,6 +53,13 @@ public class CommandPredictor : ICommandPredictor
         var inputString = input.ToString();
         var command = ExtractCommand(inputString);
 
+        // Special handling for 'pcd' command - use PcdCompletionEngine
+        if (command.Equals("pcd", StringComparison.OrdinalIgnoreCase) ||
+            command.Equals("Invoke-PCD", StringComparison.OrdinalIgnoreCase))
+        {
+            return GetPcdSuggestions(inputString);
+        }
+
         // Check if user is starting to type a new command (no arguments yet)
         // If so, include workflow predictions in suggestions
         var hasArguments = inputString.Contains(' ');
@@ -90,6 +97,101 @@ public class CommandPredictor : ICommandPredictor
         }
 
         return new SuggestionPackage(mergedSuggestions);
+    }
+
+    /// <summary>
+    /// Gets directory suggestions for the pcd command using PcdCompletionEngine.
+    /// </summary>
+    private SuggestionPackage GetPcdSuggestions(string inputString)
+    {
+        try
+        {
+            var knowledgeGraph = PSCueModule.KnowledgeGraph;
+            if (knowledgeGraph == null)
+            {
+                return default;
+            }
+
+            // Extract the partial path after "pcd "
+            var pcdPrefix = inputString.StartsWith("Invoke-PCD", StringComparison.OrdinalIgnoreCase) ? "Invoke-PCD" : "pcd";
+            var wordToComplete = string.Empty;
+
+            if (inputString.Length > pcdPrefix.Length)
+            {
+                // Get everything after "pcd " or "Invoke-PCD "
+                wordToComplete = inputString.Substring(pcdPrefix.Length).TrimStart();
+            }
+
+            // Get current directory
+            var currentDir = Environment.CurrentDirectory;
+
+            // Read configuration from environment variables
+            var frequencyWeight = GetEnvDouble("PSCUE_PCD_FREQUENCY_WEIGHT", 0.5);
+            var recencyWeight = GetEnvDouble("PSCUE_PCD_RECENCY_WEIGHT", 0.3);
+            var distanceWeight = GetEnvDouble("PSCUE_PCD_DISTANCE_WEIGHT", 0.2);
+            var maxDepth = GetEnvInt("PSCUE_PCD_MAX_DEPTH", 3);
+            var enableRecursive = GetEnvBool("PSCUE_PCD_RECURSIVE_SEARCH", false);
+
+            // Create PcdCompletionEngine
+            var engine = new PcdCompletionEngine(
+                knowledgeGraph,
+                30, // scoreDecayDays
+                frequencyWeight,
+                recencyWeight,
+                distanceWeight,
+                maxDepth,
+                enableRecursive
+            );
+
+            // Get suggestions (allow multiple for predictor)
+            var suggestions = engine.GetSuggestions(wordToComplete, currentDir, maxResults: 5);
+
+            if (suggestions.Count == 0)
+            {
+                return default;
+            }
+
+            // Convert to PredictiveSuggestion objects
+            var predictiveSuggestions = suggestions.Select(s =>
+            {
+                var fullText = pcdPrefix + " " + s.Path;
+                return new PredictiveSuggestion(fullText, s.Tooltip);
+            }).ToList();
+
+            return new SuggestionPackage(predictiveSuggestions);
+        }
+        catch
+        {
+            // Silently ignore errors
+            return default;
+        }
+    }
+
+    /// <summary>
+    /// Helper to read double from environment variable.
+    /// </summary>
+    private double GetEnvDouble(string key, double defaultValue)
+    {
+        var value = Environment.GetEnvironmentVariable(key);
+        return double.TryParse(value, out var result) ? result : defaultValue;
+    }
+
+    /// <summary>
+    /// Helper to read int from environment variable.
+    /// </summary>
+    private int GetEnvInt(string key, int defaultValue)
+    {
+        var value = Environment.GetEnvironmentVariable(key);
+        return int.TryParse(value, out var result) ? result : defaultValue;
+    }
+
+    /// <summary>
+    /// Helper to read bool from environment variable.
+    /// </summary>
+    private bool GetEnvBool(string key, bool defaultValue)
+    {
+        var value = Environment.GetEnvironmentVariable(key);
+        return value?.Equals("true", StringComparison.OrdinalIgnoreCase) ?? defaultValue;
     }
 
     /// <summary>
