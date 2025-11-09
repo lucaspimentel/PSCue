@@ -160,12 +160,15 @@ The `pcd` (PowerShell Change Directory) command provides:
 
 **Core Features**:
 - **Inline predictions**: See directory suggestions as you type (like other commands)
-- **Relative paths**: Shows shorter paths (e.g., `..`, `./src`) to reduce visual noise
-- **Well-known shortcuts**: Instant access to `~` (home), `..` (parent)
+- **Relative paths**: Shows shorter paths (e.g., `..`, `./src`) when on same drive and valid from current directory
+- **Cross-drive awareness**: Automatically shows full paths for directories on different drives
+- **Smart filtering**: Only suggests directories that exist; excludes current directory from suggestions
+- **Well-known shortcuts**: Instant access to `~` (home), `..` (parent) - but only when different from current location
 - **Fuzzy matching**: Find directories even with typos or partial matches
 - **Frecency scoring**: Balances frequency + recency for better suggestions
 - **Distance scoring**: Prefers directories near your current location
-- **Best-match navigation**: `pcd datadog` automatically finds best match if exact path doesn't exist
+- **Best-match navigation**: `pcd datadog` automatically finds best match if exact path doesn't exist (checks top 10 suggestions)
+- **Path normalization**: All paths include trailing `\` to match PowerShell's native behavior
 - **Optional recursive search**: Find directories by name in subdirectories
 
 **Advanced Scoring Algorithm**:

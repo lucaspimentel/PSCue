@@ -30,7 +30,7 @@ This document tracks active and planned work for PSCue. For architectural detail
   - PowerShell functions for workflow management
   - Configuration via environment variables
   - Full documentation in README.md and WORKFLOW-IMPROVEMENTS.md
-- ✅ Smart directory navigation with `pcd` command (Phases 17.5 + 17.6 + 17.7)
+- ✅ Smart directory navigation with `pcd` command (Phases 17.5 + 17.6 + 17.7 + recent fixes)
   - PowerShell function with inline predictions and tab completion
   - Learns from cd/Set-Location command usage
   - **Phase 17.6 Enhancements**:
@@ -46,6 +46,13 @@ This document tracks active and planned work for PSCue. For architectural detail
     - Relative path conversion (e.g., .., ./src, ../sibling) to reduce visual noise
     - Full paths still shown in tooltips
     - Filters out unhelpful suggestions (current directory, "-")
+  - **Recent Fixes** (2025-11-09):
+    - Cross-drive validation: Prevents invalid relative paths across drives
+    - Existence filtering: Only suggests directories that exist on filesystem
+    - Current directory filtering: Doesn't suggest ~ when already in home directory
+    - Path normalization: All paths include trailing \ to prevent duplicates
+    - Better fuzzy matching: Requests 10 suggestions for more reliable navigation
+    - Display improvements: Shows relative paths in list, inserts absolute paths
   - In-process access to learning data (<1ms)
   - Non-invasive: separate command, doesn't interfere with native cd
   - Performance: <10ms tab completion, <10ms predictor, <50ms best-match

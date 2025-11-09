@@ -119,16 +119,23 @@ Clear-PSCueWorkflows [-WhatIf] [-Confirm]          # Clear workflows (memory + D
 Export-PSCueWorkflows -Path <path>                 # Export workflows to JSON
 Import-PSCueWorkflows -Path <path> [-Merge]        # Import workflows from JSON
 
-# Smart Directory Navigation (Phases 17.5 + 17.6 + 17.7)
+# Smart Directory Navigation (Phases 17.5 + 17.6 + 17.7 + recent fixes)
 pcd [path]                                         # PowerShell Change Directory with inline predictions + tab completion
 Invoke-PCD [path]                                  # Long-form function name
 
 # Features:
 # - Inline predictions: Shows directory suggestions as you type (integrated with CommandPredictor)
-# - Relative paths: Converts to relative format when shorter (e.g., .., ./src, ../sibling)
+# - Relative paths: Converts to relative format when valid from current directory
+#   - Shows .., ./src, ../sibling when on same drive and shorter than absolute
+#   - Cross-drive paths always shown as absolute (e.g., D:\source\datadog\dd-trace-dotnet)
 # - Tab completion: Shows fuzzy-matched directories with frecency scoring
-# - Best-match navigation: Finds closest match if exact path doesn't exist
-# - Well-known shortcuts: ~, .. get highest priority (1000/999)
+#   - Display: Relative path in list, full path inserted for navigation
+#   - Tooltip: Full path with match type indicator
+# - Best-match navigation: `pcd <partial>` finds closest fuzzy match without tab
+#   - Requests top 10 suggestions for better match reliability
+# - Filtering: Excludes non-existent directories and current directory
+# - Path normalization: All paths end with trailing \ to prevent duplicates
+# - Well-known shortcuts: ~, .. (but not when already in that directory)
 # - Performance: <10ms tab completion, <10ms predictor, <50ms best-match
 
 # Algorithm (Phase 17.6 - PcdCompletionEngine):
@@ -136,8 +143,9 @@ Invoke-PCD [path]                                  # Long-form function name
 # - Fuzzy matching: Substring + Levenshtein distance for typo tolerance
 # - Frecency scoring: Configurable blend (default: 50% frequency, 30% recency, 20% distance)
 # - Distance scoring: Parent (0.9), Child (0.85-0.5), Sibling (0.7), Ancestor (0.6-0.1)
-# - Relative path conversion: Shows .., ./child, ../sibling when shorter than absolute
-# - Full paths shown in tooltips for clarity
+# - Relative path conversion: Only when on same drive/root and valid from current directory
+# - Path deduplication: Uses normalized absolute paths (with trailing \)
+# - Existence checking: Filters out learned paths that no longer exist
 
 # Debugging & Testing
 Test-PSCueCompletion -InputString <string>         # Test completions
