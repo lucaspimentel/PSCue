@@ -1,6 +1,22 @@
-# PSCue Performance Benchmarks
+# PSCue.Benchmarks
 
-This project uses [BenchmarkDotNet](https://benchmarkdotnet.org/) to measure PSCue performance and ensure we meet our targets.
+## Description
+
+Performance benchmark suite using BenchmarkDotNet to measure and optimize PSCue performance. Tracks completion speed, memory usage, and learning system performance to ensure performance targets are met.
+
+## Dependencies
+
+### NuGet Packages
+- `BenchmarkDotNet` (0.14.0) - Benchmarking framework
+
+### Internal Dependencies
+- `PSCue.ArgumentCompleter` - ArgumentCompleter benchmarks
+- `PSCue.Module` - Module benchmarks
+- `PSCue.Shared` - Shared logic benchmarks
+
+## Dependents
+
+None - this is a benchmark project.
 
 ## Performance Targets
 
