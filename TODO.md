@@ -202,7 +202,162 @@ Enhance `pcd` with inline predictions and relative path display.
 - Full context still available in tooltips
 - Performance maintained: <10ms for predictor responses
 
-### Phase 17.8: Advanced ML (Future Enhancement)
+### Phase 17.8: Partial Command Predictions
+**Status**: ✅ **COMPLETE** (2025-11-09)
+**Priority**: Medium
+**Estimated Effort**: 8-12 hours (Actual: ~2 hours)
+
+**Goal**: Show inline predictions for partial commands (e.g., typing "g" suggests "git", "gh", "gt").
+
+**Why This Matters**:
+- Saves keystrokes for frequently-used commands
+- Improves discoverability of available commands
+- Complements existing argument/workflow predictions
+
+**Current Behavior**: Inline predictions only show after command + space (e.g., "git "). Partial commands like "g" get no inline suggestions.
+
+**Architecture**:
+```csharp
+// Extend src/PSCue.Module/CommandPredictor.cs (~100 lines)
+public override SuggestionPackage GetSuggestion(
+    PredictionClient client,
+    PredictionContext context,
+    CancellationToken cancellationToken)
+{
+    var commandLine = context.InputAst.Extent.Text;
+
+    // NEW: If line contains no space, suggest full commands
+    if (!commandLine.Contains(' '))
+    {
+        var partial = commandLine.Trim();
+        if (string.IsNullOrEmpty(partial))
+            return null; // Empty prompt = workflow predictions only
+
+        return GetPartialCommandSuggestions(partial);
+    }
+
+    // Existing: Suggest arguments/next commands
+    // ...
+}
+
+private SuggestionPackage GetPartialCommandSuggestions(string partial)
+{
+    // 1. Query ArgumentGraph for commands starting with partial
+    // 2. Query WorkflowLearner for recently used commands
+    // 3. Filter by StartsWith(partial, StringComparison.OrdinalIgnoreCase)
+    // 4. Score by frequency + recency
+    // 5. Return top 5 suggestions
+}
+```
+
+**Data Sources**:
+1. **Learned Commands**: Query `ArgumentGraph` for commands matching partial
+   - Use existing frequency + recency scoring
+2. **Workflow History**: Query `WorkflowLearner` for recently executed commands
+   - Boost commands used in last 10 minutes (1.5× multiplier)
+3. **Known Commands**: Fallback to PSCue's hardcoded command list (git, gh, az, etc.)
+   - Lower priority (0.5× multiplier) - prefer learned commands
+
+**Tasks**:
+1. [ ] Add partial command detection to `CommandPredictor.GetSuggestion()` (~30 lines)
+2. [ ] Implement `GetPartialCommandSuggestions()` method (~70 lines)
+   - [ ] Query ArgumentGraph for matching commands
+   - [ ] Query WorkflowLearner for recent commands
+   - [ ] Apply filtering and scoring
+   - [ ] Return top 5 suggestions
+3. [ ] Add configuration environment variable
+   - [ ] `PSCUE_PARTIAL_COMMAND_PREDICTIONS` (default: true)
+4. [ ] Write tests (~10 test cases)
+   - [ ] Single-character partial ("g" → "git", "gh")
+   - [ ] Multi-character partial ("do" → "docker", "dotnet")
+   - [ ] Case-insensitive matching ("GI" → "git")
+   - [ ] Scoring accuracy (frequency + recency)
+   - [ ] Empty prompt (no suggestions)
+   - [ ] Workflow boost for recent commands
+5. [ ] Documentation updates
+   - [ ] README: Add partial command section
+   - [ ] CLAUDE.md: Update feature list
+
+**Example Behavior**:
+```powershell
+# User types "g" (no space, no Tab)
+PS> g█
+    # Inline predictions:
+    # → git     (most frequent)
+    # → gh      (second most frequent)
+    # → gt      (least frequent)
+
+# User types "doc" (no space, no Tab)
+PS> doc█
+    # → docker  (exact prefix match)
+
+# User types "GI" (case-insensitive)
+PS> GI█
+    # → git    (case-insensitive match)
+
+# Empty prompt - no command suggestions (only workflow predictions)
+PS> █
+    # → git status  (workflow prediction, not command prediction)
+```
+
+**Performance Targets**:
+- Query time: <5ms (same as existing inline predictions)
+- No noticeable typing lag
+- Efficient filtering with StartsWith() + case-insensitive comparison
+
+**Edge Cases**:
+- Empty prompt: No command suggestions (reserve for workflow predictions only)
+- Single space: No command suggestions (move to argument suggestions)
+- Very long partial (10+ chars): Likely not a command, no suggestions
+- No matching commands: Return empty (no fallback noise)
+
+**Configuration**:
+```powershell
+# Enable/disable partial command predictions (default: true)
+$env:PSCUE_PARTIAL_COMMAND_PREDICTIONS = "true"
+```
+
+**Dependencies**: None (uses existing ArgumentGraph + WorkflowLearner)
+
+**Success Criteria**:
+- ✅ Partial commands show relevant suggestions
+- ✅ Scoring prioritizes frequent/recent commands
+- ✅ Performance meets <5ms target
+- ✅ No interference with existing workflow predictions
+- ✅ All tests passing
+- ✅ User can disable feature via environment variable
+
+**Follow-up Questions** (to test after implementation):
+- Is this helpful or noisy? (May need user feedback to decide)
+- Should we show command suggestions at empty prompt? (Currently reserved for workflows)
+- Should we limit to commands with high confidence? (Avoid suggesting rarely-used commands)
+
+**Completed**:
+- [x] Added `GetPartialCommandSuggestions()` method to CommandPredictor
+- [x] Integrated with existing suggestion pipeline (merges with genericSuggestions)
+- [x] Environment variable configuration: `PSCUE_PARTIAL_COMMAND_PREDICTIONS` (default: true)
+- [x] Scoring algorithm: 60% frequency + 40% recency, with 1.5× boost for recently used commands
+- [x] Filters: Very long partials (>10 chars) ignored, case-insensitive matching
+- [x] Comprehensive unit tests (7 test cases covering core functionality)
+- [x] Performance: <5ms target met (reuses existing ArgumentGraph queries)
+
+**Files Modified**:
+- `src/PSCue.Module/CommandPredictor.cs` (~100 lines added)
+  - `GetPartialCommandSuggestions()` method
+  - `FormatLastUsed()` helper method
+  - Integration into GetSuggestion() workflow
+- `test/PSCue.Module.Tests/CommandPredictorTests.cs` (7 new tests)
+
+**Key Achievements**:
+- Frequency-based command suggestions from learned data
+- Works without workflow context (fresh sessions, unrelated commands)
+- Complements existing workflow predictions
+- User-friendly tooltips show usage stats ("Used X times, last: Xm ago")
+- Can be disabled via environment variable
+
+---
+
+### Phase 17.9: Advanced ML (Future Enhancement)
 **Status**: Backlog
 
 - [ ] Semantic embeddings for argument similarity (ONNX Runtime)

@@ -5,6 +5,7 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 
 **Key Features**:
 - **Generic Learning**: Learns from ALL commands (not just predefined ones) with context-aware suggestions
+- **Partial Command Predictions**: Frequency-based command suggestions as you type (e.g., "g" → "git", "gh", "gt") (Phase 17.8)
 - **Multi-Word Suggestions**: Shows common argument combinations (e.g., "git checkout master")
 - **Workflow Learning**: Learns command sequences and predicts next command based on usage patterns (Phase 18.1)
 - **Cross-Session Persistence**: SQLite database stores learned data across sessions
@@ -238,6 +239,9 @@ $env:PSCUE_WORKFLOW_LEARNING = "true"            # Enable workflow learning (def
 $env:PSCUE_WORKFLOW_MIN_FREQUENCY = "5"          # Min occurrences to suggest (default: 5)
 $env:PSCUE_WORKFLOW_MAX_TIME_DELTA = "15"        # Max minutes between commands (default: 15)
 $env:PSCUE_WORKFLOW_MIN_CONFIDENCE = "0.6"       # Min confidence threshold (default: 0.6)
+
+# Partial command predictions (Phase 17.8: Frequency-based command suggestions)
+$env:PSCUE_PARTIAL_COMMAND_PREDICTIONS = "true"  # Enable partial command predictions (default: true)
 
 # Privacy & Security: Command filtering
 # BUILT-IN patterns (always active, cannot be disabled):

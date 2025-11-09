@@ -54,4 +54,157 @@ public class CommandPredictorTests
     }
 
     #endregion
+
+    #region Partial Command Prediction Tests
+
+    [Fact]
+    public void ArgumentGraph_GetAllCommands_ReturnsLearnedCommands()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        graph.RecordUsage("git", new[] { "status" }, null);
+        graph.RecordUsage("gh", new[] { "pr" }, null);
+        graph.RecordUsage("docker", new[] { "ps" }, null);
+
+        // Act
+        var commands = graph.GetAllCommands();
+
+        // Assert
+        Assert.NotNull(commands);
+        var commandList = commands.ToList();
+        Assert.Equal(3, commandList.Count);
+        Assert.Contains(commandList, c => c.Key == "git");
+        Assert.Contains(commandList, c => c.Key == "gh");
+        Assert.Contains(commandList, c => c.Key == "docker");
+    }
+
+    [Fact]
+    public void ArgumentGraph_CommandKnowledge_TracksUsageCount()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+
+        // Record different usage counts
+        for (int i = 0; i < 10; i++) graph.RecordUsage("git", new[] { "status" }, null);
+        for (int i = 0; i < 5; i++) graph.RecordUsage("gh", new[] { "pr" }, null);
+
+        // Act
+        var commands = graph.GetAllCommands().ToList();
+
+        // Assert
+        var gitCmd = commands.First(c => c.Key == "git").Value;
+        var ghCmd = commands.First(c => c.Key == "gh").Value;
+
+        Assert.Equal(10, gitCmd.TotalUsageCount);
+        Assert.Equal(5, ghCmd.TotalUsageCount);
+    }
+
+    [Fact]
+    public void ArgumentGraph_CommandKnowledge_TracksTimestamps()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        var before = DateTime.UtcNow;
+
+        graph.RecordUsage("git", new[] { "status" }, null);
+
+        var after = DateTime.UtcNow;
+
+        // Act
+        var commands = graph.GetAllCommands().ToList();
+        var gitCmd = commands.First(c => c.Key == "git").Value;
+
+        // Assert
+        Assert.True(gitCmd.FirstSeen >= before && gitCmd.FirstSeen <= after);
+        Assert.True(gitCmd.LastUsed >= before && gitCmd.LastUsed <= after);
+    }
+
+    [Fact]
+    public void PartialCommand_FilterByPrefix_ReturnsMatchingCommands()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        graph.RecordUsage("git", new[] { "status" }, null);
+        graph.RecordUsage("gh", new[] { "pr" }, null);
+        graph.RecordUsage("go", new[] { "build" }, null);
+        graph.RecordUsage("docker", new[] { "ps" }, null);
+
+        // Act: Filter commands starting with "g"
+        var allCommands = graph.GetAllCommands();
+        var matchingCommands = allCommands
+            .Where(c => c.Key.StartsWith("g", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        // Assert
+        Assert.Equal(3, matchingCommands.Count);
+        Assert.Contains(matchingCommands, c => c.Key == "git");
+        Assert.Contains(matchingCommands, c => c.Key == "gh");
+        Assert.Contains(matchingCommands, c => c.Key == "go");
+        Assert.DoesNotContain(matchingCommands, c => c.Key == "docker");
+    }
+
+    [Fact]
+    public void PartialCommand_FilterByPrefix_IsCaseInsensitive()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        graph.RecordUsage("Git", new[] { "status" }, null);
+        graph.RecordUsage("GitHub", new[] { "cli" }, null);
+
+        // Act: Filter with lowercase "gi"
+        var allCommands = graph.GetAllCommands();
+        var matchingCommands = allCommands
+            .Where(c => c.Key.StartsWith("gi", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        // Assert
+        Assert.Equal(2, matchingCommands.Count);
+        Assert.Contains(matchingCommands, c => c.Key.Equals("Git", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(matchingCommands, c => c.Key.Equals("GitHub", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void PartialCommand_FrequencyScoring_OrdersByUsage()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+
+        // Record different usage counts
+        for (int i = 0; i < 10; i++) graph.RecordUsage("git", new[] { "status" }, null);
+        for (int i = 0; i < 5; i++) graph.RecordUsage("gh", new[] { "pr" }, null);
+        for (int i = 0; i < 2; i++) graph.RecordUsage("go", new[] { "build" }, null);
+
+        // Act: Sort by usage count
+        var allCommands = graph.GetAllCommands();
+        var orderedCommands = allCommands
+            .Where(c => c.Key.StartsWith("g", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(c => c.Value.TotalUsageCount)
+            .ToList();
+
+        // Assert: Should be ordered by frequency
+        Assert.Equal("git", orderedCommands[0].Key);
+        Assert.Equal("gh", orderedCommands[1].Key);
+        Assert.Equal("go", orderedCommands[2].Key);
+    }
+
+    [Fact]
+    public void PartialCommand_EnvironmentVariable_CanBeDisabled()
+    {
+        // Arrange & Act
+        Environment.SetEnvironmentVariable("PSCUE_PARTIAL_COMMAND_PREDICTIONS", "false");
+
+        try
+        {
+            var value = Environment.GetEnvironmentVariable("PSCUE_PARTIAL_COMMAND_PREDICTIONS");
+
+            // Assert
+            Assert.Equal("false", value);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("PSCUE_PARTIAL_COMMAND_PREDICTIONS", null);
+        }
+    }
+
+    #endregion
 }

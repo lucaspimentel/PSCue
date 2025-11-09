@@ -61,13 +61,20 @@ public class CommandPredictor : ICommandPredictor
         }
 
         // Check if user is starting to type a new command (no arguments yet)
-        // If so, include workflow predictions in suggestions
+        // If so, include workflow predictions and partial command suggestions
         var hasArguments = inputString.Contains(' ');
         List<WorkflowSuggestion>? workflowSuggestions = null;
+        List<PredictionSuggestion>? partialCommandSuggestions = null;
 
         if (!hasArguments && _enableGenericLearning)
         {
             workflowSuggestions = GetWorkflowSuggestionsForCommand(inputString);
+
+            // Add partial command predictions (frequency-based command suggestions)
+            if (GetEnvBool("PSCUE_PARTIAL_COMMAND_PREDICTIONS", true))
+            {
+                partialCommandSuggestions = GetPartialCommandSuggestions(inputString);
+            }
         }
 
         // Get known completions (for supported commands)
@@ -88,7 +95,21 @@ public class CommandPredictor : ICommandPredictor
             }
         }
 
-        // Merge suggestions (including workflow predictions)
+        // Merge partial command suggestions with generic suggestions
+        if (partialCommandSuggestions != null && partialCommandSuggestions.Count > 0)
+        {
+            if (genericSuggestions == null)
+            {
+                genericSuggestions = partialCommandSuggestions;
+            }
+            else
+            {
+                // Combine both lists - partial command suggestions get priority
+                genericSuggestions = partialCommandSuggestions.Concat(genericSuggestions).ToList();
+            }
+        }
+
+        // Merge suggestions (including workflow predictions and partial commands)
         var mergedSuggestions = MergeSuggestions(input, knownCompletions, genericSuggestions, workflowSuggestions);
 
         if (mergedSuggestions.Count == 0)
@@ -292,6 +313,124 @@ public class CommandPredictor : ICommandPredictor
             // Silently ignore errors
             return null;
         }
+    }
+
+    /// <summary>
+    /// Gets partial command suggestions based on learned command history.
+    /// Suggests frequently-used commands that match the partial input.
+    /// </summary>
+    /// <param name="partialCommand">The partial command being typed (e.g., "g", "doc").</param>
+    /// <returns>List of command suggestions with frequency-based scoring.</returns>
+    private List<PredictionSuggestion>? GetPartialCommandSuggestions(string partialCommand)
+    {
+        try
+        {
+            var knowledgeGraph = PSCueModule.KnowledgeGraph;
+            var commandHistory = PSCueModule.CommandHistory;
+
+            if (knowledgeGraph == null)
+            {
+                return null;
+            }
+
+            // Ignore very long partials (likely not commands)
+            if (partialCommand.Length > 10)
+            {
+                return null;
+            }
+
+            // Get all learned commands
+            var allCommands = knowledgeGraph.GetAllCommands();
+
+            // Filter by prefix and calculate scores
+            var matchingCommands = allCommands
+                .Where(kvp => kvp.Key.StartsWith(partialCommand, StringComparison.OrdinalIgnoreCase))
+                .Select(kvp =>
+                {
+                    var cmd = kvp.Value;
+
+                    // Calculate frequency score (0.0-1.0)
+                    var totalUsageCount = allCommands.Sum(c => c.Value.TotalUsageCount);
+                    var frequencyScore = totalUsageCount > 0
+                        ? (double)cmd.TotalUsageCount / totalUsageCount
+                        : 0.0;
+
+                    // Calculate recency score (0.0-1.0) with exponential decay
+                    var daysSinceLastUse = (DateTime.UtcNow - cmd.LastUsed).TotalDays;
+                    var recencyScore = Math.Exp(-daysSinceLastUse / 30.0); // 30-day decay
+
+                    // Boost if recently used (within 10 minutes)
+                    var recentBoost = 1.0;
+                    if (commandHistory != null)
+                    {
+                        var recentCommands = commandHistory.GetRecent(10);
+                        if (recentCommands.Any(c => c.CommandLine.StartsWith(cmd.Command, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            recentBoost = 1.5;
+                        }
+                    }
+
+                    // Combined score: 60% frequency + 40% recency, with recent boost
+                    var score = ((0.6 * frequencyScore) + (0.4 * recencyScore)) * recentBoost;
+
+                    return new
+                    {
+                        Command = cmd.Command,
+                        Score = score,
+                        UsageCount = cmd.TotalUsageCount,
+                        LastUsed = cmd.LastUsed
+                    };
+                })
+                .OrderByDescending(c => c.Score)
+                .Take(5) // Top 5 suggestions
+                .ToList();
+
+            if (matchingCommands.Count == 0)
+            {
+                return null;
+            }
+
+            // Convert to PredictionSuggestion
+            var suggestions = matchingCommands.Select(c =>
+            {
+                var tooltip = $"Used {c.UsageCount} times, last: {FormatLastUsed(c.LastUsed)}";
+                return new PredictionSuggestion
+                {
+                    Text = c.Command,
+                    Description = tooltip,
+                    Score = c.Score,
+                    Source = "partial-command"
+                };
+            }).ToList();
+
+            return suggestions;
+        }
+        catch
+        {
+            // Silently ignore errors
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Formats a DateTime as a human-readable "last used" string.
+    /// </summary>
+    private string FormatLastUsed(DateTime lastUsed)
+    {
+        var timeSpan = DateTime.UtcNow - lastUsed;
+
+        if (timeSpan.TotalMinutes < 1)
+            return "just now";
+        if (timeSpan.TotalMinutes < 60)
+            return $"{(int)timeSpan.TotalMinutes}m ago";
+        if (timeSpan.TotalHours < 24)
+            return $"{(int)timeSpan.TotalHours}h ago";
+        if (timeSpan.TotalDays < 7)
+            return $"{(int)timeSpan.TotalDays}d ago";
+        if (timeSpan.TotalDays < 30)
+            return $"{(int)(timeSpan.TotalDays / 7)}w ago";
+
+        return $"{(int)(timeSpan.TotalDays / 30)}mo ago";
     }
 
     /// <summary>
