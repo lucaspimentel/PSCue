@@ -8,54 +8,22 @@ This document tracks active and planned work for PSCue. For architectural detail
 
 ## Current Status
 
-**Latest Release**: v0.2.0 (2025-11-05)
-- ✅ ML-based N-gram sequence prediction (Phase 17.1)
-- ✅ Privacy & security - sensitive data protection (Phase 17.2)
-- ✅ Partial word completion filtering (Phase 17.3)
-- ✅ Automated CI/CD with GitHub Actions
-- ✅ Production-ready with comprehensive test coverage
+**Latest Release**: v0.3.0 (2025-11-09)
+- ✅ Multi-word prediction suggestions (Phase 17.4)
+- ✅ Dynamic workflow learning (Phase 18.1)
+- ✅ Smart directory navigation with `pcd` command (Phases 17.5-17.7)
+- ✅ Enhanced path handling and fuzzy matching
+- ✅ Comprehensive test coverage (300+ tests)
 - 🎉 Available for installation via one-line command
 
-**Recent Improvements** (unreleased):
-- ✅ Multi-word prediction suggestions (Phase 17.4)
-  - Shows common argument combinations like "git checkout master"
-  - Tracks sequential argument patterns with usage frequency
-  - Persists learned sequences to database
-- ✅ Dynamic workflow learning (Phase 18.1)
-  - Learns command → next command transitions with timing data
-  - Time-sensitive scoring adjusts predictions based on timing patterns
-  - SQLite persistence with workflow_transitions table (8 tables total)
-  - Automatic learning via FeedbackProvider integration
-  - CommandPredictor integration for inline predictions
-  - PowerShell functions for workflow management
-  - Configuration via environment variables
-  - Full documentation in README.md and WORKFLOW-IMPROVEMENTS.md
-- ✅ Smart directory navigation with `pcd` command (Phases 17.5 + 17.6 + 17.7 + recent fixes)
-  - PowerShell function with inline predictions and tab completion
-  - Learns from cd/Set-Location command usage
-  - **Phase 17.6 Enhancements**:
-    - Fuzzy matching with Levenshtein distance + substring matching
-    - Frecency scoring: configurable blend of frequency (50%), recency (30%), distance (20%)
-    - Distance-aware scoring: prefers nearby directories (parent/child/sibling)
-    - Best-match navigation: `pcd datadog` finds match without Tab
-    - Well-known shortcuts (~, ..) with highest priority
-    - Optional recursive filesystem search
-    - Match type indicators in tooltips
-  - **Phase 17.7 Enhancements** (2025-11-09):
-    - Inline predictions integrated with CommandPredictor
-    - Relative path conversion (e.g., .., ./src, ../sibling) to reduce visual noise
-    - Full paths still shown in tooltips
-    - Filters out unhelpful suggestions (current directory, "-")
-  - **Recent Fixes** (2025-11-09):
-    - Cross-drive validation: Prevents invalid relative paths across drives
-    - Existence filtering: Only suggests directories that exist on filesystem
-    - Current directory filtering: Doesn't suggest ~ when already in home directory
-    - Path normalization: All paths include trailing \ to prevent duplicates
-    - Better fuzzy matching: Requests 10 suggestions for more reliable navigation
-    - Display improvements: Shows relative paths in list, inserts absolute paths
-  - In-process access to learning data (<1ms)
-  - Non-invasive: separate command, doesn't interfere with native cd
-  - Performance: <10ms tab completion, <10ms predictor, <50ms best-match
+**Previous Release**: v0.2.0 (2025-11-05)
+- ML-based N-gram sequence prediction (Phase 17.1)
+- Privacy & security - sensitive data protection (Phase 17.2)
+- Partial word completion filtering (Phase 17.3)
+- Automated CI/CD with GitHub Actions
+
+**Recent Improvements** (not yet released):
+- None currently - all features shipped in v0.3.0
 
 **Installation**:
 ```powershell

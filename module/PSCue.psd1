@@ -3,7 +3,7 @@
     RootModule = 'PSCue.psm1'
 
     # Version number of this module.
-    ModuleVersion = '0.2.0'
+    ModuleVersion = '0.3.0'
 
     # Supported PSEditions
     CompatiblePSEditions = @('Core')
@@ -121,7 +121,29 @@
             # IconUri = ''
 
             # ReleaseNotes of this module
-            ReleaseNotes = 'Initial release of PSCue - PowerShell Completion and Prediction Module'
+            ReleaseNotes = @'
+v0.3.0 - Major Feature Release
+
+New Features:
+- Multi-word prediction suggestions (Phase 17.4): Shows common argument combinations like "git checkout master"
+- Dynamic workflow learning (Phase 18.1): Learns command sequences and predicts next command based on usage patterns
+- Smart directory navigation with pcd command (Phases 17.5-17.7):
+  * Fuzzy matching with Levenshtein distance
+  * Frecency scoring (frequency + recency + distance)
+  * Inline predictions with relative path display
+  * Best-match navigation without tab completion
+- PowerShell module functions for workflow management: Get/Clear/Export/Import-PSCueWorkflows
+
+Improvements:
+- Enhanced path handling with cross-drive validation
+- Better directory existence filtering
+- Improved path normalization to prevent duplicates
+- Performance optimizations for directory navigation (<10ms)
+
+Database:
+- Extended SQLite schema to 8 tables (added workflow_transitions, argument_sequences)
+- Cross-session persistence for all learned data
+'@
 
             # Prerelease string of this module
             # Prerelease = ''
