@@ -3,12 +3,12 @@
     <Project Path="benchmark/PSCue.Benchmarks/PSCue.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/src/">
-    <Project Path="src/PSCue.ArgumentCompleter/PSCue.ArgumentCompleter.csproj" Type="C#"/>
-    <Project Path="src/PSCue.Module/PSCue.Module.csproj" Type="C#"/>
-    <Project Path="src/PSCue.Shared/PSCue.Shared.csproj" Type="C#"/>
+    <Project Path="src/PSCue.ArgumentCompleter/PSCue.ArgumentCompleter.csproj"/>
+    <Project Path="src/PSCue.Module/PSCue.Module.csproj"/>
+    <Project Path="src/PSCue.Shared/PSCue.Shared.csproj"/>
   </Folder>
   <Folder Name="/test/">
-    <Project Path="test/PSCue.ArgumentCompleter.Tests/PSCue.ArgumentCompleter.Tests.csproj" Type="C#"/>
-    <Project Path="test/PSCue.Module.Tests/PSCue.Module.Tests.csproj" Type="C#"/>
+    <Project Path="test/PSCue.ArgumentCompleter.Tests/PSCue.ArgumentCompleter.Tests.csproj"/>
+    <Project Path="test/PSCue.Module.Tests/PSCue.Module.Tests.csproj"/>
   </Folder>
 </Solution>
