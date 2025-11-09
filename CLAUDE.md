@@ -210,8 +210,8 @@ public void TestLearningAccess()
 
 ## Documentation
 - **Implementation status**:
-  - Active work: See `TODO.md`
-  - Completed phases: See `COMPLETED.md` (Phases 1-13, 15 archived)
+  - Active work: See `TODO.md` (includes detailed Phase 18 workflow improvements roadmap)
+  - Completed phases: See `COMPLETED.md` (Phases 1-13, 15, 17.1-17.7, 18.1-18.2 archived)
 - **Database functions**: See `DATABASE-FUNCTIONS.md` for detailed SQLite query examples and schema
 - Full details: See `docs/ARCHITECTURE.md` and `docs/TROUBLESHOOTING.md`
 - Bug fix history: See git log and commit messages
@@ -259,10 +259,10 @@ $env:PSCUE_IGNORE_PATTERNS = "aws *,terraform *,*custom-secret*"
 **Not supported**: macOS (can build from source using install-local.ps1)
 
 **CI/CD**: Automated builds and releases via GitHub Actions for win-x64 and linux-x64
-- **Latest Release**: v0.2.0 (2025-11-05)
+- **Latest Release**: v0.3.0 (2025-11-09)
 - **Installation**: `irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-remote.ps1 | iex`
 - **Release Assets**: PSCue-win-x64.zip, PSCue-linux-x64.tar.gz, checksums.txt
-- **Includes**: Functions/ directory fix from v0.1.0
+- **Key Features**: Multi-word predictions, dynamic workflow learning, smart directory navigation (pcd)
 
 When adding support for new commands, add the completer registration in module/PSCue.psm1
 - don't mention TODO phases in code (like "// Add multi-word suggestions (Phase 17.4)")

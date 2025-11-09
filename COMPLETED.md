@@ -1517,7 +1517,7 @@ Automatically learns command workflow patterns (command → next command transit
 - `CLAUDE.md`: Architecture, configuration, key files
 - `README.md`: Features, workflow management section with examples
 - `TODO.md`: Marked Phase 18.1 as complete
-- `WORKFLOW-IMPROVEMENTS.md`: Design doc with implementation status
+- `TODO.md`: Design doc with implementation details (Phases 18.3-18.8)
 
 **Commits**:
 1. `d638466`: feat: implement Phase 18.1 dynamic workflow learning
