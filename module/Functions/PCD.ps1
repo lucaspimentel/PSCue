@@ -99,8 +99,8 @@ function Invoke-PCD {
             $enableRecursive
         )
 
-        # Get best match
-        $suggestions = $engine.GetSuggestions($Path, $currentDir, 1)
+        # Get best match - request more suggestions for better fuzzy matching
+        $suggestions = $engine.GetSuggestions($Path, $currentDir, 10)
 
         if ($suggestions -and $suggestions.Count -gt 0) {
             $bestMatch = $suggestions[0]
