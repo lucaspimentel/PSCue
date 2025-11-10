@@ -682,7 +682,7 @@ cherry-pick     Apply the changes introduced by some existing commits
 
 **References**:
 - [PSReadLine #4029](https://github.com/PowerShell/PSReadLine/issues/4029) - Feature request to make timeout configurable
-- See `ML-PREDICTIONS.md` for architectural strategies to handle this constraint
+- See `./ML-PREDICTIONS.md` for architectural strategies to handle this constraint
 
 **Note:** Simplified architecture provides faster, more reliable performance.
 
@@ -782,7 +782,7 @@ PSCue works seamlessly across platforms:
 **Implication for ML Features**:
 - ML predictions in inline suggestions require background pre-computation
 - ML predictions in Tab completion can be synchronous (no timeout)
-- See `ML-PREDICTIONS.md` for detailed architectural strategies
+- See `./ML-PREDICTIONS.md` for detailed architectural strategies
 
 ### Project References
 

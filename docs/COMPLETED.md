@@ -416,7 +416,7 @@ For current and future work, see [TODO.md](TODO.md).
 - [x] Update CLAUDE.md with new tool capabilities
 - [x] Update README.md with debugging tool section
 - [x] Add examples of using debug tool for troubleshooting
-- [x] Document IPC protocol extensions (TECHNICAL_DETAILS.md updated)
+- [x] Document IPC protocol extensions (./TECHNICAL_DETAILS.md updated)
 - [x] Document IPC server race condition fix
 - [x] Document PowerShell process discovery feature
 
@@ -988,7 +988,7 @@ Features:
 
 - Updated CLAUDE.md with PowerShell function documentation
 - Updated README.md with database management examples
-- Created DATABASE-FUNCTIONS.md with detailed query examples
+- Created ./DATABASE-FUNCTIONS.md with detailed query examples
 - Updated installation scripts to copy Functions directory
 - Comprehensive help for all 10 functions
 
@@ -1016,9 +1016,9 @@ Features:
 - test-cache-debug.ps1, test-pscue-debug.ps1
 
 **Documentation Updated**:
-- README.md: Removed IPC references, updated architecture diagram
-- TECHNICAL_DETAILS.md: Removed IPC sections, updated key decisions
-- CLAUDE.md: Updated to reflect Phase 16 completion
+- ../README.md: Removed IPC references, updated architecture diagram
+- ./TECHNICAL_DETAILS.md: Removed IPC sections, updated key decisions
+- ../CLAUDE.md: Updated to reflect Phase 16 completion
 
 **Verification**:
 - `dotnet build` succeeds (fixed PSCue.slnx folder paths)
@@ -1089,7 +1089,7 @@ Features:
 6. ✅ Direct in-process access (no IPC overhead)
 7. ✅ Export/Import functions enable backup/migration
 8. ✅ All 315 tests passing
-9. ✅ Documentation updated (README, CLAUDE.md, TECHNICAL_DETAILS.md)
+9. ✅ Documentation updated (../README.md, ../CLAUDE.md, ./TECHNICAL_DETAILS.md)
 10. ✅ PSCue.Debug completely removed
 11. ✅ IPC layer completely removed
 12. ✅ 44 IPC tests removed

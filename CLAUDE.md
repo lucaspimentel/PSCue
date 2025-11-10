@@ -17,7 +17,7 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 
 **Supported Commands**: git, gh, gt (Graphite), az, azd, func, code, scoop, winget, wt (Windows Terminal), chezmoi, tre, lsd, dust, cd/Set-Location
 
-For completed work history, see COMPLETED.md.
+For completed work history, see docs/COMPLETED.md.
 
 ## Architecture
 - **ArgumentCompleter** (`pscue-completer.exe`): NativeAOT exe, <10ms startup, computes completions locally with full dynamic arguments support
@@ -152,7 +152,7 @@ Invoke-PCD [path]                                  # Long-form function name
 Test-PSCueCompletion -InputString <string>         # Test completions
 Get-PSCueModuleInfo [-AsJson]                      # Module diagnostics
 
-# See DATABASE-FUNCTIONS.md for detailed database query examples
+# See docs/DATABASE-FUNCTIONS.md for detailed database query examples
 ```
 
 ## Key Technical Decisions
@@ -212,8 +212,8 @@ public void TestLearningAccess()
 ## Documentation
 - **Implementation status**:
   - Active work: See `TODO.md` (includes detailed Phase 18 workflow improvements roadmap)
-  - Completed phases: See `COMPLETED.md` (Phases 1-13, 15, 17.1-17.7, 18.1-18.2 archived)
-- **Database functions**: See `DATABASE-FUNCTIONS.md` for detailed SQLite query examples and schema
+  - Completed phases: See `docs/COMPLETED.md` (Phases 1-13, 15, 17.1-17.7, 18.1-18.2 archived)
+- **Database functions**: See `docs/DATABASE-FUNCTIONS.md` for detailed SQLite query examples and schema
 - Full details: See `docs/ARCHITECTURE.md` and `docs/TROUBLESHOOTING.md`
 - Bug fix history: See git log and commit messages
 - API docs: [ICommandPredictor](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-cmdlet-predictor), [IFeedbackProvider](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider)
@@ -268,5 +268,7 @@ $env:PSCUE_IGNORE_PATTERNS = "aws *,terraform *,*custom-secret*"
 - **Release Assets**: PSCue-win-x64.zip, PSCue-linux-x64.tar.gz, checksums.txt
 - **Key Features**: Multi-word predictions, dynamic workflow learning, smart directory navigation (pcd)
 
+# Misc
 When adding support for new commands, add the completer registration in module/PSCue.psm1
 - don't mention TODO phases in code (like "// Add multi-word suggestions (Phase 17.4)")
+- when running ./scripts/install-local.ps1, always use -Force

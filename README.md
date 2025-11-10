@@ -299,7 +299,7 @@ Patterns use wildcards: `*` matches any characters.
 
 PSCue uses a two-component architecture optimized for both speed and intelligence.
 
-> **For detailed technical information**, including caching strategy and implementation notes, see [TECHNICAL_DETAILS.md](TECHNICAL_DETAILS.md).
+> **For detailed technical information**, including caching strategy and implementation notes, see [TECHNICAL_DETAILS.md](docs/TECHNICAL_DETAILS.md).
 
 ### ArgumentCompleter (Short-lived)
 - **Binary**: `pscue-completer.exe` (NativeAOT)
@@ -640,7 +640,7 @@ Write-Host "In memory: $inMemory | In database: $inDb"
 - Windows: `%LOCALAPPDATA%\PSCue\learned-data.db`
 - Linux: `~/.local/share/PSCue/learned-data.db`
 
-For detailed documentation on database functions, schema, and use cases, see [DATABASE-FUNCTIONS.md](DATABASE-FUNCTIONS.md).
+For detailed documentation on database functions, schema, and use cases, see [DATABASE-FUNCTIONS.md](docs/DATABASE-FUNCTIONS.md).
 
 ### Workflow Management
 
@@ -784,9 +784,9 @@ Special thanks to the PowerShell team for the `ICommandPredictor` and `IFeedback
 - **Releases**: https://github.com/lucaspimentel/PSCue/releases
 - **Project Documentation**:
   - [TODO.md](TODO.md) - Current work and future plans
-  - [COMPLETED.md](COMPLETED.md) - Completed implementation phases (Phases 1-13, 15)
+  - [COMPLETED.md](docs/COMPLETED.md) - Completed implementation phases (Phases 1-13, 15)
   - [CLAUDE.md](CLAUDE.md) - Quick reference for AI agents
-  - [DATABASE-FUNCTIONS.md](DATABASE-FUNCTIONS.md) - Database query functions and schema
+  - [DATABASE-FUNCTIONS.md](docs/DATABASE-FUNCTIONS.md) - Database query functions and schema
 - **PowerShell API Documentation**:
   - [ICommandPredictor API](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-cmdlet-predictor)
   - [IFeedbackProvider API](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider)

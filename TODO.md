@@ -2,7 +2,7 @@
 
 **Last Updated**: 2025-11-09
 
-This document tracks active and planned work for PSCue. For architectural details, see [TECHNICAL_DETAILS.md](TECHNICAL_DETAILS.md). For completed work, see [COMPLETED.md](COMPLETED.md).
+This document tracks active and planned work for PSCue. For architectural details, see [TECHNICAL_DETAILS.md](docs/TECHNICAL_DETAILS.md). For completed work, see [COMPLETED.md](docs/COMPLETED.md).
 
 ---
 
@@ -465,7 +465,7 @@ PS> █  # Press Tab
 - ✅ Time delta tracking in database
 - ✅ Confidence adjustments based on timing (1.5× to 0.8× boost)
 
-**See**: [COMPLETED.md](COMPLETED.md) for detailed implementation notes
+**See**: [COMPLETED.md](docs/COMPLETED.md) for detailed implementation notes
 
 ### Phase 18.3: Workflow Chains (3+ Commands)
 **Status**: Planned
@@ -1120,11 +1120,11 @@ git push origin main vX.Y.Z
 
 ### Key Files
 - **Task Tracking**: `TODO.md` (this file)
-- **Architecture**: `TECHNICAL_DETAILS.md`
+- **Architecture**: `docs/TECHNICAL_DETAILS.md`
 - **AI Agent Guide**: `CLAUDE.md`
 - **User Guide**: `README.md`
-- **Database Functions**: `DATABASE-FUNCTIONS.md`
-- **Completed Phases**: `COMPLETED.md`
+- **Database Functions**: `docs/DATABASE-FUNCTIONS.md`
+- **Completed Phases**: `docs/COMPLETED.md`
 
 ### Build & Test Commands
 ```bash
@@ -1163,5 +1163,5 @@ Test-PSCueCompletion, Get-PSCueModuleInfo
 - This is a living document - update as tasks progress
 - Check off items as completed
 - Add new items as discovered
-- Move completed phases to COMPLETED.md
-- Move large architectural details to TECHNICAL_DETAILS.md
+- Move completed phases to docs/COMPLETED.md
+- Move large architectural details to docs/TECHNICAL_DETAILS.md
