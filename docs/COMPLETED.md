@@ -32,6 +32,9 @@ For current and future work, see [TODO.md](TODO.md).
 - **Phase 17.3**: Partial Word Completion Filtering ✅
 - **Phase 17.4**: Multi-Word Prediction Suggestions ✅
 - **Phase 17.5**: Smart Directory Navigation (`pcd` command) ✅
+- **Phase 17.6**: Enhanced PCD Algorithm ✅
+- **Phase 17.7**: PCD Inline Predictions & Relative Paths ✅
+- **Phase 17.8**: Partial Command Predictions ✅
 - **Phase 18.1**: Dynamic Workflow Learning ✅
 - **Phase 18.2**: Time-Based Workflow Detection ✅ (completed as part of 18.1)
 - **CI/CD & Distribution**: GitHub Actions Automated Releases ✅
@@ -1465,6 +1468,196 @@ Added a PowerShell function with intelligent tab completion for directory naviga
 - Tab completion performance: <1ms (direct in-process access)
 - Tooltips show: "Used N times (last: YYYY-MM-DD)"
 - Suggestions ordered by: Score (frequency + recency decay)
+
+### Phase 17.6: Enhanced PCD Algorithm ✅
+
+**Completed**: 2025-11-08
+
+Enhanced the `pcd` command with advanced matching, scoring, and navigation features including fuzzy matching, frecency scoring, distance awareness, and best-match navigation.
+
+**Core Engine** (`src/PSCue.Module/PcdCompletionEngine.cs` - ~450 lines):
+- **Multi-stage algorithm**:
+  - **Stage 1**: Well-known shortcuts (`~`, `..`, `.`) with highest priority (1000/999/998)
+  - **Stage 2**: Learned directories with enhanced scoring
+  - **Stage 3**: Recursive filesystem search (optional, configurable depth)
+- **Match scoring**: Exact (1.0) > Prefix (0.9) > Fuzzy (0.0-0.8 based on Levenshtein distance)
+- **Fuzzy matching**: Substring + Levenshtein distance for typo tolerance
+- **Frecency scoring**: Configurable blend (default: 50% frequency, 30% recency, 20% distance)
+- **Distance scoring**: Contextual boost for nearby directories
+  - Same directory: 1.0
+  - Parent directory: 0.9
+  - Child directory: 0.85-0.5 (based on depth)
+  - Sibling directory: 0.7
+  - Ancestor directory: 0.6-0.1 (based on distance)
+- **Path normalization**: Trailing backslash to prevent duplicates
+- **Existence checking**: Filters out learned paths that no longer exist
+
+**PowerShell Integration** (`module/Functions/PCD.ps1` - enhanced to ~205 lines):
+- **Tab completion**: Uses `PcdCompletionEngine.GetSuggestions()`
+  - Reads configuration from environment variables
+  - Calls engine with `$wordToComplete`, `$currentDirectory`, and max results (20)
+  - Converts `PcdSuggestion` objects to `CompletionResult` with match type indicators
+- **Best-match navigation**: `Invoke-PCD` function with smart path resolution
+  - If exact path doesn't exist, uses engine to find best match
+  - Shows message: "No exact match, navigating to: <best-match>"
+  - Falls back to `Set-Location` error if no good matches found
+
+**Environment Variables**:
+```powershell
+# Scoring weights (must sum to ~1.0 with match weight)
+$env:PSCUE_PCD_FREQUENCY_WEIGHT = "0.5"  # Default: 0.5 (50%)
+$env:PSCUE_PCD_RECENCY_WEIGHT = "0.3"    # Default: 0.3 (30%)
+$env:PSCUE_PCD_DISTANCE_WEIGHT = "0.2"   # Default: 0.2 (20%)
+
+# Recursive search (disabled by default for performance)
+$env:PSCUE_PCD_RECURSIVE_SEARCH = "true"  # Default: false
+$env:PSCUE_PCD_MAX_DEPTH = "3"            # Default: 3 levels deep
+```
+
+**Comprehensive Testing** (`test/PSCue.Module.Tests/PcdEnhancedTests.cs` - ~600 lines):
+- Well-known shortcuts tests (19 tests)
+- Fuzzy matching tests (substring + Levenshtein)
+- Frecency scoring tests (frequency + recency + distance)
+- Distance scoring tests (parent/child/sibling/ancestor)
+- Recursive search tests
+- Best-match navigation tests
+- Performance tests (<10ms tab completion, <50ms best-match)
+- Edge cases and error handling
+- Tooltip and display tests
+
+**Documentation Updates**:
+- `README.md`: Enhanced pcd section with full algorithm details
+- `CLAUDE.md`: Algorithm details and file references
+- `TODO.md`: Marked Phase 17.6 complete
+
+**Key Achievements**:
+- Multi-stage completion algorithm: Shortcuts → Learned → Recursive
+- Fuzzy matching with Levenshtein distance + substring matching
+- Configurable frecency scoring (frequency + recency + distance)
+- Distance-aware scoring for nearby directories
+- Best-match navigation without Tab completion
+- Comprehensive test coverage for all features
+- Full documentation in README and CLAUDE.md
+- Performance targets met: <10ms tab completion, <50ms best-match
+
+### Phase 17.7: PCD Inline Predictions & Relative Paths ✅
+
+**Completed**: 2025-11-09
+
+Enhanced `pcd` with inline predictions and relative path display for improved usability.
+
+**Inline Predictor Integration** (`src/PSCue.Module/CommandPredictor.cs`):
+- Added `GetPcdSuggestions()` method for inline predictions
+- Support for both "pcd" and "Invoke-PCD" commands
+- Shows suggestions even for "pcd<space>" (always show predictions)
+- Returns multiple suggestions (up to 5 for predictor)
+- Added environment variable helper methods for consistent config access
+- Performance maintained: <10ms for predictor responses
+
+**Relative Path Conversion** (`src/PSCue.Module/PcdCompletionEngine.cs`):
+- Added `ToRelativePath()` method to convert absolute paths to relative format
+- Conversion rules:
+  - Parent directory → `..`
+  - Child directories → `./subdir` (when shorter than absolute)
+  - Sibling directories → `../sibling` (when shorter than absolute)
+  - Cross-drive paths → Always absolute (e.g., `D:\source\...`)
+  - Fall back to absolute path if relative isn't shorter
+- Applied to both tab completion and inline predictor
+- Full paths still shown in `DisplayPath` property and tooltips
+
+**Filtering Improvements**:
+- Don't suggest current directory (`.`)
+- Don't suggest previous directory (`-`)
+- Don't suggest path that matches current directory
+- Reduces visual noise and improves suggestion quality
+
+**Files Modified**:
+- `src/PSCue.Module/CommandPredictor.cs` (added GetPcdSuggestions, env helpers)
+- `src/PSCue.Module/PcdCompletionEngine.cs` (added ToRelativePath, updated suggestions)
+- `test/PSCue.Module.Tests/PcdEnhancedTests.cs` (updated for filtering behavior)
+
+**Key Achievements**:
+- Inline predictions work like other commands (git, gh, etc.)
+- Relative paths reduce visual noise significantly
+- Full context still available in tooltips
+- Performance maintained: <10ms for predictor responses
+- Consistent user experience across tab completion and inline predictions
+
+### Phase 17.8: Partial Command Predictions ✅
+
+**Completed**: 2025-11-09
+
+Added inline predictions for partial commands (e.g., typing "g" suggests "git", "gh", "gt") to save keystrokes and improve command discoverability.
+
+**Why This Matters**:
+- Saves keystrokes for frequently-used commands
+- Improves discoverability of available commands
+- Complements existing argument/workflow predictions
+- Works without workflow context (fresh sessions, unrelated commands)
+
+**Implementation** (`src/PSCue.Module/CommandPredictor.cs` - ~100 lines added):
+- **Partial command detection**: Checks if command line contains no space
+- **`GetPartialCommandSuggestions()` method**: Generates frequency-based command suggestions
+- **Data sources**:
+  - Learned commands from `ArgumentGraph`
+  - Recently executed commands from command history
+  - Scoring: 60% frequency + 40% recency
+  - 1.5× boost for commands used in last 10 minutes
+- **Filtering logic**:
+  - Case-insensitive `StartsWith` matching
+  - Very long partials (>10 chars) ignored (likely not a command)
+  - Empty prompt reserved for workflow predictions only
+- **Integration**: Merges with existing genericSuggestions pipeline
+- **User-friendly tooltips**: Show usage stats ("Used X times, last: Xm ago")
+
+**Environment Variable**:
+```powershell
+# Enable/disable partial command predictions (default: true)
+$env:PSCUE_PARTIAL_COMMAND_PREDICTIONS = "true"
+```
+
+**Example Behavior**:
+```powershell
+# User types "g" (no space, no Tab)
+PS> g█
+    # Inline predictions:
+    # → git     (most frequent)
+    # → gh      (second most frequent)
+    # → gt      (least frequent)
+
+# User types "doc" (no space, no Tab)
+PS> doc█
+    # → docker  (exact prefix match)
+```
+
+**Testing** (`test/PSCue.Module.Tests/CommandPredictorTests.cs` - 7 new tests):
+- Single-character partial ("g" → "git", "gh")
+- Multi-character partial ("do" → "docker", "dotnet")
+- Case-insensitive matching ("GI" → "git")
+- Scoring accuracy (frequency + recency)
+- Empty prompt (no suggestions)
+- Recent command boost
+- Environment variable disable
+
+**Files Modified**:
+- `src/PSCue.Module/CommandPredictor.cs` (~100 lines added)
+  - `GetPartialCommandSuggestions()` method
+  - `FormatLastUsed()` helper method
+  - Integration into GetSuggestion() workflow
+- `test/PSCue.Module.Tests/CommandPredictorTests.cs` (7 new tests)
+
+**Performance**:
+- Query time: <5ms (reuses existing ArgumentGraph queries)
+- No noticeable typing lag
+- Efficient filtering with StartsWith() + case-insensitive comparison
+
+**Key Achievements**:
+- Frequency-based command suggestions from learned data
+- Works without workflow context (fresh sessions, unrelated commands)
+- Complements existing workflow predictions
+- User-friendly tooltips show usage stats
+- Can be disabled via environment variable
+- Performance target met: <5ms
 
 ### Phase 18.1: Dynamic Workflow Learning ✅
 
