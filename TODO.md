@@ -26,7 +26,7 @@ This document tracks active and planned work for PSCue. For architectural detail
 - Automated CI/CD with GitHub Actions
 
 **Recent Improvements** (not yet released):
-- None currently - all v0.3.0 features archived to docs/COMPLETED.md
+- Phase 17.9: PCD completion improvements (filesystem search, context-aware paths, parent filtering)
 
 **Installation**:
 ```powershell
@@ -37,10 +37,10 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-r
 
 ## Planned Work
 
-### Phase 17.9: Tab Completion on Empty Input
-**Status**: Planned
-**Priority**: Medium-Low
-**Estimated Effort**: 8-12 hours
+### Phase 19.1: Tab Completion on Empty Input
+**Status**: Deferred (more complex than initially estimated)
+**Priority**: Low
+**Estimated Effort**: TBD (requires more research)
 
 **Goal**: Show tab completions when user presses `<Tab>` on empty command line, displaying frequent/recent commands from PSCue's learned data.
 
@@ -49,75 +49,22 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-r
 - `Register-ArgumentCompleter` cannot intercept Tab on empty command line
 - `ICommandPredictor` does NOT show predictions until user begins typing
 
-**Solution**: Override `TabExpansion2` to provide custom completions for empty input, then delegate to standard completion for non-empty input. PSReadLine automatically handles display based on user's `PredictionViewStyle` setting.
+**Challenges Discovered**:
+- TabExpansion2 override approach has compatibility issues
+- More research needed on PSReadLine integration
+- Potential conflicts with other modules
 
-**Documentation**: See [docs/TAB_COMPLETION_EMPTY_INPUT.md](docs/TAB_COMPLETION_EMPTY_INPUT.md) for detailed research, implementation approaches, and code snippets.
+**Documentation**: See [docs/TAB_COMPLETION_EMPTY_INPUT.md](docs/TAB_COMPLETION_EMPTY_INPUT.md) for research notes.
 
-**Tasks**:
-1. [ ] Implement TabExpansion2 override in module initialization (~80 lines)
-   - [ ] Detect empty input and return `CompletionResult` objects
-   - [ ] Query `ArgumentGraph.GetTrackedCommands()` for frequent commands
-   - [ ] Create CompletionResult objects with tooltips
-   - [ ] Delegate to original TabExpansion2 or CompleteInput for non-empty input
-2. [ ] Add environment variable configuration
-   - [ ] `PSCUE_EMPTY_TAB_COMPLETION` (default: false, opt-in)
-   - [ ] `PSCUE_EMPTY_TAB_MAX_SUGGESTIONS` (default: 10)
-   - [ ] `PSCUE_EMPTY_TAB_MIN_USAGE` (default: 3)
-3. [ ] Fix `ArgumentGraph.GetAllCommands()` enumeration issue
-   - [ ] Currently returns empty keys/null values in PowerShell
-   - [ ] Needed for sorting by usage count
-4. [ ] Enhance suggestions with usage data (~50 lines)
-   - [ ] Sort commands by `TotalUsageCount` descending
-   - [ ] Add tooltips with usage count and last used date
-   - [ ] Filter out rarely-used commands (min usage threshold)
-5. [ ] Optional: Combine with workflow predictions
-   - [ ] Boost workflow-predicted commands in the list
-   - [ ] Show different tooltip for workflow vs frequency suggestions
-6. [ ] Write tests (~8 test cases)
-   - [ ] Empty input returns completions
-   - [ ] Non-empty input delegates to standard completion
-   - [ ] Respects max suggestions limit
-   - [ ] Filters by min usage threshold
-   - [ ] Conflict detection with existing TabExpansion2
-7. [ ] Documentation updates
-   - [ ] README: Add empty tab completion section
-   - [ ] CLAUDE.md: Update configuration reference
-
-**Example Behavior**:
-```powershell
-# User presses <Tab> on empty line
-PS> █  # Press Tab
-    # Shows completions based on PredictionViewStyle:
-    # - MenuComplete: Arrow keys to select from list
-    # - InlineView: Right arrow to accept, Tab to cycle
-    # - ListView: F2 to show list view
-
-    # Suggestions (sorted by usage):
-    # git        (Used 245 times, last: 2m ago)
-    # dotnet     (Used 189 times, last: 5m ago)
-    # code       (Used 156 times, last: 10m ago)
-    # ...
-```
-
-**Risks**:
-- Potential conflicts with other modules that override TabExpansion2 (last one wins)
-- Must handle both parameter sets (ScriptInput and AstInput)
-- Not officially supported (but commonly used pattern)
-
-**Dependencies**: None (uses existing ArgumentGraph)
-
-**Success Criteria**:
-- ✅ Tab on empty input shows frequent commands
-- ✅ Commands sorted by usage count
-- ✅ Respects user's PSReadLine settings (InlineView/ListView/MenuComplete)
-- ✅ Non-empty input works normally (delegates to standard completion)
-- ✅ Can be disabled via environment variable
-- ✅ No performance impact (<50ms)
-- ✅ All tests passing
+**Next Steps** (when revisited):
+- [ ] Research PSReadLine integration approaches
+- [ ] Prototype TabExpansion2 override compatibility
+- [ ] Test with common PowerShell modules
+- [ ] Evaluate feasibility and user value
 
 ---
 
-### Phase 17.10: Advanced ML (Future Enhancement)
+### Phase 19.2: Advanced ML (Future Enhancement)
 **Status**: Backlog
 
 - [ ] Semantic embeddings for argument similarity (ONNX Runtime)
@@ -745,7 +692,7 @@ $env:PSCUE_METRICS_ENABLED = "true"  # Default: true
 
 ---
 
-### Phase 19: Distribution & Packaging
+### Phase 19.3: Distribution & Packaging
 **Status**: Backlog
 
 - [ ] Copy AI model scripts to `ai/` directory
@@ -754,7 +701,7 @@ $env:PSCUE_METRICS_ENABLED = "true"  # Default: true
 - [ ] Add Homebrew formula (macOS/Linux)
 - [ ] Cloud sync (sync learned data across machines, opt-in)
 
-### Distribution & Package Managers
+### Distribution & Package Managers (Phase 19.3)
 **Status**: In Progress
 
 **Next Steps**:
