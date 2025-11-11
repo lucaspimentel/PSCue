@@ -63,12 +63,12 @@ src/
 - `src/PSCue.Module/SequencePredictor.cs`: N-gram ML prediction for command sequences
 - `src/PSCue.Module/WorkflowLearner.cs`: Dynamic workflow learning with timing-aware predictions (Phase 18.1)
 - `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence with 8 tables
-- `src/PSCue.Module/PcdCompletionEngine.cs`: Enhanced PCD algorithm with fuzzy matching, frecency scoring (Phase 17.6)
+- `src/PSCue.Module/PcdCompletionEngine.cs`: Enhanced PCD algorithm with fuzzy matching, frecency scoring, filesystem search (Phase 17.6 + 17.9)
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
 - `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system
 - `module/Functions/DatabaseManagement.ps1`: PowerShell functions for database queries
 - `module/Functions/WorkflowManagement.ps1`: PowerShell functions for workflow management (Phase 18.1)
-- `module/Functions/PCD.ps1`: PowerShell smart directory navigation function (Phases 17.5 + 17.6 enhanced)
+- `module/Functions/PCD.ps1`: PowerShell smart directory navigation function (Phases 17.5 + 17.6 + 17.9)
 - `module/Functions/Debugging.ps1`: PowerShell functions for testing/diagnostics
 - `test/PSCue.Module.Tests/ArgumentGraphTests.cs`: Argument graph + sequence tracking tests
 - `test/PSCue.Module.Tests/GenericPredictorTests.cs`: Generic predictor + multi-word tests
@@ -76,7 +76,7 @@ src/
 - `test/PSCue.Module.Tests/SequencePredictorTests.cs`: N-gram predictor unit tests
 - `test/PSCue.Module.Tests/WorkflowLearnerTests.cs`: Workflow learning tests (Phase 18.1)
 - `test/PSCue.Module.Tests/PCDTests.cs`: Smart directory navigation tests (Phase 17.5)
-- `test/PSCue.Module.Tests/PcdEnhancedTests.cs`: Enhanced PCD algorithm tests (Phase 17.6)
+- `test/PSCue.Module.Tests/PcdEnhancedTests.cs`: Enhanced PCD algorithm tests with regression tests (Phase 17.6 + 17.9)
 - `test/PSCue.Module.Tests/PersistenceManagerTests.cs`: Persistence unit tests
 - `test/PSCue.Module.Tests/PersistenceConcurrencyTests.cs`: Multi-session concurrency tests
 - `test/PSCue.Module.Tests/PersistenceIntegrationTests.cs`: End-to-end integration tests
@@ -120,31 +120,33 @@ Clear-PSCueWorkflows [-WhatIf] [-Confirm]          # Clear workflows (memory + D
 Export-PSCueWorkflows -Path <path>                 # Export workflows to JSON
 Import-PSCueWorkflows -Path <path> [-Merge]        # Import workflows from JSON
 
-# Smart Directory Navigation (Phases 17.5 + 17.6 + 17.7 + recent fixes)
+# Smart Directory Navigation (Phases 17.5 + 17.6 + 17.7 + 17.9)
 pcd [path]                                         # PowerShell Change Directory with inline predictions + tab completion
 Invoke-PCD [path]                                  # Long-form function name
 
 # Features:
 # - Inline predictions: Shows directory suggestions as you type (integrated with CommandPredictor)
-# - Relative paths: Converts to relative format when valid from current directory
-#   - Shows .., ./src, ../sibling when on same drive and shorter than absolute
-#   - Cross-drive paths always shown as absolute (e.g., D:\source\datadog\dd-trace-dotnet)
-# - Tab completion: Shows fuzzy-matched directories with frecency scoring
-#   - Display: Relative path in list, full path inserted for navigation
+# - Context-aware path display: Absolute paths shown for absolute input, relative for relative input
+# - Tab completion: Shows fuzzy-matched directories with frecency scoring + filesystem search
+#   - Display: Context-appropriate paths (absolute or relative based on input)
 #   - Tooltip: Full path with match type indicator
+#   - Filesystem search: Shows unlearned directories via non-recursive child search
 # - Best-match navigation: `pcd <partial>` finds closest fuzzy match without tab
 #   - Requests top 10 suggestions for better match reliability
-# - Filtering: Excludes non-existent directories and current directory
+#   - Enables recursive search for deeper directory discovery
+# - Filtering: Excludes non-existent directories, current directory, and parent when typing absolute paths
 # - Path normalization: All paths end with trailing \ to prevent duplicates
-# - Well-known shortcuts: ~, .. (but not when already in that directory)
+# - Well-known shortcuts: ~, .. (only suggested for relative paths, not absolute)
 # - Performance: <10ms tab completion, <10ms predictor, <50ms best-match
 
-# Algorithm (Phase 17.6 - PcdCompletionEngine):
-# - Multi-stage: Well-known shortcuts → Learned directories → Optional recursive filesystem search
+# Algorithm (Phase 17.6 + 17.9 - PcdCompletionEngine):
+# - Stage 1: Well-known shortcuts (~, ..) - skipped for absolute paths
+# - Stage 2: Learned directories - parent directory filtered for absolute paths
+# - Stage 3a: Direct filesystem search (non-recursive) - always enabled for tab completion
+# - Stage 3b: Recursive filesystem search - only for best-match navigation (opt-in)
 # - Fuzzy matching: Substring + Levenshtein distance for typo tolerance
 # - Frecency scoring: Configurable blend (default: 50% frequency, 30% recency, 20% distance)
 # - Distance scoring: Parent (0.9), Child (0.85-0.5), Sibling (0.7), Ancestor (0.6-0.1)
-# - Relative path conversion: Only when on same drive/root and valid from current directory
 # - Path deduplication: Uses normalized absolute paths (with trailing \)
 # - Existence checking: Filters out learned paths that no longer exist
 

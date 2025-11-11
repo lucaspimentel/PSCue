@@ -672,4 +672,122 @@ public class PcdEnhancedTests : IDisposable
     }
 
     #endregion
+
+    #region Regression Tests for Recent Fixes
+
+    [Fact]
+    public void GetSuggestions_UnlearnedDirectory_ShowsInFilesystemSearch()
+    {
+        // Arrange - Create a physical directory structure without learning it
+        var parentDir = CreateTempDirectory("parent");
+        var childDir = Path.Combine(parentDir, "toaster");
+        Directory.CreateDirectory(childDir);
+        _tempDirectories.Add(childDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Search for unlearned directory by typing partial absolute path
+        var suggestions = engine.GetSuggestions(Path.Combine(parentDir, "t"), parentDir, 20);
+
+        // Assert - Should find "toaster" via filesystem search
+        Assert.NotEmpty(suggestions);
+        var toasterSuggestion = suggestions.FirstOrDefault(s =>
+            s.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Equals(childDir, StringComparison.OrdinalIgnoreCase));
+        Assert.NotNull(toasterSuggestion);
+        Assert.Equal(MatchType.Filesystem, toasterSuggestion.MatchType);
+    }
+
+    [Fact]
+    public void GetSuggestions_AbsolutePath_DoesNotSuggestWellKnownShortcuts()
+    {
+        // Arrange
+        var parentDir = CreateTempDirectory("parent");
+        var childDir = Path.Combine(parentDir, "documentation");
+        Directory.CreateDirectory(childDir);
+        _tempDirectories.Add(childDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Type absolute path like "D:\source\datadog\doc"
+        var suggestions = engine.GetSuggestions(Path.Combine(parentDir, "doc"), childDir, 20);
+
+        // Assert - Should NOT suggest ".." or "~" when typing absolute path
+        Assert.DoesNotContain(suggestions, s => s.Path == "..");
+        Assert.DoesNotContain(suggestions, s => s.Path == "~");
+    }
+
+    [Fact]
+    public void GetSuggestions_RelativePath_SuggestsWellKnownShortcuts()
+    {
+        // Arrange
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Type relative path (not absolute)
+        var suggestions = engine.GetSuggestions("doc", _testCurrentDir, 20);
+
+        // Assert - Should suggest ".." and "~" when typing relative path (if they match)
+        // Note: These won't match "doc" prefix, so just verify they're available for empty input
+        var allSuggestions = engine.GetSuggestions("", _testCurrentDir, 20);
+        Assert.Contains(allSuggestions, s => s.Path == "..");
+        Assert.Contains(allSuggestions, s => s.Path == "~");
+    }
+
+    [Fact]
+    public void GetSuggestions_AbsolutePath_DoesNotSuggestParentDirectory()
+    {
+        // Arrange - Learn the parent directory
+        var parentDir = CreateTempDirectory("datadog");
+        var childDir = Path.Combine(parentDir, "documentation");
+        Directory.CreateDirectory(childDir);
+        _tempDirectories.Add(childDir);
+
+        _graph.RecordUsage("cd", new[] { parentDir }, null); // Learn parent
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Type absolute path like "D:\source\datadog\doc" from inside "documentation"
+        var suggestions = engine.GetSuggestions(Path.Combine(parentDir, "doc"), childDir, 20);
+
+        // Assert - Should NOT suggest the parent directory itself
+        var parentDirNormalized = parentDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        Assert.DoesNotContain(suggestions, s =>
+            s.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Equals(parentDirNormalized, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void GetSuggestions_AbsolutePath_SuggestsChildDirectories()
+    {
+        // Arrange - Create parent with multiple children
+        var parentDir = CreateTempDirectory("datadog2");
+        var docDir = Path.Combine(parentDir, "documentation");
+        var docsDir = Path.Combine(parentDir, "docs");
+        Directory.CreateDirectory(docDir);
+        Directory.CreateDirectory(docsDir);
+        _tempDirectories.Add(docDir);
+        _tempDirectories.Add(docsDir);
+
+        _graph.RecordUsage("cd", new[] { parentDir }, null); // Learn parent
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Type "D:\...\datadog2\doc"
+        var suggestions = engine.GetSuggestions(Path.Combine(parentDir, "doc"), parentDir, 20);
+
+        // Assert - Should suggest both "documentation" and "docs", but NOT parent
+        Assert.NotEmpty(suggestions);
+        Assert.Contains(suggestions, s =>
+            s.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Equals(docDir, StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(suggestions, s =>
+            s.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Equals(docsDir, StringComparison.OrdinalIgnoreCase));
+
+        // Should NOT suggest parent
+        var parentDirNormalized = parentDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        Assert.DoesNotContain(suggestions, s =>
+            s.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Equals(parentDirNormalized, StringComparison.OrdinalIgnoreCase));
+    }
+
+    #endregion
 }

@@ -48,7 +48,7 @@ function Invoke-PCD {
     - $env:PSCUE_PCD_FREQUENCY_WEIGHT (default: 0.5)
     - $env:PSCUE_PCD_RECENCY_WEIGHT (default: 0.3)
     - $env:PSCUE_PCD_DISTANCE_WEIGHT (default: 0.2)
-    - $env:PSCUE_PCD_RECURSIVE_SEARCH (default: false)
+    - $env:PSCUE_PCD_RECURSIVE_SEARCH (default: true)
     - $env:PSCUE_PCD_MAX_DEPTH (default: 3)
     #>
     [CmdletBinding()]
@@ -86,7 +86,7 @@ function Invoke-PCD {
         $recencyWeight = if ($env:PSCUE_PCD_RECENCY_WEIGHT) { [double]$env:PSCUE_PCD_RECENCY_WEIGHT } else { 0.3 }
         $distanceWeight = if ($env:PSCUE_PCD_DISTANCE_WEIGHT) { [double]$env:PSCUE_PCD_DISTANCE_WEIGHT } else { 0.2 }
         $maxDepth = if ($env:PSCUE_PCD_MAX_DEPTH) { [int]$env:PSCUE_PCD_MAX_DEPTH } else { 3 }
-        $enableRecursive = if ($env:PSCUE_PCD_RECURSIVE_SEARCH) { $env:PSCUE_PCD_RECURSIVE_SEARCH -eq 'true' } else { $false }
+        $enableRecursive = if ($env:PSCUE_PCD_RECURSIVE_SEARCH) { $env:PSCUE_PCD_RECURSIVE_SEARCH -eq 'true' } else { $true }
 
         # Create PcdCompletionEngine with configuration
         $engine = [PSCue.Module.PcdCompletionEngine]::new(
@@ -146,7 +146,7 @@ Register-ArgumentCompleter -CommandName 'Invoke-PCD', 'pcd' -ParameterName 'Path
         $recencyWeight = if ($env:PSCUE_PCD_RECENCY_WEIGHT) { [double]$env:PSCUE_PCD_RECENCY_WEIGHT } else { 0.3 }
         $distanceWeight = if ($env:PSCUE_PCD_DISTANCE_WEIGHT) { [double]$env:PSCUE_PCD_DISTANCE_WEIGHT } else { 0.2 }
         $maxDepth = if ($env:PSCUE_PCD_MAX_DEPTH) { [int]$env:PSCUE_PCD_MAX_DEPTH } else { 3 }
-        $enableRecursive = if ($env:PSCUE_PCD_RECURSIVE_SEARCH) { $env:PSCUE_PCD_RECURSIVE_SEARCH -eq 'true' } else { $false }
+        $enableRecursive = if ($env:PSCUE_PCD_RECURSIVE_SEARCH) { $env:PSCUE_PCD_RECURSIVE_SEARCH -eq 'true' } else { $true }
 
         # Create PcdCompletionEngine with configuration
         $engine = [PSCue.Module.PcdCompletionEngine]::new(
@@ -181,9 +181,20 @@ Register-ArgumentCompleter -CommandName 'Invoke-PCD', 'pcd' -ParameterName 'Path
             }
             $fullTooltip = "$matchIndicator $tooltip"
 
+            # Determine what to show in the completion list
+            # If user typed an absolute path, show absolute paths in list
+            # If user typed a relative path, show relative paths in list
+            $isAbsolutePath = [System.IO.Path]::IsPathRooted($wordToComplete)
+            $listItemText = if ($isAbsolutePath) {
+                # User typed absolute path -> show absolute path in list
+                $fullPath
+            } else {
+                # User typed relative path -> show relative path in list
+                $relativePath
+            }
+
             # Create CompletionResult with proper quoting if path contains spaces
-            # Use absolute path for completion (what gets inserted) so navigation always works
-            # But show relative path in the list for better UX
+            # Always use absolute path for completion (what gets inserted) so navigation works
             # The fullPath already has trailing \ from PcdCompletionEngine normalization
             $completionText = if ($fullPath -match '\s') {
                 # Quote paths with spaces
@@ -194,7 +205,7 @@ Register-ArgumentCompleter -CommandName 'Invoke-PCD', 'pcd' -ParameterName 'Path
 
             [System.Management.Automation.CompletionResult]::new(
                 $completionText,    # completionText (what gets inserted - absolute path)
-                $relativePath,      # listItemText (what's shown in list - relative path)
+                $listItemText,      # listItemText (what's shown in list - context-appropriate)
                 'ParameterValue',   # resultType
                 $fullTooltip        # toolTip (shows full path)
             )

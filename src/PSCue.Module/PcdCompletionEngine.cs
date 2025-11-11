@@ -38,7 +38,7 @@ public class PcdCompletionEngine
     /// <param name="recencyWeight">Weight for recency scoring (default: 0.3).</param>
     /// <param name="distanceWeight">Weight for distance scoring (default: 0.2).</param>
     /// <param name="maxRecursiveDepth">Maximum depth for recursive search (default: 3).</param>
-    /// <param name="enableRecursiveSearch">Enable recursive filesystem search (default: false).</param>
+    /// <param name="enableRecursiveSearch">Enable recursive filesystem search (default: true).</param>
     public PcdCompletionEngine(
         ArgumentGraph graph,
         int scoreDecayDays = 30,
@@ -46,7 +46,7 @@ public class PcdCompletionEngine
         double recencyWeight = 0.3,
         double distanceWeight = 0.2,
         int maxRecursiveDepth = 3,
-        bool enableRecursiveSearch = false)
+        bool enableRecursiveSearch = true)
     {
         _graph = graph ?? throw new ArgumentNullException(nameof(graph));
         _scoreDecayDays = scoreDecayDays;
@@ -77,7 +77,14 @@ public class PcdCompletionEngine
         var learnedSuggestions = GetLearnedDirectories(wordToComplete, currentDirectory, maxResults);
         suggestions.AddRange(learnedSuggestions);
 
-        // Stage 3: Recursive filesystem search (if enabled and needed)
+        // Stage 3a: Direct filesystem search for matching child directories (non-recursive, always enabled)
+        if (!string.IsNullOrWhiteSpace(wordToComplete))
+        {
+            var directChildSuggestions = GetDirectChildMatches(wordToComplete, currentDirectory, maxResults);
+            suggestions.AddRange(directChildSuggestions);
+        }
+
+        // Stage 3b: Recursive filesystem search (only for best-match navigation when hitting Enter)
         if (_enableRecursiveSearch && suggestions.Count < maxResults / 2 && !string.IsNullOrWhiteSpace(wordToComplete))
         {
             var recursiveSuggestions = GetRecursiveMatches(wordToComplete, currentDirectory, maxResults);
@@ -107,10 +114,18 @@ public class PcdCompletionEngine
     /// <summary>
     /// Stage 1: Gets well-known shortcuts (~, .., .) if they match the input.
     /// These get highest priority for instant navigation.
+    /// Only suggests shortcuts when user is typing relative paths.
     /// </summary>
     private List<PcdSuggestion> GetWellKnownShortcuts(string wordToComplete, string currentDirectory)
     {
         var suggestions = new List<PcdSuggestion>();
+
+        // Skip shortcuts entirely if user is typing an absolute path
+        // Example: "pcd D:\source\datadog\doc" should not suggest ".."
+        if (Path.IsPathRooted(wordToComplete))
+        {
+            return suggestions;
+        }
 
         // Home directory (~)
         if ("~".StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase))
@@ -193,6 +208,27 @@ public class PcdCompletionEngine
             if (!Directory.Exists(path))
                 continue;
 
+            // Skip parent directories when user is typing an absolute path
+            // Example: typing "pcd D:\source\datadog\doc" should not suggest "D:\source\datadog\"
+            if (Path.IsPathRooted(wordToComplete) && !string.IsNullOrEmpty(wordToComplete))
+            {
+                try
+                {
+                    var inputDir = Path.GetDirectoryName(wordToComplete);
+                    if (!string.IsNullOrEmpty(inputDir) &&
+                        path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                            .Equals(inputDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                                   StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue; // Skip parent directory
+                    }
+                }
+                catch
+                {
+                    // Ignore path parsing errors
+                }
+            }
+
             // Calculate match score
             var matchScore = CalculateMatchScore(path, wordToComplete);
             if (matchScore <= 0.0)
@@ -230,8 +266,95 @@ public class PcdCompletionEngine
     }
 
     /// <summary>
-    /// Stage 3: Recursively searches filesystem for matching directories.
-    /// Only used if enabled and learned suggestions are insufficient.
+    /// Stage 3a: Searches for matching child directories in the parent directory (non-recursive).
+    /// Used for tab completion to show existing directories without expensive recursive search.
+    /// </summary>
+    private List<PcdSuggestion> GetDirectChildMatches(string wordToComplete, string currentDirectory, int maxResults)
+    {
+        var suggestions = new List<PcdSuggestion>();
+
+        try
+        {
+            // Determine the parent directory to search
+            string? parentDir = null;
+            string searchPattern = wordToComplete;
+
+            if (Path.IsPathRooted(wordToComplete))
+            {
+                // Absolute path: extract parent directory
+                // Example: "D:\source\datadog\t" -> parent = "D:\source\datadog", pattern = "t"
+                var directoryPart = Path.GetDirectoryName(wordToComplete);
+                if (!string.IsNullOrEmpty(directoryPart) && Directory.Exists(directoryPart))
+                {
+                    parentDir = directoryPart;
+                    searchPattern = Path.GetFileName(wordToComplete);
+                }
+            }
+            else
+            {
+                // Relative path: use current directory as parent
+                parentDir = currentDirectory;
+            }
+
+            // If we have a valid parent directory and search pattern, list matching directories
+            if (parentDir != null && !string.IsNullOrWhiteSpace(searchPattern))
+            {
+                foreach (var subDir in Directory.GetDirectories(parentDir))
+                {
+                    var dirName = Path.GetFileName(subDir);
+                    if (string.IsNullOrEmpty(dirName))
+                        continue;
+
+                    // Check if directory name matches the search pattern (prefix or fuzzy match)
+                    if (dirName.StartsWith(searchPattern, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var matchScore = 0.8; // High score for prefix match
+                        var relativePath = ToRelativePath(subDir, currentDirectory);
+
+                        suggestions.Add(new PcdSuggestion
+                        {
+                            Path = relativePath,
+                            DisplayPath = subDir,
+                            Score = matchScore,
+                            UsageCount = 0,
+                            LastUsed = DateTime.MinValue,
+                            MatchType = MatchType.Filesystem,
+                            Tooltip = $"{subDir} - Found in filesystem"
+                        });
+                    }
+                    else if (dirName.Contains(searchPattern, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var matchScore = 0.6; // Lower score for substring match
+                        var relativePath = ToRelativePath(subDir, currentDirectory);
+
+                        suggestions.Add(new PcdSuggestion
+                        {
+                            Path = relativePath,
+                            DisplayPath = subDir,
+                            Score = matchScore,
+                            UsageCount = 0,
+                            LastUsed = DateTime.MinValue,
+                            MatchType = MatchType.Filesystem,
+                            Tooltip = $"{subDir} - Found in filesystem"
+                        });
+                    }
+
+                    if (suggestions.Count >= maxResults)
+                        break;
+                }
+            }
+        }
+        catch
+        {
+            // Ignore filesystem access errors
+        }
+
+        return suggestions;
+    }
+
+    /// <summary>
+    /// Stage 3b: Recursively searches filesystem for matching directories.
+    /// Only used if enabled and learned suggestions are insufficient (best-match navigation).
     /// </summary>
     private List<PcdSuggestion> GetRecursiveMatches(string wordToComplete, string currentDirectory, int maxResults)
     {
