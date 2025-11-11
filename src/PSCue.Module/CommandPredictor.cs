@@ -151,7 +151,7 @@ public class CommandPredictor : ICommandPredictor
             var recencyWeight = GetEnvDouble("PSCUE_PCD_RECENCY_WEIGHT", 0.3);
             var distanceWeight = GetEnvDouble("PSCUE_PCD_DISTANCE_WEIGHT", 0.2);
             var maxDepth = GetEnvInt("PSCUE_PCD_MAX_DEPTH", 3);
-            var enableRecursive = GetEnvBool("PSCUE_PCD_RECURSIVE_SEARCH", false);
+            var enableRecursive = GetEnvBool("PSCUE_PCD_RECURSIVE_SEARCH", true);
 
             // Create PcdCompletionEngine
             var engine = new PcdCompletionEngine(
