@@ -210,6 +210,7 @@ public void TestLearningAccess()
 3. **Module functions return null**: Module may not be fully initialized. Check PSCueModule.KnowledgeGraph != null before use.
 4. **Corrupted database prevents initialization**: Use `Clear-PSCueLearning -Force` to delete database files without requiring module initialization.
 5. **Partial word completion**: When implementing predictor features, always check if the command line ends with a space. If not, the last word is being completed and suggestions should be filtered by `StartsWith(wordToComplete)`.
+6. **Initialize methods must record baseline**: When adding new `Initialize*` methods in ArgumentGraph (used by PersistenceManager during load), always record the loaded values in `_baseline` dictionary. Without baseline tracking, delta calculations will return full counts, causing values to be added again on save, leading to exponential growth and eventual overflow.
 
 ## Documentation
 - **Implementation status**:

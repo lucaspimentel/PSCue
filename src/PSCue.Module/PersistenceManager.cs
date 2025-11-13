@@ -663,7 +663,15 @@ public class PersistenceManager : IDisposable
                 var command = reader.GetString(0);
                 var argument = reader.GetString(1);
                 var coOccurredWith = reader.GetString(2);
-                var count = reader.GetInt32(3);
+
+                // Use GetInt64 to safely handle large values, then clamp to Int32 range
+                var countLong = reader.GetInt64(3);
+                var count = countLong > int.MaxValue ? int.MaxValue : (int)countLong;
+
+                if (countLong > int.MaxValue)
+                {
+                    PSCue.Shared.Logger.WriteError($"Co-occurrence count overflow detected for '{command}' '{argument}' <-> '{coOccurredWith}': {countLong} exceeds Int32.MaxValue, clamping to {int.MaxValue}");
+                }
 
                 graph.InitializeCoOccurrence(command, argument, coOccurredWith, count);
             }

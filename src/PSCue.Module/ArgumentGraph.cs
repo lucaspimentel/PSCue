@@ -557,6 +557,17 @@ public class ArgumentGraph
             return;
 
         stats.CoOccurrences.TryAdd(coOccurredWith, count);
+
+        // Record baseline for delta tracking
+        if (_baseline.TryGetValue(command, out var baseline))
+        {
+            if (!baseline.CoOccurrences.TryGetValue(argument, out var argCoOccurrences))
+            {
+                argCoOccurrences = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                baseline.CoOccurrences[argument] = argCoOccurrences;
+            }
+            argCoOccurrences.TryAdd(coOccurredWith, count);
+        }
     }
 
     /// <summary>
