@@ -197,6 +197,239 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-r
 
 ---
 
+## Phase 20: Parameter-Value Binding (Smart Argument Tracking)
+
+### Problem Statement
+
+**Current Limitation**: PSCue treats all arguments independently, doesn't understand parameter-value relationships.
+
+**Example**: `dotnet build -f net6.0 -c release`
+- Current: Suggests `-f` alone (invalid! requires a value)
+- Current: Suggests `net6.0` alone (invalid! only valid with `-f`)
+- Desired: Understands `-f net6.0` is an **inseparable pair**
+
+**Real-world impact**:
+- Invalid suggestions: `-f` without value, `net6.0` without parameter
+- Poor UX: After typing `-f`, shows flags instead of values
+- Missed optimization: Can't learn which values go with which parameters
+
+### Phase 20: Smart Parameter-Value Tracking
+**Status**: Planned
+**Priority**: High
+**Estimated Effort**: ~20 hours
+**Breaking Change**: YES - requires new database schema (can delete old data)
+
+**Goal**: Parse command structure at record time to understand parameter-value relationships, enabling context-aware suggestions.
+
+#### Architecture: Command Parser
+
+**New Argument Types**:
+```csharp
+public enum ArgumentType
+{
+    Verb,              // "build", "checkout", "run"
+    Flag,              // "--verbose", "-v" (standalone, no value)
+    Parameter,         // "-f", "--framework" (requires value)
+    ParameterValue,    // "net6.0" (bound to preceding parameter)
+    Standalone         // file paths, other standalone args
+}
+```
+
+**Parsed Command Model**:
+```csharp
+public class ParsedCommand
+{
+    public string Command { get; set; }
+    public List<ParsedArgument> Arguments { get; set; }
+
+    // Get bound parameter-value pairs
+    public IEnumerable<(string param, string value)> GetParameterValuePairs();
+}
+```
+
+**Detection Strategy**:
+1. **Static definitions** (known commands in KnownCompletions): Mark parameters as `RequiresValue = true`
+2. **Heuristic detection** (unknown commands):
+   - Flag followed by non-flag → Parameter + ParameterValue
+   - `--param=value` syntax → Parse and bind
+   - Standalone `--flag` or `-v` → Flag (no value)
+   - First non-flag → Verb
+
+#### New Data Structures
+
+```csharp
+public class ParameterStats
+{
+    public string Parameter { get; set; }  // "-f" or "--framework"
+    public ConcurrentDictionary<string, int> KnownValues { get; set; }  // "net6.0" -> 42 uses
+    public DateTime FirstSeen { get; set; }
+    public DateTime LastUsed { get; set; }
+}
+
+public class CommandKnowledge
+{
+    // Standalone arguments (verbs, flags)
+    public ConcurrentDictionary<string, ArgumentStats> Arguments { get; set; }
+
+    // NEW: Parameter definitions
+    public ConcurrentDictionary<string, ParameterStats> Parameters { get; set; }
+
+    // NEW: Specific parameter-value pairs
+    public ConcurrentDictionary<string, ParameterValuePair> ParameterValues { get; set; }
+}
+```
+
+#### Database Schema (New - Breaking)
+
+```sql
+-- Parameters (things that require values)
+CREATE TABLE parameters (
+    command TEXT NOT NULL,
+    parameter TEXT NOT NULL,
+    usage_count INTEGER NOT NULL,
+    first_seen TEXT NOT NULL,
+    last_used TEXT NOT NULL,
+    PRIMARY KEY (command, parameter)
+);
+
+-- Parameter-value pairs (bound together)
+CREATE TABLE parameter_values (
+    command TEXT NOT NULL,
+    parameter TEXT NOT NULL,
+    value TEXT NOT NULL,
+    usage_count INTEGER NOT NULL,
+    first_seen TEXT NOT NULL,
+    last_used TEXT NOT NULL,
+    PRIMARY KEY (command, parameter, value),
+    FOREIGN KEY (command, parameter) REFERENCES parameters(command, parameter)
+);
+```
+
+#### Smart Suggestion Logic
+
+**Context-aware suggestions**:
+```csharp
+public List<PredictionSuggestion> GetSuggestions(string inputString, int maxResults)
+{
+    var parsed = _parser.Parse(inputString);
+    var lastArg = parsed.Arguments.LastOrDefault();
+
+    // If last argument is a parameter, suggest VALUES for that parameter
+    if (lastArg?.Type == ArgumentType.Parameter)
+    {
+        return GetValuesForParameter(parsed.Command, lastArg.Text, maxResults);
+    }
+
+    // Otherwise, suggest valid next arguments (verbs, flags, parameters)
+    return GetNextArguments(parsed, maxResults);
+}
+```
+
+**Example behavior**:
+```powershell
+# User types: dotnet build -f
+# PSCue detects: "-f" is a Parameter (requires value)
+# Suggests ONLY values: net6.0, net7.0, net8.0, net9.0
+# Does NOT suggest other flags like -c, --no-restore
+
+# User types: dotnet build -f net6.0 -c
+# PSCue detects: "-c" is a Parameter (requires value)
+# Suggests ONLY values: Debug, Release
+# Does NOT suggest other flags
+```
+
+#### Implementation Tasks
+
+**Estimated: ~20 hours (clean slate design, no backward compat needed)**
+
+1. **Create CommandParser** (~4 hours)
+   - [ ] Implement `ParsedCommand` and `ParsedArgument` models
+   - [ ] Implement `DetermineArgumentType()` with heuristics
+   - [ ] Handle `--param=value` syntax
+   - [ ] Handle `-f value` syntax
+   - [ ] Detect verbs, flags, parameters, values
+   - [ ] Add comprehensive parsing tests
+
+2. **Update ArgumentGraph** (~4 hours)
+   - [ ] Add `ParameterStats` and `ParameterValuePair` structures
+   - [ ] Rewrite `RecordUsage()` to accept `ParsedCommand`
+   - [ ] Track parameters separately from standalone arguments
+   - [ ] Track parameter-value pairs as bound units
+   - [ ] Remove old flat argument tracking logic
+
+3. **Update FeedbackProvider** (~2 hours)
+   - [ ] Instantiate CommandParser
+   - [ ] Parse command before passing to ArgumentGraph
+   - [ ] Wire up new data flow
+
+4. **Update GenericPredictor** (~4 hours)
+   - [ ] Implement context detection (completing parameter value vs next arg?)
+   - [ ] Add `GetValuesForParameter()` method
+   - [ ] Update `GetSuggestions()` to use context
+   - [ ] Prevent suggesting parameters when value expected
+   - [ ] Prevent suggesting values when parameter expected
+   - [ ] Update scoring logic
+
+5. **Database Migration** (~3 hours)
+   - [ ] Design new schema with `parameters` and `parameter_values` tables
+   - [ ] Bump database version to 2.0
+   - [ ] Add migration logic (or just delete old DB on version mismatch)
+   - [ ] Update PersistenceManager for new tables
+   - [ ] Update load/save logic
+
+6. **Update KnownCompletions** (~1 hour)
+   - [ ] Add `RequiresValue` property to `CommandParameter` class
+   - [ ] Mark known parameters (dotnet, cargo, docker, kubectl, etc.)
+   - [ ] Optional: Add `ValueType` enum for type-aware suggestions
+
+7. **Testing** (~2 hours)
+   - [ ] Command parsing tests (various syntaxes)
+   - [ ] Parameter-value tracking tests
+   - [ ] Context-aware suggestion tests
+   - [ ] Integration tests (end-to-end)
+   - [ ] Test with real-world commands
+
+#### Benefits
+
+✅ **Correctness**: Never suggests invalid partial commands (e.g., `-f` without value)
+✅ **Better UX**: Context-aware suggestions (values after `-f`, not other flags)
+✅ **Cleaner separation**: Parameters vs Values vs Flags vs Verbs
+✅ **Foundation for future**:
+  - Type-aware suggestions (suggest valid enum values, paths, numbers)
+  - Validation (warn if invalid value provided)
+  - Better multi-word suggestions
+  - Auto-completion of parameter-value pairs
+✅ **Self-documenting**: Data structure makes intent explicit
+
+#### Migration Strategy
+
+Since backward compatibility is not required:
+1. Bump DB version to 2.0 in code
+2. On load, check DB version
+3. If version < 2.0: Delete `learned-data.db` and start fresh
+4. User notification: "PSCue upgraded to v2.0 - learning data reset for better suggestions"
+
+#### Success Criteria
+
+- ✅ Parser correctly identifies parameter-value pairs in common commands
+- ✅ Suggestions are context-aware (values after parameters, not other flags)
+- ✅ No invalid suggestions (e.g., `-f` alone, `net6.0` alone)
+- ✅ Database stores parameter-value pairs as bound units
+- ✅ Performance impact negligible (<1ms parsing overhead)
+
+#### Example Commands to Test
+
+```powershell
+dotnet build -f net6.0 -c release
+cargo build --release --target x86_64-unknown-linux-gnu
+docker run -p 8080:80 -v /data:/data
+kubectl get pods -n kube-system -o json
+npm install --save-dev typescript
+git commit -m "message" --no-verify
+```
+
+---
+
 ### Phase 19.1: Tab Completion on Empty Input
 **Status**: Deferred (more complex than initially estimated)
 **Priority**: Low
