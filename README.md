@@ -160,14 +160,14 @@ The `pcd` (PowerShell Change Directory) command provides:
 
 **Core Features**:
 - **Inline predictions**: See directory suggestions as you type (like other commands)
-- **Context-aware paths**: Shows absolute paths when you type absolute, relative when you type relative
-- **Filesystem search**: Discovers unlearned directories via non-recursive child search during tab completion
-- **Smart filtering**: Excludes non-existent directories, current directory, and parent when typing absolute paths
+- **Clean path display**: Shows relative paths without redundant `.\` prefix (e.g., `childdir` not `.\childdir`)
+- **Recursive filesystem search**: Always enabled for thorough discovery (depth-controlled for performance)
+- **Smart filtering**: Excludes non-existent directories (both tab and predictor), current directory, and parent when typing absolute paths
 - **Well-known shortcuts**: Instant access to `~` (home), `..` (parent) - only suggested for relative paths
 - **Fuzzy matching**: Find directories even with typos or partial matches
 - **Frecency scoring**: Balances frequency + recency for better suggestions
 - **Distance scoring**: Prefers directories near your current location
-- **Best-match navigation**: `pcd datadog` automatically finds best match if exact path doesn't exist (uses recursive search)
+- **Best-match navigation**: `pcd datadog` automatically finds best match if exact path doesn't exist
 - **Path normalization**: All paths include trailing `\` to match PowerShell's native behavior
 
 **Advanced Scoring Algorithm**:
@@ -183,9 +183,10 @@ $env:PSCUE_PCD_FREQUENCY_WEIGHT = "0.5"  # Default: 50% weight
 $env:PSCUE_PCD_RECENCY_WEIGHT = "0.3"    # Default: 30% weight
 $env:PSCUE_PCD_DISTANCE_WEIGHT = "0.2"   # Default: 20% weight
 
-# Recursive filesystem search (for best-match navigation when few suggestions found)
-$env:PSCUE_PCD_RECURSIVE_SEARCH = "false" # Default: true (set to false to disable)
-$env:PSCUE_PCD_MAX_DEPTH = "3"            # Default: 3 levels deep
+# Recursive filesystem search (always enabled when true, depth-controlled)
+$env:PSCUE_PCD_RECURSIVE_SEARCH = "true"         # Default: true (set to false to disable)
+$env:PSCUE_PCD_MAX_DEPTH = "3"                   # Tab completion depth (default: 3)
+$env:PSCUE_PCD_PREDICTOR_MAX_DEPTH = "1"         # Inline predictor depth (default: 1, faster)
 ```
 
 Example workflows:
@@ -199,12 +200,13 @@ pcd                     # Shows inline suggestions: ../datadog, ./src, etc.
 pcd d                   # Filters suggestions as you type
 
 # Smart tab completion with fuzzy matching
-pcd dat<Tab>            # Suggests: ../datadog (prefix match, relative path)
-pcd trace<Tab>          # Suggests: ../datadog/dd-trace-dotnet (substring match)
+pcd dat<Tab>            # Suggests: ../datadog (prefix match, parent directory)
+pcd src<Tab>            # Suggests: src (child, no .\ prefix - clean!)
+pcd trace<Tab>          # Suggests: dd-trace-dotnet (substring match)
 pcd datdog<Tab>         # Suggests: ../datadog (fuzzy match, typo tolerant)
 
-# Context-aware path display
-pcd D:\source\datadog\d<Tab>  # Shows absolute: D:\source\datadog\documentation\
+# Filesystem discovery
+pcd newfolder<Tab>      # Shows unlearned directories via recursive search (depth=3 for tab)
 pcd doc<Tab>                  # Shows relative: ../documentation
 
 # Unlearned directories appear via filesystem search

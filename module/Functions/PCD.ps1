@@ -81,22 +81,15 @@ function Invoke-PCD {
         # Get current directory
         $currentDir = (Get-Location).Path
 
-        # Read configuration from environment variables
-        $frequencyWeight = if ($env:PSCUE_PCD_FREQUENCY_WEIGHT) { [double]$env:PSCUE_PCD_FREQUENCY_WEIGHT } else { 0.5 }
-        $recencyWeight = if ($env:PSCUE_PCD_RECENCY_WEIGHT) { [double]$env:PSCUE_PCD_RECENCY_WEIGHT } else { 0.3 }
-        $distanceWeight = if ($env:PSCUE_PCD_DISTANCE_WEIGHT) { [double]$env:PSCUE_PCD_DISTANCE_WEIGHT } else { 0.2 }
-        $maxDepth = if ($env:PSCUE_PCD_MAX_DEPTH) { [int]$env:PSCUE_PCD_MAX_DEPTH } else { 3 }
-        $enableRecursive = if ($env:PSCUE_PCD_RECURSIVE_SEARCH) { $env:PSCUE_PCD_RECURSIVE_SEARCH -eq 'true' } else { $true }
-
-        # Create PcdCompletionEngine with configuration
+        # Create PcdCompletionEngine using shared configuration
         $engine = [PSCue.Module.PcdCompletionEngine]::new(
             [PSCue.Module.PSCueModule]::KnowledgeGraph,
-            30,  # scoreDecayDays
-            $frequencyWeight,
-            $recencyWeight,
-            $distanceWeight,
-            $maxDepth,
-            $enableRecursive
+            [PSCue.Module.PcdConfiguration]::ScoreDecayDays,
+            [PSCue.Module.PcdConfiguration]::FrequencyWeight,
+            [PSCue.Module.PcdConfiguration]::RecencyWeight,
+            [PSCue.Module.PcdConfiguration]::DistanceWeight,
+            [PSCue.Module.PcdConfiguration]::TabCompletionMaxDepth,  # Use tab-specific depth (deeper for thoroughness)
+            [PSCue.Module.PcdConfiguration]::EnableRecursiveSearch
         )
 
         # Get best match - request more suggestions for better fuzzy matching
@@ -141,22 +134,15 @@ Register-ArgumentCompleter -CommandName 'Invoke-PCD', 'pcd' -ParameterName 'Path
         # Get current directory
         $currentDir = (Get-Location).Path
 
-        # Read configuration from environment variables
-        $frequencyWeight = if ($env:PSCUE_PCD_FREQUENCY_WEIGHT) { [double]$env:PSCUE_PCD_FREQUENCY_WEIGHT } else { 0.5 }
-        $recencyWeight = if ($env:PSCUE_PCD_RECENCY_WEIGHT) { [double]$env:PSCUE_PCD_RECENCY_WEIGHT } else { 0.3 }
-        $distanceWeight = if ($env:PSCUE_PCD_DISTANCE_WEIGHT) { [double]$env:PSCUE_PCD_DISTANCE_WEIGHT } else { 0.2 }
-        $maxDepth = if ($env:PSCUE_PCD_MAX_DEPTH) { [int]$env:PSCUE_PCD_MAX_DEPTH } else { 3 }
-        $enableRecursive = if ($env:PSCUE_PCD_RECURSIVE_SEARCH) { $env:PSCUE_PCD_RECURSIVE_SEARCH -eq 'true' } else { $true }
-
-        # Create PcdCompletionEngine with configuration
+        # Create PcdCompletionEngine using shared configuration
         $engine = [PSCue.Module.PcdCompletionEngine]::new(
             [PSCue.Module.PSCueModule]::KnowledgeGraph,
-            30,  # scoreDecayDays
-            $frequencyWeight,
-            $recencyWeight,
-            $distanceWeight,
-            $maxDepth,
-            $enableRecursive
+            [PSCue.Module.PcdConfiguration]::ScoreDecayDays,
+            [PSCue.Module.PcdConfiguration]::FrequencyWeight,
+            [PSCue.Module.PcdConfiguration]::RecencyWeight,
+            [PSCue.Module.PcdConfiguration]::DistanceWeight,
+            [PSCue.Module.PcdConfiguration]::TabCompletionMaxDepth,  # Use tab-specific depth (deeper for thoroughness)
+            [PSCue.Module.PcdConfiguration]::EnableRecursiveSearch
         )
 
         # Get suggestions using enhanced algorithm

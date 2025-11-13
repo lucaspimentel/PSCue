@@ -27,6 +27,7 @@ This document tracks active and planned work for PSCue. For architectural detail
 
 **Recent Improvements** (not yet released):
 - Phase 17.9: PCD completion improvements (filesystem search, context-aware paths, parent filtering)
+- Phase 19.0: PCD precedence review and optimization (recursive search always enabled, clean path display, shared configuration)
 
 **Installation**:
 ```powershell
@@ -36,6 +37,165 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-r
 ---
 
 ## Planned Work
+
+### Phase 19.0: PCD Suggestion Precedence Review & Optimization
+**Status**: ✅ Complete
+**Priority**: High
+**Actual Effort**: ~7 hours
+
+**Goal**: Fix inconsistencies in PCD suggestions between Tab completion and inline predictions, improve path display, and optimize recursive search behavior.
+
+**Current State Analysis** (✅ Complete):
+- Both use same `PcdCompletionEngine` with 4 stages (well-known shortcuts, learned dirs, direct filesystem, recursive search)
+- Result counts intentionally differ: Tab=20 (user-initiated, can be slower), Predictor=5 (must be fast, shares space)
+- **Issues identified**:
+  1. Recursive search conditional logic causes inconsistent behavior
+  2. Path display inconsistent (tab shows `.\child\`, predictor shows relative without prefix)
+  3. Predictor doesn't filter non-existent paths (relies on Stage 2 filtering only)
+  4. Tab completion adds redundant `.\` prefix to relative paths (visual noise)
+
+**Tasks**:
+
+1. **Fix Recursive Search Behavior** (~2 hours)
+   - [ ] Make recursive search **always enabled** for both tab and predictor
+   - [ ] Remove conditional logic: `if (suggestions.Count < maxResults / 2)` (line 88)
+   - [ ] Add separate `maxRecursiveDepth` parameter for tab vs predictor:
+     - Tab completion: Keep default `maxDepth=3` (thorough search acceptable)
+     - Predictor: Use `maxDepth=1` or `maxDepth=2` (fast, shallow search only)
+   - [ ] Update `PcdCompletionEngine` to accept this parameter
+
+2. **Fix Path Display Consistency** (~2 hours)
+   - [ ] **Remove `.\` prefix** from relative child paths in `ToRelativePath()` (line 660)
+     - Current: `.\child\subdir\` → New: `child\subdir\`
+     - Keep `..` for parent and `..\sibling` for siblings (these are useful)
+   - [ ] Update predictor to use same display logic as tab completion
+   - [ ] **Both should show relative paths** in completion list (not absolute)
+   - [ ] **Both should show full absolute path in tooltip** with match type indicator
+   - [ ] Update `CommandPredictor.cs` line 176-180 to determine display path based on context:
+     ```csharp
+     // Determine display path (relative for list, absolute for tooltip)
+     var displayPath = s.Path; // Already relative from PcdCompletionEngine
+     var fullText = pcdPrefix + " " + displayPath;
+     ```
+
+3. **Fix Existence Filtering** (~1 hour)
+   - [ ] Add existence check in `CommandPredictor.GetPcdSuggestions()` after engine returns suggestions
+   - [ ] Filter: `suggestions.Where(s => Directory.Exists(s.DisplayPath))`
+   - [ ] Consider: Database cleanup task to remove non-existent paths (separate phase?)
+
+4. **Optimize `ToRelativePath()` Logic** (~1 hour)
+   - [ ] Remove `.\` prefix from child paths (line 660):
+     ```csharp
+     // OLD: var relativePath = "." + Path.DirectorySeparatorChar + childPath;
+     // NEW: var relativePath = childPath; // No prefix needed
+     ```
+   - [ ] Keep parent (`..`) and sibling (`..\name`) formats (useful navigation shortcuts)
+   - [ ] Test with various scenarios (child, parent, sibling, absolute, cross-drive)
+
+5. **Add/Update Tests** (~2 hours)
+   - [ ] **Core Functionality Tests**:
+     - [ ] Test recursive search always runs (both tab and predictor)
+     - [ ] Test relative path display without `.\` prefix
+     - [ ] Test existence filtering in predictor path
+     - [ ] Test maxDepth differs between tab (3) and predictor (1-2)
+     - [ ] Regression test: Ensure parent/sibling shortcuts still work
+   - [ ] **Edge Cases**:
+     - [ ] Empty input behavior
+     - [ ] Absolute vs relative path input handling
+     - [ ] Cross-drive scenarios (Windows)
+     - [ ] Non-existent directories in learned data
+     - [ ] Paths with spaces (quoting behavior)
+     - [ ] Very deep directory hierarchies (depth > maxDepth)
+     - [ ] Symlinks and junctions (if applicable)
+   - [ ] **Performance Benchmarks**:
+     - [ ] Tab completion: Target <50ms (maxDepth=3)
+     - [ ] Predictor: Target <10ms (maxDepth=1-2)
+     - [ ] Benchmark with varying learned data sizes (10, 100, 1000 paths)
+     - [ ] Benchmark recursive search at different depths (1, 2, 3)
+     - [ ] Compare performance before/after refactoring (ensure no regression)
+   - [ ] **Integration Tests**:
+     - [ ] Test both tab and predictor paths end-to-end
+     - [ ] Verify shared code behaves identically in both contexts
+     - [ ] Test configuration changes affect both paths correctly
+
+6. **Update Configuration** (~30 min)
+   - [ ] Add new env var: `PSCUE_PCD_PREDICTOR_MAX_DEPTH` (default: 1)
+   - [ ] Keep existing: `PSCUE_PCD_MAX_DEPTH` (default: 3, for tab completion)
+   - [ ] Update CLAUDE.md with new configuration options
+
+7. **Documentation Updates** (~30 min)
+   - [ ] Update CLAUDE.md: Document path display behavior (no `.\` prefix)
+   - [ ] Update CLAUDE.md: Explain depth differences (tab=3, predictor=1)
+   - [ ] Update README.md: Configuration section
+
+**Implementation Notes**:
+
+**Code Sharing Between Tab and Predictor Paths**:
+- **Goal**: Maximize code reuse between `module/Functions/PCD.ps1` (tab completion) and `CommandPredictor.cs` (inline predictions)
+- Both paths currently duplicate:
+  - Environment variable reading (`PSCUE_PCD_*`)
+  - `PcdCompletionEngine` instantiation with same parameters
+  - Path display logic (absolute vs relative determination)
+  - Existence filtering (`Test-Path` / `Directory.Exists`)
+- **Opportunities**:
+  - Extract shared configuration reading into helper method/class
+  - Consolidate path display logic (relative/absolute decision) into `PcdCompletionEngine` or helper
+  - Share filtering logic (both should use same existence check)
+  - Consider: Move more logic from PowerShell into C# for better code sharing
+- **Action**: While implementing fixes 1-4, actively look for duplication and refactor into shared utilities
+
+**Issue 1: Recursive Search Logic**
+- Current: `if (_enableRecursiveSearch && suggestions.Count < maxResults / 2 && !string.IsNullOrWhiteSpace(wordToComplete))`
+- Problem: "Count < maxResults / 2" means tab triggers at <10 results, predictor at <2.5 results
+- Solution: Always run recursive search, control depth instead
+- Rationale: Depth control is better performance lever than result count threshold
+
+**Issue 2: Path Display**
+- Current: Tab shows `.\child\` (line 660), predictor shows different format
+- Problem: Redundant `.\` prefix adds visual noise
+- Solution: Return bare relative paths for children: `child\subdir\`
+- Keep: `..` (parent), `..\sibling` (these are standard shell shortcuts)
+
+**Issue 3: Existence Filtering**
+- Current: Tab filters via `Test-Path` (line 167), predictor doesn't
+- Problem: Predictor can show deleted directories that exist in learned data
+- Solution: Add filtering in predictor before creating `PredictiveSuggestion` objects
+- Future: Consider periodic DB cleanup (remove paths not seen in 90+ days AND don't exist)
+
+**Issue 4: Display Path Context**
+- Current: Tab is context-aware (absolute if input is absolute), predictor always uses `Path`
+- Desired: Both should show relative paths in list, full paths in tooltip
+- Solution: Predictor should always use `s.Path` (relative), never `s.DisplayPath` (absolute)
+- Tooltip: Always show full `s.DisplayPath` with match type
+
+**Success Criteria**:
+- ✅ Recursive search always runs with appropriate depth limits
+- ✅ Both tab and predictor show consistent relative paths (no `.\` prefix for children)
+- ✅ Both filter out non-existent directories
+- ✅ Predictor stays fast (<10ms) with shallow recursive search
+- ✅ Tab completion thorough with deeper recursive search (<50ms acceptable)
+- ✅ All tests passing
+- ✅ Documentation updated
+
+**Completed Deliverables**:
+1. ✅ Recursive search refactoring (`PcdCompletionEngine.cs:88` - removed threshold logic)
+2. ✅ Path display optimization (`PcdCompletionEngine.cs:664` - removed `.\` prefix)
+3. ✅ Existence filtering in predictor (`CommandPredictor.cs:164`)
+4. ✅ Shared configuration class (`PcdConfiguration.cs` - new file, eliminates duplication)
+5. ✅ Environment variable: `PSCUE_PCD_PREDICTOR_MAX_DEPTH` (default: 1)
+6. ✅ Comprehensive tests (7 new tests, all 62 PCD tests passing)
+7. ✅ Documentation updates (CLAUDE.md, README.md)
+
+**Code Changes Summary**:
+- **New files**: `src/PSCue.Module/PcdConfiguration.cs` (shared config, ~90 lines)
+- **Modified files**:
+  - `PcdCompletionEngine.cs` (recursive search + path display)
+  - `CommandPredictor.cs` (existence filtering + use shared config)
+  - `PCD.ps1` (use shared config, eliminate duplication)
+  - `PcdEnhancedTests.cs` (+7 tests)
+- **Lines changed**: ~150 additions, ~80 deletions (net: ~70 lines added, but eliminated ~40 lines of duplication)
+
+---
 
 ### Phase 19.1: Tab Completion on Empty Input
 **Status**: Deferred (more complex than initially estimated)
@@ -492,7 +652,7 @@ PS> git a█
 
 ### Phase 18: Workflow Improvements Summary
 
-**Total Estimated Effort**: 170-210 hours
+**Total Estimated Effort (Phases 18.3-18.7)**: 170-210 hours
 
 **Implementation Priority**:
 1. ✅ **Phase 18.1**: Dynamic Workflow Learning (COMPLETE)

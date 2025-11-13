@@ -1,3 +1,4 @@
+using System.IO;
 using System.Management.Automation.Subsystem.Prediction;
 using PSCue.Shared;
 using PSCue.Shared.Completions;
@@ -71,7 +72,7 @@ public class CommandPredictor : ICommandPredictor
             workflowSuggestions = GetWorkflowSuggestionsForCommand(inputString);
 
             // Add partial command predictions (frequency-based command suggestions)
-            if (GetEnvBool("PSCUE_PARTIAL_COMMAND_PREDICTIONS", true))
+            if (PcdConfiguration.EnablePartialCommandPredictions)
             {
                 partialCommandSuggestions = GetPartialCommandSuggestions(inputString);
             }
@@ -146,26 +147,22 @@ public class CommandPredictor : ICommandPredictor
             // Get current directory
             var currentDir = Environment.CurrentDirectory;
 
-            // Read configuration from environment variables
-            var frequencyWeight = GetEnvDouble("PSCUE_PCD_FREQUENCY_WEIGHT", 0.5);
-            var recencyWeight = GetEnvDouble("PSCUE_PCD_RECENCY_WEIGHT", 0.3);
-            var distanceWeight = GetEnvDouble("PSCUE_PCD_DISTANCE_WEIGHT", 0.2);
-            var maxDepth = GetEnvInt("PSCUE_PCD_MAX_DEPTH", 3);
-            var enableRecursive = GetEnvBool("PSCUE_PCD_RECURSIVE_SEARCH", true);
-
-            // Create PcdCompletionEngine
+            // Create PcdCompletionEngine using shared configuration
             var engine = new PcdCompletionEngine(
                 knowledgeGraph,
-                30, // scoreDecayDays
-                frequencyWeight,
-                recencyWeight,
-                distanceWeight,
-                maxDepth,
-                enableRecursive
+                PcdConfiguration.ScoreDecayDays,
+                PcdConfiguration.FrequencyWeight,
+                PcdConfiguration.RecencyWeight,
+                PcdConfiguration.DistanceWeight,
+                PcdConfiguration.PredictorMaxDepth, // Use predictor-specific depth (shallow for speed)
+                PcdConfiguration.EnableRecursiveSearch
             );
 
             // Get suggestions (allow multiple for predictor)
             var suggestions = engine.GetSuggestions(wordToComplete, currentDir, maxResults: 5);
+
+            // Filter out non-existent directories
+            suggestions = suggestions.Where(s => Directory.Exists(s.DisplayPath)).ToList();
 
             if (suggestions.Count == 0)
             {
@@ -188,32 +185,6 @@ public class CommandPredictor : ICommandPredictor
         }
     }
 
-    /// <summary>
-    /// Helper to read double from environment variable.
-    /// </summary>
-    private double GetEnvDouble(string key, double defaultValue)
-    {
-        var value = Environment.GetEnvironmentVariable(key);
-        return double.TryParse(value, out var result) ? result : defaultValue;
-    }
-
-    /// <summary>
-    /// Helper to read int from environment variable.
-    /// </summary>
-    private int GetEnvInt(string key, int defaultValue)
-    {
-        var value = Environment.GetEnvironmentVariable(key);
-        return int.TryParse(value, out var result) ? result : defaultValue;
-    }
-
-    /// <summary>
-    /// Helper to read bool from environment variable.
-    /// </summary>
-    private bool GetEnvBool(string key, bool defaultValue)
-    {
-        var value = Environment.GetEnvironmentVariable(key);
-        return value?.Equals("true", StringComparison.OrdinalIgnoreCase) ?? defaultValue;
-    }
 
     /// <summary>
     /// Gets workflow predictions for the next command based on command history.

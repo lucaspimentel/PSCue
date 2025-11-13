@@ -84,8 +84,8 @@ public class PcdCompletionEngine
             suggestions.AddRange(directChildSuggestions);
         }
 
-        // Stage 3b: Recursive filesystem search (only for best-match navigation when hitting Enter)
-        if (_enableRecursiveSearch && suggestions.Count < maxResults / 2 && !string.IsNullOrWhiteSpace(wordToComplete))
+        // Stage 3b: Recursive filesystem search (always enabled when configured, depth-controlled)
+        if (_enableRecursiveSearch && !string.IsNullOrWhiteSpace(wordToComplete))
         {
             var recursiveSuggestions = GetRecursiveMatches(wordToComplete, currentDirectory, maxResults);
             suggestions.AddRange(recursiveSuggestions);
@@ -651,17 +651,17 @@ public class PcdCompletionEngine
                 return "..";
             }
 
-            // If it's a child directory, use relative path
+            // If it's a child directory, use relative path (without redundant .\ prefix)
             if (normAbsolute.StartsWith(normCurrent + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
             {
                 var childPath = normAbsolute.Substring(normCurrent.Length + 1);
                 // Remove trailing separator from relative path for cleaner display
                 childPath = childPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                var relativePath = "." + Path.DirectorySeparatorChar + childPath;
+                // Return bare relative path (no .\ prefix) - cleaner and less visual noise
                 // Only use relative if it's shorter than absolute
-                if (relativePath.Length < normAbsolute.Length)
+                if (childPath.Length < normAbsolute.Length)
                 {
-                    return relativePath;
+                    return childPath;
                 }
             }
 

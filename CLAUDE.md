@@ -63,7 +63,8 @@ src/
 - `src/PSCue.Module/SequencePredictor.cs`: N-gram ML prediction for command sequences
 - `src/PSCue.Module/WorkflowLearner.cs`: Dynamic workflow learning with timing-aware predictions (Phase 18.1)
 - `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence with 8 tables
-- `src/PSCue.Module/PcdCompletionEngine.cs`: Enhanced PCD algorithm with fuzzy matching, frecency scoring, filesystem search (Phase 17.6 + 17.9)
+- `src/PSCue.Module/PcdCompletionEngine.cs`: Enhanced PCD algorithm with fuzzy matching, frecency scoring, filesystem search (Phase 17.6 + 17.9 + 19.0)
+- `src/PSCue.Module/PcdConfiguration.cs`: Shared configuration for PCD (tab completion + predictor) (Phase 19.0)
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
 - `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system
 - `module/Functions/DatabaseManagement.ps1`: PowerShell functions for database queries
@@ -120,35 +121,39 @@ Clear-PSCueWorkflows [-WhatIf] [-Confirm]          # Clear workflows (memory + D
 Export-PSCueWorkflows -Path <path>                 # Export workflows to JSON
 Import-PSCueWorkflows -Path <path> [-Merge]        # Import workflows from JSON
 
-# Smart Directory Navigation (Phases 17.5 + 17.6 + 17.7 + 17.9)
+# Smart Directory Navigation (Phases 17.5 + 17.6 + 17.7 + 17.9 + 19.0)
 pcd [path]                                         # PowerShell Change Directory with inline predictions + tab completion
 Invoke-PCD [path]                                  # Long-form function name
 
 # Features:
 # - Inline predictions: Shows directory suggestions as you type (integrated with CommandPredictor)
-# - Context-aware path display: Absolute paths shown for absolute input, relative for relative input
 # - Tab completion: Shows fuzzy-matched directories with frecency scoring + filesystem search
-#   - Display: Context-appropriate paths (absolute or relative based on input)
-#   - Tooltip: Full path with match type indicator
-#   - Filesystem search: Shows unlearned directories via non-recursive child search
+#   - Display: Relative paths (no redundant .\ prefix for children)
+#   - Tooltip: Full absolute path with match type indicator
+#   - Filesystem search: Shows unlearned directories via child + recursive search
 # - Best-match navigation: `pcd <partial>` finds closest fuzzy match without tab
 #   - Requests top 10 suggestions for better match reliability
-#   - Enables recursive search for deeper directory discovery
-# - Filtering: Excludes non-existent directories, current directory, and parent when typing absolute paths
+#   - Uses deeper recursive search for thorough discovery
+# - Filtering: Excludes non-existent directories (both tab and predictor), current directory, and parent when typing absolute paths
 # - Path normalization: All paths end with trailing \ to prevent duplicates
 # - Well-known shortcuts: ~, .. (only suggested for relative paths, not absolute)
-# - Performance: <10ms tab completion, <10ms predictor, <50ms best-match
+# - Performance: <50ms tab completion, <10ms predictor
+# - Code sharing: Unified configuration via PcdConfiguration class (Phase 19.0)
 
-# Algorithm (Phase 17.6 + 17.9 - PcdCompletionEngine):
+# Algorithm (Phase 17.6 + 17.9 + 19.0 - PcdCompletionEngine):
 # - Stage 1: Well-known shortcuts (~, ..) - skipped for absolute paths
 # - Stage 2: Learned directories - parent directory filtered for absolute paths
-# - Stage 3a: Direct filesystem search (non-recursive) - always enabled for tab completion
-# - Stage 3b: Recursive filesystem search - only for best-match navigation (opt-in)
+# - Stage 3a: Direct filesystem search (non-recursive) - always enabled
+# - Stage 3b: Recursive filesystem search - ALWAYS enabled when configured (depth-controlled)
+#   - Tab completion: maxDepth=3 (thorough, can afford deeper search)
+#   - Inline predictor: maxDepth=1 (fast, shallow search only)
 # - Fuzzy matching: Substring + Levenshtein distance for typo tolerance
 # - Frecency scoring: Configurable blend (default: 50% frequency, 30% recency, 20% distance)
 # - Distance scoring: Parent (0.9), Child (0.85-0.5), Sibling (0.7), Ancestor (0.6-0.1)
+# - Path display: Relative paths WITHOUT redundant .\ prefix (e.g., "childdir" not ".\childdir")
+#   - Keep ".." for parent and "..\sibling" format (these are useful shortcuts)
 # - Path deduplication: Uses normalized absolute paths (with trailing \)
-# - Existence checking: Filters out learned paths that no longer exist
+# - Existence checking: Filters out learned paths that no longer exist (both tab and predictor)
 
 # Debugging & Testing
 Test-PSCueCompletion -InputString <string>         # Test completions
@@ -245,6 +250,14 @@ $env:PSCUE_WORKFLOW_MIN_CONFIDENCE = "0.6"       # Min confidence threshold (def
 
 # Partial command predictions (Phase 17.8: Frequency-based command suggestions)
 $env:PSCUE_PARTIAL_COMMAND_PREDICTIONS = "true"  # Enable partial command predictions (default: true)
+
+# PCD (Smart Directory Navigation) configuration (Phases 17.5-17.9 + 19.0)
+$env:PSCUE_PCD_FREQUENCY_WEIGHT = "0.5"          # Frecency scoring: frequency weight (default: 0.5)
+$env:PSCUE_PCD_RECENCY_WEIGHT = "0.3"            # Frecency scoring: recency weight (default: 0.3)
+$env:PSCUE_PCD_DISTANCE_WEIGHT = "0.2"           # Frecency scoring: distance weight (default: 0.2)
+$env:PSCUE_PCD_MAX_DEPTH = "3"                   # Recursive search depth for tab completion (default: 3)
+$env:PSCUE_PCD_PREDICTOR_MAX_DEPTH = "1"         # Recursive search depth for inline predictor (default: 1, Phase 19.0)
+$env:PSCUE_PCD_RECURSIVE_SEARCH = "true"         # Enable recursive filesystem search (default: true, Phase 19.0)
 
 # Privacy & Security: Command filtering
 # BUILT-IN patterns (always active, cannot be disabled):

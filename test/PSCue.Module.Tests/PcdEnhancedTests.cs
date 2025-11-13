@@ -790,4 +790,196 @@ public class PcdEnhancedTests : IDisposable
     }
 
     #endregion
+
+    #region Phase 19.0: Recursive Search and Path Display Tests
+
+    [Fact]
+    public void GetSuggestions_RecursiveSearch_AlwaysRuns_WhenEnabled()
+    {
+        // Arrange - Create nested structure
+        var root = CreateTempDirectory("root");
+        var level1 = Path.Combine(root, "level1");
+        var level2 = Path.Combine(level1, "target");
+        Directory.CreateDirectory(level2);
+        _tempDirectories.Add(level1);
+        _tempDirectories.Add(level2);
+
+        // Engine with recursive search enabled (should always run, not depend on result count)
+        var engine = new PcdCompletionEngine(
+            _graph,
+            scoreDecayDays: 30,
+            frequencyWeight: 0.5,
+            recencyWeight: 0.3,
+            distanceWeight: 0.2,
+            maxRecursiveDepth: 2,
+            enableRecursiveSearch: true
+        );
+
+        // Act - Search for "target" from root (should find it via recursive search)
+        var suggestions = engine.GetSuggestions("target", root, maxResults: 20);
+
+        // Assert - Should find the nested directory
+        Assert.Contains(suggestions, s =>
+            s.DisplayPath.Contains("target", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void GetSuggestions_RecursiveSearch_WithShallowDepth_DoesNotFindDeeplyNested()
+    {
+        // Arrange - Create very nested structure
+        var root = CreateTempDirectory("root");
+        var level1 = Path.Combine(root, "level1");
+        var level2 = Path.Combine(level1, "level2");
+        var level3 = Path.Combine(level2, "target");
+        Directory.CreateDirectory(level3);
+        _tempDirectories.Add(level1);
+        _tempDirectories.Add(level2);
+        _tempDirectories.Add(level3);
+
+        // Engine with shallow max depth (1)
+        var engine = new PcdCompletionEngine(
+            _graph,
+            maxRecursiveDepth: 1,
+            enableRecursiveSearch: true
+        );
+
+        // Act - Search for "target" from root with maxDepth=1 (should NOT find it at depth 3)
+        var suggestions = engine.GetSuggestions("target", root, maxResults: 20);
+
+        // Assert - Should NOT find the deeply nested directory
+        Assert.DoesNotContain(suggestions, s =>
+            s.DisplayPath.Contains("level2", StringComparison.OrdinalIgnoreCase) &&
+            s.DisplayPath.Contains("target", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void GetSuggestions_ChildPath_NoRedundantPrefix()
+    {
+        // Arrange - Create child directory
+        var parent = CreateTempDirectory("parent");
+        var child = Path.Combine(parent, "childdir");
+        Directory.CreateDirectory(child);
+        _tempDirectories.Add(child);
+
+        _graph.RecordUsage("cd", new[] { child }, null);
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Get suggestions from parent directory (empty string to get all learned)
+        var suggestions = engine.GetSuggestions("", parent, maxResults: 20);
+
+        // Assert - Child path should NOT have .\ prefix (should be "childdir", not ".\childdir")
+        var childSuggestion = suggestions.FirstOrDefault(s =>
+            s.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Equals(child, StringComparison.OrdinalIgnoreCase));
+
+        Assert.NotNull(childSuggestion);
+        // The relative path should not start with ".\" for child directories
+        Assert.False(childSuggestion.Path.StartsWith("." + Path.DirectorySeparatorChar),
+            $"Path '{childSuggestion.Path}' should not start with '.{Path.DirectorySeparatorChar}'");
+        // Should just be the bare directory name
+        Assert.Equal("childdir", childSuggestion.Path, ignoreCase: true);
+    }
+
+    [Fact]
+    public void GetSuggestions_ParentPath_KeepsDoubleDot()
+    {
+        // Arrange - Create parent and child
+        var parent = CreateTempDirectory("parent");
+        var child = Path.Combine(parent, "child");
+        Directory.CreateDirectory(child);
+        _tempDirectories.Add(child);
+
+        _graph.RecordUsage("cd", new[] { parent }, null);
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Get suggestions from child directory (should suggest parent as "..")
+        var suggestions = engine.GetSuggestions("..", child, maxResults: 20);
+
+        // Assert - Parent should be suggested as ".." (this is useful shortcut, keep it)
+        Assert.Contains(suggestions, s => s.Path == "..");
+    }
+
+    [Fact]
+    public void GetSuggestions_SiblingPath_KeepsDoubleDotPrefix()
+    {
+        // Arrange - Create parent with two children
+        var parent = CreateTempDirectory("parent");
+        var child1 = Path.Combine(parent, "child1");
+        var child2 = Path.Combine(parent, "child2");
+        Directory.CreateDirectory(child1);
+        Directory.CreateDirectory(child2);
+        _tempDirectories.Add(child1);
+        _tempDirectories.Add(child2);
+
+        _graph.RecordUsage("cd", new[] { child2 }, null);
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Get suggestions from child1 (empty to get all learned)
+        var suggestions = engine.GetSuggestions("", child1, maxResults: 20);
+
+        // Assert - Sibling should use "..\child2" format (this is standard, keep it)
+        var siblingSuggestion = suggestions.FirstOrDefault(s =>
+            s.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Equals(child2, StringComparison.OrdinalIgnoreCase));
+
+        Assert.NotNull(siblingSuggestion);
+        Assert.StartsWith("..", siblingSuggestion.Path);
+        // The path should be "..\child2" (keep the .. prefix for siblings)
+        Assert.Contains("child2", siblingSuggestion.Path, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PcdConfiguration_ReadsEnvironmentVariables()
+    {
+        // Arrange - Set environment variables
+        try
+        {
+            Environment.SetEnvironmentVariable("PSCUE_PCD_MAX_DEPTH", "5");
+            Environment.SetEnvironmentVariable("PSCUE_PCD_PREDICTOR_MAX_DEPTH", "2");
+            Environment.SetEnvironmentVariable("PSCUE_PCD_FREQUENCY_WEIGHT", "0.6");
+            Environment.SetEnvironmentVariable("PSCUE_PCD_RECURSIVE_SEARCH", "false");
+
+            // Act - Read configuration
+            var tabDepth = PcdConfiguration.TabCompletionMaxDepth;
+            var predictorDepth = PcdConfiguration.PredictorMaxDepth;
+            var frequencyWeight = PcdConfiguration.FrequencyWeight;
+            var recursiveEnabled = PcdConfiguration.EnableRecursiveSearch;
+
+            // Assert - Values should match environment variables
+            Assert.Equal(5, tabDepth);
+            Assert.Equal(2, predictorDepth);
+            Assert.Equal(0.6, frequencyWeight, precision: 2);
+            Assert.False(recursiveEnabled);
+        }
+        finally
+        {
+            // Cleanup
+            Environment.SetEnvironmentVariable("PSCUE_PCD_MAX_DEPTH", null);
+            Environment.SetEnvironmentVariable("PSCUE_PCD_PREDICTOR_MAX_DEPTH", null);
+            Environment.SetEnvironmentVariable("PSCUE_PCD_FREQUENCY_WEIGHT", null);
+            Environment.SetEnvironmentVariable("PSCUE_PCD_RECURSIVE_SEARCH", null);
+        }
+    }
+
+    [Fact]
+    public void PcdConfiguration_UsesDefaults_WhenNoEnvironmentVariables()
+    {
+        // Act - Read configuration (assuming env vars are not set)
+        var tabDepth = PcdConfiguration.TabCompletionMaxDepth;
+        var predictorDepth = PcdConfiguration.PredictorMaxDepth;
+        var frequencyWeight = PcdConfiguration.FrequencyWeight;
+        var recencyWeight = PcdConfiguration.RecencyWeight;
+        var distanceWeight = PcdConfiguration.DistanceWeight;
+        var recursiveEnabled = PcdConfiguration.EnableRecursiveSearch;
+
+        // Assert - Should use defaults
+        Assert.True(tabDepth >= 1); // Default is 3
+        Assert.True(predictorDepth >= 1); // Default is 1
+        Assert.True(frequencyWeight > 0);
+        Assert.True(recencyWeight > 0);
+        Assert.True(distanceWeight >= 0);
+        Assert.True(recursiveEnabled); // Default is true
+    }
+
+    #endregion
 }
