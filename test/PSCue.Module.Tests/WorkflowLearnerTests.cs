@@ -155,8 +155,8 @@ public class WorkflowLearnerTests
         var learner = new WorkflowLearner();
 
         // Act
-        learner.RecordTransition(null, "git commit", TimeSpan.FromSeconds(5));
-        learner.RecordTransition("git add", null, TimeSpan.FromSeconds(5));
+        learner.RecordTransition(null!, "git commit", TimeSpan.FromSeconds(5));
+        learner.RecordTransition("git add", null!, TimeSpan.FromSeconds(5));
         learner.RecordTransition("", "git commit", TimeSpan.FromSeconds(5));
         learner.RecordTransition("git add", "", TimeSpan.FromSeconds(5));
 
