@@ -145,9 +145,10 @@ Invoke-PCD [path]                                  # Long-form function name
 # - Performance: <50ms tab completion, <10ms predictor
 # - Code sharing: Unified configuration via PcdConfiguration class (Phase 19.0)
 
-# Algorithm (Phase 17.6 + 17.9 + 19.0 - PcdCompletionEngine):
+# Algorithm (Phase 17.6 + 17.9 + 19.0 + Exact Match Fix - PcdCompletionEngine):
 # - Stage 1: Well-known shortcuts (~, ..) - skipped for absolute paths
 # - Stage 2: Learned directories - parent directory filtered for absolute paths
+#   - Exact match boost: 100× multiplier ensures exact matches always appear first (PcdCompletionEngine.cs:246)
 # - Stage 3a: Direct filesystem search (non-recursive) - always enabled
 # - Stage 3b: Recursive filesystem search - ALWAYS enabled when configured (depth-controlled)
 #   - Tab completion: maxDepth=3 (thorough, can afford deeper search)
@@ -159,6 +160,7 @@ Invoke-PCD [path]                                  # Long-form function name
 #   - Keep ".." for parent and "..\sibling" format (these are useful shortcuts)
 # - Path deduplication: Uses normalized absolute paths (with trailing \)
 # - Existence checking: Filters out learned paths that no longer exist (both tab and predictor)
+# - Trailing separator: All directory paths end with \ (both tab completion and predictor) (CommandPredictor.cs:175-181)
 
 # Debugging & Testing
 Test-PSCueCompletion -InputString <string>         # Test completions
@@ -221,6 +223,8 @@ public void TestLearningAccess()
 4. **Corrupted database prevents initialization**: Use `Clear-PSCueLearning -Force` to delete database files without requiring module initialization.
 5. **Partial word completion**: When implementing predictor features, always check if the command line ends with a space. If not, the last word is being completed and suggestions should be filtered by `StartsWith(wordToComplete)`.
 6. **Initialize methods must record baseline**: When adding new `Initialize*` methods in ArgumentGraph (used by PersistenceManager during load), always record the loaded values in `_baseline` dictionary. Without baseline tracking, delta calculations will return full counts, causing values to be added again on save, leading to exponential growth and eventual overflow.
+7. **PCD exact match not first**: When frecency scoring dominates match quality, use a boost multiplier for exact matches. Small match score components (0.1) can be overwhelmed by frequency/recency scores. Solution: Apply 100× boost for exact matches (matchScore >= 1.0) to ensure they always rank first.
+8. **Inconsistent trailing separators**: Directory completions must have trailing separators in BOTH tab completion (ArgumentCompleter) and inline predictions (ICommandPredictor). Check both code paths when modifying directory suggestion logic.
 
 ## Documentation
 - **Implementation status**:

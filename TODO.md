@@ -1,6 +1,6 @@
 # PSCue - Task List
 
-**Last Updated**: 2025-11-09
+**Last Updated**: 2025-11-14
 
 This document tracks active and planned work for PSCue. For architectural details, see [TECHNICAL_DETAILS.md](docs/TECHNICAL_DETAILS.md). For completed work, see [COMPLETED.md](docs/COMPLETED.md).
 
@@ -29,6 +29,9 @@ This document tracks active and planned work for PSCue. For architectural detail
 - Phase 17.9: PCD completion improvements (filesystem search, context-aware paths, parent filtering)
 - Phase 19.0: PCD precedence review and optimization (recursive search always enabled, clean path display, shared configuration)
 - Phase 20: Parameter-value binding (smart argument tracking, context-aware suggestions)
+- **Bug Fixes**:
+  - PCD exact match priority: Exact path matches now always appear first (100× score boost)
+  - PCD trailing separators: Directory paths consistently end with `\` in both tab completion and inline predictions
 
 **Installation**:
 ```powershell

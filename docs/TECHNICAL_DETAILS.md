@@ -1,6 +1,6 @@
 # PSCue Technical Details
 
-**Last Updated**: 2025-11-06
+**Last Updated**: 2025-11-14
 
 This document provides technical details about PSCue's architecture, implementation, and internal workings. For user-facing documentation, see [README.md](README.md). For development guidelines, see [CLAUDE.md](CLAUDE.md).
 
