@@ -68,7 +68,33 @@ public class GenericPredictor
         if (string.IsNullOrWhiteSpace(commandLine))
             return new List<PredictionSuggestion>();
 
-        // Parse command line
+        // Parse command to understand parameter-value context
+        var parser = PSCueModule.CommandParser;
+        if (parser != null)
+        {
+            var parsed = parser.Parse(commandLine);
+            var expectedType = parser.DetermineExpectedType(commandLine);
+
+            // If we're expecting a parameter value, suggest ONLY values for that parameter
+            if (expectedType == ArgumentType.ParameterValue && parsed.Arguments.Count > 0)
+            {
+                var lastArg = parsed.Arguments[^1];
+                if (lastArg.Type == ArgumentType.Parameter)
+                {
+                    var values = _argumentGraph.GetParameterValues(parsed.Command, lastArg.Text, maxResults);
+                    return values.Select(v => new PredictionSuggestion
+                    {
+                        Text = v,
+                        Description = $"Value for {lastArg.Text}",
+                        Score = 0.9,
+                        IsFlag = false,
+                        Source = "parameter-value"
+                    }).ToList();
+                }
+            }
+        }
+
+        // Parse command line (legacy path)
         var parts = ParseCommandLine(commandLine);
         if (parts.Count == 0)
             return new List<PredictionSuggestion>();

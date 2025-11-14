@@ -72,6 +72,9 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                     PSCueModule.WorkflowLearner.Initialize(workflows);
                 }
 
+                // Initialize command parser
+                PSCueModule.CommandParser = new CommandParser();
+
                 _contextAnalyzer = new ContextAnalyzer();
                 _genericPredictor = new GenericPredictor(PSCueModule.CommandHistory, PSCueModule.KnowledgeGraph, _contextAnalyzer, PSCueModule.SequencePredictor);
 

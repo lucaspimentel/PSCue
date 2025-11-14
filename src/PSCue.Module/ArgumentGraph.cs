@@ -143,6 +143,30 @@ public class ArgumentStats
 }
 
 /// <summary>
+/// Statistics about a parameter and its known values.
+/// </summary>
+public class ParameterStats
+{
+    public string Parameter { get; set; } = string.Empty;
+    public ConcurrentDictionary<string, int> KnownValues { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public int UsageCount { get; set; }
+    public DateTime FirstSeen { get; set; }
+    public DateTime LastUsed { get; set; }
+}
+
+/// <summary>
+/// A specific parameter-value pair with usage statistics.
+/// </summary>
+public class ParameterValuePair
+{
+    public string Parameter { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
+    public int UsageCount { get; set; }
+    public DateTime FirstSeen { get; set; }
+    public DateTime LastUsed { get; set; }
+}
+
+/// <summary>
 /// Knowledge about a specific command's argument patterns.
 /// </summary>
 public class CommandKnowledge
@@ -169,6 +193,18 @@ public class CommandKnowledge
     /// Used for multi-word prediction suggestions.
     /// </summary>
     public ConcurrentDictionary<string, ArgumentSequence> ArgumentSequences { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Parameters and their statistics.
+    /// Maps parameter name -> ParameterStats.
+    /// </summary>
+    public ConcurrentDictionary<string, ParameterStats> Parameters { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Parameter-value pairs.
+    /// Maps "param|value" key -> ParameterValuePair.
+    /// </summary>
+    public ConcurrentDictionary<string, ParameterValuePair> ParameterValues { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>
     /// Total number of times this command has been observed.
@@ -210,6 +246,8 @@ public class ArgumentGraph
         public ConcurrentDictionary<string, ConcurrentDictionary<string, int>> CoOccurrences { get; set; } = new(StringComparer.OrdinalIgnoreCase);
         public ConcurrentDictionary<string, int> FlagCombinations { get; set; } = new(StringComparer.OrdinalIgnoreCase);
         public ConcurrentDictionary<string, int> ArgumentSequences { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        public ConcurrentDictionary<string, int> ParameterCounts { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        public ConcurrentDictionary<string, int> ParameterValuePairs { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>
@@ -338,6 +376,86 @@ public class ArgumentGraph
         // Enforce limits
         EnforceLimits(knowledge);
         EnforceCommandLimit();
+    }
+
+    /// <summary>
+    /// Records a command execution with parsed arguments.
+    /// Updates parameter-value tracking alongside traditional argument tracking.
+    /// </summary>
+    /// <param name="parsedCommand">The parsed command with typed arguments.</param>
+    /// <param name="workingDirectory">The working directory when command was executed (optional).</param>
+    public void RecordParsedUsage(ParsedCommand parsedCommand, string? workingDirectory = null)
+    {
+        if (parsedCommand == null || string.IsNullOrWhiteSpace(parsedCommand.Command))
+            return;
+
+        var command = parsedCommand.Command;
+        var now = DateTime.UtcNow;
+
+        // Get or create command knowledge
+        var knowledge = _commands.GetOrAdd(command, cmd => new CommandKnowledge
+        {
+            Command = cmd,
+            FirstSeen = now,
+            LastUsed = now
+        });
+
+        knowledge.LastUsed = now;
+        knowledge.TotalUsageCount++;
+
+        // Track parameter-value pairs
+        foreach (var (param, value) in parsedCommand.GetParameterValuePairs())
+        {
+            // Track parameter stats
+            var paramStats = knowledge.Parameters.GetOrAdd(param, p => new ParameterStats
+            {
+                Parameter = p,
+                FirstSeen = now,
+                LastUsed = now
+            });
+
+            paramStats.UsageCount++;
+            paramStats.LastUsed = now;
+            paramStats.KnownValues.AddOrUpdate(value, 1, (_, count) => count + 1);
+
+            // Track parameter-value pair
+            var pairKey = $"{param}|{value}";
+            var pair = knowledge.ParameterValues.GetOrAdd(pairKey, key => new ParameterValuePair
+            {
+                Parameter = param,
+                Value = value,
+                FirstSeen = now,
+                LastUsed = now
+            });
+
+            pair.UsageCount++;
+            pair.LastUsed = now;
+        }
+
+        // Also call original RecordUsage to maintain existing functionality
+        var arguments = parsedCommand.Arguments.Select(a => a.Text).ToArray();
+        RecordUsage(command, arguments, workingDirectory);
+    }
+
+    /// <summary>
+    /// Gets suggested values for a specific parameter.
+    /// </summary>
+    public List<string> GetParameterValues(string command, string parameter, int maxResults = 10)
+    {
+        if (string.IsNullOrWhiteSpace(command) || string.IsNullOrWhiteSpace(parameter))
+            return new List<string>();
+
+        if (!_commands.TryGetValue(command, out var knowledge))
+            return new List<string>();
+
+        if (!knowledge.Parameters.TryGetValue(parameter, out var paramStats))
+            return new List<string>();
+
+        return paramStats.KnownValues
+            .OrderByDescending(kvp => kvp.Value)
+            .Take(maxResults)
+            .Select(kvp => kvp.Key)
+            .ToList();
     }
 
     /// <summary>

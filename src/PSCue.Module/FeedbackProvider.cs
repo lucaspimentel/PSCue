@@ -380,6 +380,7 @@ public class FeedbackProvider : IFeedbackProvider
             var argumentGraph = PSCueModule.KnowledgeGraph;
             var sequencePredictor = PSCueModule.SequencePredictor;
             var workflowLearner = PSCueModule.WorkflowLearner;
+            var commandParser = PSCueModule.CommandParser;
 
             // Get current working directory for path normalization
             string? workingDirectory = null;
@@ -433,7 +434,17 @@ public class FeedbackProvider : IFeedbackProvider
             // Update argument graph (only for successful commands to avoid learning bad patterns)
             if (success && argumentGraph != null && arguments.Length > 0)
             {
-                argumentGraph.RecordUsage(command, arguments, workingDirectory);
+                // Parse command and record with parameter-value binding
+                if (commandParser != null)
+                {
+                    var parsedCommand = commandParser.Parse(commandLine);
+                    argumentGraph.RecordParsedUsage(parsedCommand, workingDirectory);
+                }
+                else
+                {
+                    // Fallback to original method if parser not available
+                    argumentGraph.RecordUsage(command, arguments, workingDirectory);
+                }
             }
         }
         catch (Exception ex)

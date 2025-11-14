@@ -35,4 +35,10 @@ public static class PSCueModule
     /// Learns command workflow patterns (command → next command transitions) with timing data.
     /// </summary>
     public static WorkflowLearner? WorkflowLearner { get; internal set; }
+
+    /// <summary>
+    /// Gets the command parser instance.
+    /// Parses command lines into structured ParsedCommand objects with typed arguments.
+    /// </summary>
+    public static CommandParser? CommandParser { get; internal set; }
 }
