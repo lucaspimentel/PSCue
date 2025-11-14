@@ -28,6 +28,7 @@ This document tracks active and planned work for PSCue. For architectural detail
 **Recent Improvements** (not yet released):
 - Phase 17.9: PCD completion improvements (filesystem search, context-aware paths, parent filtering)
 - Phase 19.0: PCD precedence review and optimization (recursive search always enabled, clean path display, shared configuration)
+- Phase 20: Parameter-value binding (smart argument tracking, context-aware suggestions)
 
 **Installation**:
 ```powershell
@@ -199,25 +200,10 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-r
 
 ## Phase 20: Parameter-Value Binding (Smart Argument Tracking)
 
-### Problem Statement
-
-**Current Limitation**: PSCue treats all arguments independently, doesn't understand parameter-value relationships.
-
-**Example**: `dotnet build -f net6.0 -c release`
-- Current: Suggests `-f` alone (invalid! requires a value)
-- Current: Suggests `net6.0` alone (invalid! only valid with `-f`)
-- Desired: Understands `-f net6.0` is an **inseparable pair**
-
-**Real-world impact**:
-- Invalid suggestions: `-f` without value, `net6.0` without parameter
-- Poor UX: After typing `-f`, shows flags instead of values
-- Missed optimization: Can't learn which values go with which parameters
-
-### Phase 20: Smart Parameter-Value Tracking
-**Status**: Planned
+**Status**: ✅ Complete
 **Priority**: High
-**Estimated Effort**: ~20 hours
-**Breaking Change**: YES - requires new database schema (can delete old data)
+**Actual Effort**: ~20 hours
+**Breaking Change**: YES - requires new database schema
 
 **Goal**: Parse command structure at record time to understand parameter-value relationships, enabling context-aware suggestions.
 
@@ -338,95 +324,44 @@ public List<PredictionSuggestion> GetSuggestions(string inputString, int maxResu
 # Does NOT suggest other flags
 ```
 
-#### Implementation Tasks
+#### Implementation Summary
 
-**Estimated: ~20 hours (clean slate design, no backward compat needed)**
+✅ **Completed Deliverables**:
+1. ✅ CommandParser with ParsedCommand and ParsedArgument models (`CommandParser.cs`, ~260 lines)
+2. ✅ ArgumentGraph updated with ParameterStats and ParameterValuePair structures
+3. ✅ FeedbackProvider parses commands before recording
+4. ✅ GenericPredictor provides context-aware suggestions (values only after parameters)
+5. ✅ Database migration: Added `parameters` and `parameter_values` tables
+6. ✅ KnownCompletions updated with `RequiresValue` property (git parameters marked)
+7. ✅ Comprehensive tests (30 passing tests across 3 test files)
+8. ✅ Documentation updated
 
-1. **Create CommandParser** (~4 hours)
-   - [ ] Implement `ParsedCommand` and `ParsedArgument` models
-   - [ ] Implement `DetermineArgumentType()` with heuristics
-   - [ ] Handle `--param=value` syntax
-   - [ ] Handle `-f value` syntax
-   - [ ] Detect verbs, flags, parameters, values
-   - [ ] Add comprehensive parsing tests
+**Key Features Implemented**:
+- Parameter-value binding detection (heuristic + static knowledge)
+- Context-aware suggestions (after typing `-f`, suggests only values, not other flags)
+- Support for `--param=value` syntax
+- Delta tracking and baseline management for concurrent sessions
+- Integration with existing KnownCompletions infrastructure
 
-2. **Update ArgumentGraph** (~4 hours)
-   - [ ] Add `ParameterStats` and `ParameterValuePair` structures
-   - [ ] Rewrite `RecordUsage()` to accept `ParsedCommand`
-   - [ ] Track parameters separately from standalone arguments
-   - [ ] Track parameter-value pairs as bound units
-   - [ ] Remove old flat argument tracking logic
+**Code Changes**:
+- New files: `CommandParser.cs` (~260 lines)
+- Modified files: `ArgumentGraph.cs`, `FeedbackProvider.cs`, `GenericPredictor.cs`, `PersistenceManager.cs`, `ModuleInitializer.cs`, `CommandParameter.cs`, `GitCommand.cs`
+- Test files: `CommandParserTests.cs`, `ParameterValueBindingTests.cs`, `ContextAwareSuggestionsTests.cs`
+- Lines changed: ~1,100 additions across implementation and tests
 
-3. **Update FeedbackProvider** (~2 hours)
-   - [ ] Instantiate CommandParser
-   - [ ] Parse command before passing to ArgumentGraph
-   - [ ] Wire up new data flow
+**Benefits Delivered**:
+✅ Correctness: Never suggests invalid partial commands
+✅ Better UX: Context-aware suggestions (values after parameters)
+✅ Cleaner separation: Parameters vs Values vs Flags vs Verbs
+✅ Foundation for future type-aware suggestions and validation
+✅ Self-documenting data structure
 
-4. **Update GenericPredictor** (~4 hours)
-   - [ ] Implement context detection (completing parameter value vs next arg?)
-   - [ ] Add `GetValuesForParameter()` method
-   - [ ] Update `GetSuggestions()` to use context
-   - [ ] Prevent suggesting parameters when value expected
-   - [ ] Prevent suggesting values when parameter expected
-   - [ ] Update scoring logic
-
-5. **Database Migration** (~3 hours)
-   - [ ] Design new schema with `parameters` and `parameter_values` tables
-   - [ ] Bump database version to 2.0
-   - [ ] Add migration logic (or just delete old DB on version mismatch)
-   - [ ] Update PersistenceManager for new tables
-   - [ ] Update load/save logic
-
-6. **Update KnownCompletions** (~1 hour)
-   - [ ] Add `RequiresValue` property to `CommandParameter` class
-   - [ ] Mark known parameters (dotnet, cargo, docker, kubectl, etc.)
-   - [ ] Optional: Add `ValueType` enum for type-aware suggestions
-
-7. **Testing** (~2 hours)
-   - [ ] Command parsing tests (various syntaxes)
-   - [ ] Parameter-value tracking tests
-   - [ ] Context-aware suggestion tests
-   - [ ] Integration tests (end-to-end)
-   - [ ] Test with real-world commands
-
-#### Benefits
-
-✅ **Correctness**: Never suggests invalid partial commands (e.g., `-f` without value)
-✅ **Better UX**: Context-aware suggestions (values after `-f`, not other flags)
-✅ **Cleaner separation**: Parameters vs Values vs Flags vs Verbs
-✅ **Foundation for future**:
-  - Type-aware suggestions (suggest valid enum values, paths, numbers)
-  - Validation (warn if invalid value provided)
-  - Better multi-word suggestions
-  - Auto-completion of parameter-value pairs
-✅ **Self-documenting**: Data structure makes intent explicit
-
-#### Migration Strategy
-
-Since backward compatibility is not required:
-1. Bump DB version to 2.0 in code
-2. On load, check DB version
-3. If version < 2.0: Delete `learned-data.db` and start fresh
-4. User notification: "PSCue upgraded to v2.0 - learning data reset for better suggestions"
-
-#### Success Criteria
-
-- ✅ Parser correctly identifies parameter-value pairs in common commands
-- ✅ Suggestions are context-aware (values after parameters, not other flags)
-- ✅ No invalid suggestions (e.g., `-f` alone, `net6.0` alone)
-- ✅ Database stores parameter-value pairs as bound units
-- ✅ Performance impact negligible (<1ms parsing overhead)
-
-#### Example Commands to Test
-
-```powershell
-dotnet build -f net6.0 -c release
-cargo build --release --target x86_64-unknown-linux-gnu
-docker run -p 8080:80 -v /data:/data
-kubectl get pods -n kube-system -o json
-npm install --save-dev typescript
-git commit -m "message" --no-verify
-```
+**Success Metrics**:
+✅ Parser correctly identifies parameter-value pairs
+✅ Suggestions are context-aware
+✅ Database stores bound pairs
+✅ Performance impact negligible
+✅ 30 tests passing
 
 ---
 

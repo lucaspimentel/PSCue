@@ -4,16 +4,17 @@
 PowerShell completion module combining Tab completion (NativeAOT) + inline predictions (managed DLL) with generic learning and cross-session persistence.
 
 **Key Features**:
+- **Parameter-Value Binding**: Understands parameter-value relationships (e.g., `-f net6.0`), provides context-aware suggestions (Phase 20)
 - **Generic Learning**: Learns from ALL commands (not just predefined ones) with context-aware suggestions
-- **Partial Command Predictions**: Frequency-based command suggestions as you type (e.g., "g" → "git", "gh", "gt") (Phase 17.8)
+- **Partial Command Predictions**: Frequency-based command suggestions as you type (e.g., "g" → "git", "gh", "gt")
 - **Multi-Word Suggestions**: Shows common argument combinations (e.g., "git checkout master")
-- **Workflow Learning**: Learns command sequences and predicts next command based on usage patterns (Phase 18.1)
+- **Workflow Learning**: Learns command sequences and predicts next command based on usage patterns
 - **Cross-Session Persistence**: SQLite database stores learned data across sessions
 - **Directory-Aware Navigation**: Smart cd/Set-Location suggestions with path normalization
 - **ML Sequence Prediction**: N-gram based next-command prediction
 - **Privacy Protection**: Filters sensitive data (passwords, tokens, keys)
 - **PowerShell Module Functions**: 14 functions for learning, database, workflow management, and smart navigation (no IPC overhead)
-- **Smart Directory Navigation**: `pcd` command with inline predictions, relative paths, fuzzy matching, frecency scoring, and best-match navigation (Phases 17.5 + 17.6 + 17.7)
+- **Smart Directory Navigation**: `pcd` command with inline predictions, relative paths, fuzzy matching, frecency scoring, and best-match navigation
 
 **Supported Commands**: git, gh, gt (Graphite), az, azd, func, code, scoop, winget, wt (Windows Terminal), chezmoi, tre, lsd, dust, cd/Set-Location
 
@@ -24,18 +25,21 @@ For completed work history, see docs/COMPLETED.md.
 - **Module** (`PSCue.Module.dll`): Long-lived, implements `ICommandPredictor` + `IFeedbackProvider` (7.4+), provides PowerShell module functions
 - **Learning System**:
   - **CommandHistory**: Ring buffer tracking last 100 commands
+  - **CommandParser**: Parses commands into typed arguments (Verb, Flag, Parameter, ParameterValue, Standalone) (Phase 20)
   - **ArgumentGraph**: Knowledge graph of command → arguments with frequency + recency scoring
     - **ArgumentSequences**: Tracks consecutive argument pairs for multi-word suggestions (up to 50 per command)
+    - **ParameterStats**: Tracks parameters and their known values (Phase 20)
+    - **ParameterValuePairs**: Tracks bound parameter-value pairs (Phase 20)
   - **ContextAnalyzer**: Detects command sequences and workflow patterns
   - **SequencePredictor**: ML-based n-gram prediction for next commands
-  - **WorkflowLearner**: Learns command → next command transitions with timing data (Phase 18.1)
-  - **GenericPredictor**: Generates single-word and multi-word suggestions from learned data for ANY command
+  - **WorkflowLearner**: Learns command → next command transitions with timing data
+  - **GenericPredictor**: Generates context-aware suggestions (values only after parameters, flags otherwise)
   - **Hybrid CommandPredictor**: Blends known completions + generic learning + ML predictions + workflow patterns
-  - **PcdCompletionEngine**: Enhanced directory navigation with fuzzy matching, frecency scoring, distance awareness (Phase 17.6)
+  - **PcdCompletionEngine**: Enhanced directory navigation with fuzzy matching, frecency scoring, distance awareness
 - **Persistence**:
   - **PersistenceManager**: SQLite-based cross-session storage
   - **Database Location**: `~/.local/share/PSCue/learned-data.db` (Linux/macOS), `%LOCALAPPDATA%\PSCue\learned-data.db` (Windows)
-  - **Tables**: commands, arguments, co_occurrences, flag_combinations, argument_sequences, command_history, command_sequences, workflow_transitions
+  - **Tables**: commands, arguments, co_occurrences, flag_combinations, argument_sequences, command_history, command_sequences, workflow_transitions, parameters, parameter_values
   - **Auto-save**: Every 5 minutes + on module unload
   - **Concurrent Access**: SQLite WAL mode handles multiple PowerShell sessions safely
   - **Additive Merging**: Frequencies summed, timestamps use max (most recent)
@@ -57,12 +61,13 @@ src/
 ## Key Files & Line References
 - `src/PSCue.Module/ModuleInitializer.cs`: Module lifecycle, subsystem registration
 - `src/PSCue.Module/PSCueModule.cs`: Static module state container for PowerShell functions
-- `src/PSCue.Module/ArgumentGraph.cs`: Knowledge graph with path normalization + argument sequences (multi-word)
-- `src/PSCue.Module/GenericPredictor.cs`: Context-aware suggestions with multi-word generation
+- `src/PSCue.Module/CommandParser.cs`: Command line parser for parameter-value binding (Phase 20)
+- `src/PSCue.Module/ArgumentGraph.cs`: Knowledge graph with path normalization + argument sequences + parameter tracking
+- `src/PSCue.Module/GenericPredictor.cs`: Context-aware suggestions (values only after parameters, multi-word support)
 - `src/PSCue.Module/CommandPredictor.cs`: Hybrid predictor with multi-word Combine support
 - `src/PSCue.Module/SequencePredictor.cs`: N-gram ML prediction for command sequences
-- `src/PSCue.Module/WorkflowLearner.cs`: Dynamic workflow learning with timing-aware predictions (Phase 18.1)
-- `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence with 8 tables
+- `src/PSCue.Module/WorkflowLearner.cs`: Dynamic workflow learning with timing-aware predictions
+- `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence with 10 tables
 - `src/PSCue.Module/PcdCompletionEngine.cs`: Enhanced PCD algorithm with fuzzy matching, frecency scoring, filesystem search (Phase 17.6 + 17.9 + 19.0)
 - `src/PSCue.Module/PcdConfiguration.cs`: Shared configuration for PCD (tab completion + predictor) (Phase 19.0)
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
@@ -288,3 +293,4 @@ $env:PSCUE_IGNORE_PATTERNS = "aws *,terraform *,*custom-secret*"
 When adding support for new commands, add the completer registration in module/PSCue.psm1
 - don't mention TODO phases in code (like "// Add multi-word suggestions (Phase 17.4)")
 - when running ./scripts/install-local.ps1, always use -Force
+- don't reference phases in code, e.g. "// Phase 20: Parse command to understand parameter-value context"
