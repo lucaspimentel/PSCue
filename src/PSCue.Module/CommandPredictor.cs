@@ -172,7 +172,15 @@ public class CommandPredictor : ICommandPredictor
             // Convert to PredictiveSuggestion objects
             var predictiveSuggestions = suggestions.Select(s =>
             {
-                var fullText = pcdPrefix + " " + s.Path;
+                // Ensure Path has trailing separator (same as tab completion)
+                var path = s.Path;
+                if (!path.EndsWith(Path.DirectorySeparatorChar) &&
+                    !path.EndsWith(Path.AltDirectorySeparatorChar))
+                {
+                    path += Path.DirectorySeparatorChar;
+                }
+
+                var fullText = pcdPrefix + " " + path;
                 return new PredictiveSuggestion(fullText, s.Tooltip);
             }).ToList();
 

@@ -982,4 +982,65 @@ public class PcdEnhancedTests : IDisposable
     }
 
     #endregion
+
+    #region Exact Match Priority and Trailing Separator Tests
+
+    [Fact]
+    public void GetSuggestions_ExactMatch_AppearsFirst()
+    {
+        // Arrange - Learn multiple directories with similar names
+        var baseDir = "D:\\source\\datadog\\dd-trace-dotnet";
+        var worktreeDir1 = baseDir + "-APMSVLS-58";
+        var worktreeDir2 = baseDir + "-aws-lambda-layer";
+        var worktreeDir3 = baseDir + "-pr-reviews";
+
+        // Record usage with higher frequency for non-exact matches to test scoring
+        _graph.RecordUsage("cd", new[] { worktreeDir1 }, null);
+        _graph.RecordUsage("cd", new[] { worktreeDir1 }, null);
+        _graph.RecordUsage("cd", new[] { worktreeDir1 }, null);
+        _graph.RecordUsage("cd", new[] { worktreeDir2 }, null);
+        _graph.RecordUsage("cd", new[] { worktreeDir2 }, null);
+        _graph.RecordUsage("cd", new[] { baseDir }, null); // Exact match, less frequent
+        _graph.RecordUsage("cd", new[] { worktreeDir3 }, null);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Type exact path
+        var suggestions = engine.GetSuggestions(baseDir, "D:\\source\\lucaspimentel\\PSCue", 20);
+
+        // Assert - Exact match should be first, even though others have higher frequency
+        Assert.NotEmpty(suggestions);
+        var firstSuggestion = suggestions.First();
+        Assert.Equal(baseDir,
+            firstSuggestion.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+            ignoreCase: true);
+    }
+
+    [Fact]
+    public void GetSuggestions_AllPaths_HaveTrailingSeparator()
+    {
+        // Arrange - Create test directories
+        var dir1 = CreateTempDirectory("test1");
+        var dir2 = CreateTempDirectory("test2");
+
+        _graph.RecordUsage("cd", new[] { dir1 }, null);
+        _graph.RecordUsage("cd", new[] { dir2 }, null);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Get all suggestions
+        var suggestions = engine.GetSuggestions("", _testRootDir, 20);
+
+        // Assert - All DisplayPaths should have trailing separator
+        Assert.NotEmpty(suggestions);
+        Assert.All(suggestions, s =>
+        {
+            Assert.True(
+                s.DisplayPath.EndsWith(Path.DirectorySeparatorChar) ||
+                s.DisplayPath.EndsWith(Path.AltDirectorySeparatorChar),
+                $"DisplayPath '{s.DisplayPath}' should have trailing separator");
+        });
+    }
+
+    #endregion
 }

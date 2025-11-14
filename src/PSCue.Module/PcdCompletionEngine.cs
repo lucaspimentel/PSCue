@@ -242,7 +242,9 @@ public class PcdCompletionEngine
             var distanceScore = CalculateDistanceScore(path, currentDirectory);
 
             // Combined score with configurable weights
-            var totalScore = (matchScore * 0.1) +
+            // Exact matches get massive boost to ensure they appear first
+            var exactMatchBoost = matchScore >= 1.0 ? 100.0 : 1.0;
+            var totalScore = (matchScore * 0.1 * exactMatchBoost) +
                            (_frequencyWeight * frequencyScore) +
                            (_recencyWeight * recencyScore) +
                            (_distanceWeight * distanceScore);
