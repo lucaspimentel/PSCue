@@ -75,6 +75,9 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                 // Initialize command parser
                 PSCueModule.CommandParser = new CommandParser();
 
+                // Register known parameters from KnownCompletions
+                RegisterKnownParameters(PSCueModule.CommandParser);
+
                 _contextAnalyzer = new ContextAnalyzer();
                 _genericPredictor = new GenericPredictor(PSCueModule.CommandHistory, PSCueModule.KnowledgeGraph, _contextAnalyzer, PSCueModule.SequencePredictor);
 
@@ -279,4 +282,54 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
     /// Get the generic predictor instance for testing or debugging.
     /// </summary>
     internal static GenericPredictor? GetGenericPredictor() => _genericPredictor;
+
+    /// <summary>
+    /// Registers known parameters from KnownCompletions with the CommandParser.
+    /// </summary>
+    private static void RegisterKnownParameters(CommandParser parser)
+    {
+        // Register git parameters
+        var git = PSCue.Shared.KnownCompletions.GitCommand.Create();
+        RegisterCommandParameters(parser, "git", git);
+
+        // Can add more commands here as needed
+        // var dotnet = PSCue.Shared.KnownCompletions.DotnetCommand.Create();
+        // RegisterCommandParameters(parser, "dotnet", dotnet);
+    }
+
+    /// <summary>
+    /// Recursively registers parameters from a command and its subcommands.
+    /// </summary>
+    private static void RegisterCommandParameters(CommandParser parser, string commandName, PSCue.Shared.Completions.ICompletion completion)
+    {
+        if (completion is PSCue.Shared.Completions.Command command)
+        {
+            // Register parameters from this command
+            foreach (var param in command.Parameters)
+            {
+                if (param.RequiresValue)
+                {
+                    parser.RegisterParameterRequiringValue(param.CompletionText);
+                    if (!string.IsNullOrEmpty(param.Alias))
+                    {
+                        parser.RegisterParameterRequiringValue(param.Alias);
+                    }
+                }
+                else
+                {
+                    parser.RegisterFlag(param.CompletionText);
+                    if (!string.IsNullOrEmpty(param.Alias))
+                    {
+                        parser.RegisterFlag(param.Alias);
+                    }
+                }
+            }
+
+            // Recursively register subcommands
+            foreach (var subcommand in command.SubCommands)
+            {
+                RegisterCommandParameters(parser, commandName, subcommand);
+            }
+        }
+    }
 }

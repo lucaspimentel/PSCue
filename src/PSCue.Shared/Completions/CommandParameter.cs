@@ -9,6 +9,12 @@ public sealed class CommandParameter(string completionText, string? tooltip = nu
     public StaticArgument[] StaticArguments { get; init; } = [];
     public DynamicArgumentsFactory? DynamicArguments { get; init; }
 
+    /// <summary>
+    /// Indicates whether this parameter requires a value (e.g., "-f net6.0").
+    /// If true, the parser will treat the next argument as a value bound to this parameter.
+    /// </summary>
+    public bool RequiresValue { get; init; }
+
     public ICompletion? FindNode(ReadOnlySpan<char> wordToComplete)
     {
         // Check if the word matches either the main completion text or the alias

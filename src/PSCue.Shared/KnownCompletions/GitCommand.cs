@@ -86,8 +86,8 @@ public static class GitCommand
                 {
                     Parameters =
                     [
-                        new("-b", "Create and checkout new branch"),
-                        new("-B", "Create/reset and checkout branch"),
+                        new("-b", "Create and checkout new branch") { RequiresValue = true },
+                        new("-B", "Create/reset and checkout branch") { RequiresValue = true },
                         new("--force", "Force checkout (-f)") { Alias = "-f" },
                         new("-", "Switch to previous branch"),
                     ],
@@ -117,8 +117,8 @@ public static class GitCommand
                     Parameters =
                     [
                         new("--bare", "Create a bare repository"),
-                        new("--depth", "Create a shallow clone with history truncated"),
-                        new("--branch", "Checkout specific branch (-b)") { Alias = "-b" },
+                        new("--depth", "Create a shallow clone with history truncated") { RequiresValue = true },
+                        new("--branch", "Checkout specific branch (-b)") { Alias = "-b", RequiresValue = true },
                     ]
                 },
                 new("commit", "Record changes to the repository")
@@ -127,7 +127,7 @@ public static class GitCommand
                     [
                         new("--all", "Commit all changes (-a)") { Alias = "-a" },
                         new("--amend", "Amend previous commit"),
-                        new("--message", "Commit message (-m)") { Alias = "-m" },
+                        new("--message", "Commit message (-m)") { Alias = "-m", RequiresValue = true },
                         new("--no-verify", "Skip pre-commit and commit-msg hooks"),
                         new("--verbose", "Show diff in commit message editor (-v)") { Alias = "-v" },
                     ]
