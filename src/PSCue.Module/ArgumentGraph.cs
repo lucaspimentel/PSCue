@@ -739,6 +739,76 @@ public class ArgumentGraph
     }
 
     /// <summary>
+    /// Initializes a parameter (used by PersistenceManager).
+    /// </summary>
+    internal void InitializeParameter(string command, string parameter, int usageCount, DateTime firstSeen, DateTime lastUsed)
+    {
+        if (!_commands.TryGetValue(command, out var knowledge))
+            return;
+
+        var paramStats = knowledge.Parameters.GetOrAdd(parameter, p => new ParameterStats
+        {
+            Parameter = p,
+            UsageCount = usageCount,
+            FirstSeen = firstSeen,
+            LastUsed = lastUsed
+        });
+
+        // Update if already exists
+        if (paramStats.UsageCount == 0)
+        {
+            paramStats.UsageCount = usageCount;
+            paramStats.FirstSeen = firstSeen;
+            paramStats.LastUsed = lastUsed;
+        }
+
+        // Record baseline for delta tracking
+        if (_baseline.TryGetValue(command, out var baseline))
+        {
+            baseline.ParameterCounts.TryAdd(parameter, usageCount);
+        }
+    }
+
+    /// <summary>
+    /// Initializes a parameter-value pair (used by PersistenceManager).
+    /// </summary>
+    internal void InitializeParameterValue(string command, string parameter, string value, int usageCount, DateTime firstSeen, DateTime lastUsed)
+    {
+        if (!_commands.TryGetValue(command, out var knowledge))
+            return;
+
+        var pairKey = $"{parameter}|{value}";
+        var pair = knowledge.ParameterValues.GetOrAdd(pairKey, key => new ParameterValuePair
+        {
+            Parameter = parameter,
+            Value = value,
+            UsageCount = usageCount,
+            FirstSeen = firstSeen,
+            LastUsed = lastUsed
+        });
+
+        // Update if already exists
+        if (pair.UsageCount == 0)
+        {
+            pair.UsageCount = usageCount;
+            pair.FirstSeen = firstSeen;
+            pair.LastUsed = lastUsed;
+        }
+
+        // Also update the parameter's known values
+        if (knowledge.Parameters.TryGetValue(parameter, out var paramStats))
+        {
+            paramStats.KnownValues.TryAdd(value, usageCount);
+        }
+
+        // Record baseline for delta tracking
+        if (_baseline.TryGetValue(command, out var baseline))
+        {
+            baseline.ParameterValuePairs.TryAdd(pairKey, usageCount);
+        }
+    }
+
+    /// <summary>
     /// Clears all learned data.
     /// </summary>
     public void Clear()
@@ -902,6 +972,35 @@ public class ArgumentGraph
     }
 
     /// <summary>
+    /// Gets the delta (new usage since load) for a parameter.
+    /// Returns the current count if not in baseline (newly learned).
+    /// </summary>
+    internal int GetParameterDelta(string command, string parameter, int currentCount)
+    {
+        if (_baseline.TryGetValue(command, out var baseline) &&
+            baseline.ParameterCounts.TryGetValue(parameter, out var baselineCount))
+        {
+            return Math.Max(0, currentCount - baselineCount);
+        }
+        return currentCount; // Newly learned parameter, delta = all usage
+    }
+
+    /// <summary>
+    /// Gets the delta (new usage since load) for a parameter-value pair.
+    /// Returns the current count if not in baseline (newly learned).
+    /// </summary>
+    internal int GetParameterValueDelta(string command, string parameter, string value, int currentCount)
+    {
+        var pairKey = $"{parameter}|{value}";
+        if (_baseline.TryGetValue(command, out var baseline) &&
+            baseline.ParameterValuePairs.TryGetValue(pairKey, out var baselineCount))
+        {
+            return Math.Max(0, currentCount - baselineCount);
+        }
+        return currentCount; // Newly learned pair, delta = all usage
+    }
+
+    /// <summary>
     /// Updates the baseline after a successful save.
     /// Call this after persisting to database to reset deltas.
     /// </summary>
@@ -942,6 +1041,18 @@ public class ArgumentGraph
             foreach (var seqKv in knowledge.ArgumentSequences)
             {
                 baselineData.ArgumentSequences[seqKv.Key] = seqKv.Value.UsageCount;
+            }
+
+            // Track parameters
+            foreach (var paramKv in knowledge.Parameters)
+            {
+                baselineData.ParameterCounts[paramKv.Key] = paramKv.Value.UsageCount;
+            }
+
+            // Track parameter-value pairs
+            foreach (var pvKv in knowledge.ParameterValues)
+            {
+                baselineData.ParameterValuePairs[pvKv.Key] = pvKv.Value.UsageCount;
             }
 
             _baseline[command] = baselineData;

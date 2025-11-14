@@ -183,6 +183,27 @@ public class PersistenceManager : IDisposable
                 PRIMARY KEY (from_command, to_command)
             );
 
+            -- Parameters table: tracks parameters that require values
+            CREATE TABLE IF NOT EXISTS parameters (
+                command TEXT NOT NULL COLLATE NOCASE,
+                parameter TEXT NOT NULL COLLATE NOCASE,
+                usage_count INTEGER NOT NULL DEFAULT 0,
+                first_seen TEXT NOT NULL,
+                last_used TEXT NOT NULL,
+                PRIMARY KEY (command, parameter)
+            );
+
+            -- Parameter values table: tracks parameter-value pairs
+            CREATE TABLE IF NOT EXISTS parameter_values (
+                command TEXT NOT NULL COLLATE NOCASE,
+                parameter TEXT NOT NULL COLLATE NOCASE,
+                value TEXT NOT NULL COLLATE NOCASE,
+                usage_count INTEGER NOT NULL DEFAULT 0,
+                first_seen TEXT NOT NULL,
+                last_used TEXT NOT NULL,
+                PRIMARY KEY (command, parameter, value)
+            );
+
             -- Indexes for performance
             CREATE INDEX IF NOT EXISTS idx_arguments_command ON arguments(command);
             CREATE INDEX IF NOT EXISTS idx_co_occurrences_command_arg ON co_occurrences(command, argument);
@@ -190,6 +211,8 @@ public class PersistenceManager : IDisposable
             CREATE INDEX IF NOT EXISTS idx_history_timestamp ON command_history(timestamp DESC);
             CREATE INDEX IF NOT EXISTS idx_sequences_prev ON command_sequences(prev_command);
             CREATE INDEX IF NOT EXISTS idx_workflow_from ON workflow_transitions(from_command);
+            CREATE INDEX IF NOT EXISTS idx_parameters_command ON parameters(command);
+            CREATE INDEX IF NOT EXISTS idx_parameter_values_command_param ON parameter_values(command, parameter);
         ";
         command.ExecuteNonQuery();
     }
@@ -355,6 +378,68 @@ public class PersistenceManager : IDisposable
                         cmd.Parameters.AddWithValue("@usage", seqDelta);
                         cmd.Parameters.AddWithValue("@firstSeen", sequence.FirstSeen.ToString("O"));
                         cmd.Parameters.AddWithValue("@lastUsed", sequence.LastUsed.ToString("O"));
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+
+                // Upsert parameters (using delta tracking)
+                foreach (var paramKv in knowledge.Parameters)
+                {
+                    var parameter = paramKv.Key;
+                    var paramStats = paramKv.Value;
+
+                    // Calculate delta for this parameter
+                    var paramDelta = graph.GetParameterDelta(command, parameter, paramStats.UsageCount);
+
+                    // Only save if there's a delta
+                    if (paramDelta > 0)
+                    {
+                        using var cmd = connection.CreateCommand();
+                        cmd.Transaction = transaction;
+                        cmd.CommandText = @"
+                            INSERT INTO parameters (command, parameter, usage_count, first_seen, last_used)
+                            VALUES (@command, @parameter, @usage, @firstSeen, @lastUsed)
+                            ON CONFLICT (command, parameter) DO UPDATE SET
+                                usage_count = usage_count + @usage,
+                                first_seen = MIN(first_seen, @firstSeen),
+                                last_used = MAX(last_used, @lastUsed)
+                        ";
+                        cmd.Parameters.AddWithValue("@command", command);
+                        cmd.Parameters.AddWithValue("@parameter", parameter);
+                        cmd.Parameters.AddWithValue("@usage", paramDelta);
+                        cmd.Parameters.AddWithValue("@firstSeen", paramStats.FirstSeen.ToString("O"));
+                        cmd.Parameters.AddWithValue("@lastUsed", paramStats.LastUsed.ToString("O"));
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+
+                // Upsert parameter-value pairs (using delta tracking)
+                foreach (var pvKv in knowledge.ParameterValues)
+                {
+                    var pair = pvKv.Value;
+
+                    // Calculate delta for this parameter-value pair
+                    var pvDelta = graph.GetParameterValueDelta(command, pair.Parameter, pair.Value, pair.UsageCount);
+
+                    // Only save if there's a delta
+                    if (pvDelta > 0)
+                    {
+                        using var cmd = connection.CreateCommand();
+                        cmd.Transaction = transaction;
+                        cmd.CommandText = @"
+                            INSERT INTO parameter_values (command, parameter, value, usage_count, first_seen, last_used)
+                            VALUES (@command, @parameter, @value, @usage, @firstSeen, @lastUsed)
+                            ON CONFLICT (command, parameter, value) DO UPDATE SET
+                                usage_count = usage_count + @usage,
+                                first_seen = MIN(first_seen, @firstSeen),
+                                last_used = MAX(last_used, @lastUsed)
+                        ";
+                        cmd.Parameters.AddWithValue("@command", command);
+                        cmd.Parameters.AddWithValue("@parameter", pair.Parameter);
+                        cmd.Parameters.AddWithValue("@value", pair.Value);
+                        cmd.Parameters.AddWithValue("@usage", pvDelta);
+                        cmd.Parameters.AddWithValue("@firstSeen", pair.FirstSeen.ToString("O"));
+                        cmd.Parameters.AddWithValue("@lastUsed", pair.LastUsed.ToString("O"));
                         cmd.ExecuteNonQuery();
                     }
                 }
@@ -715,6 +800,49 @@ public class PersistenceManager : IDisposable
                 var lastUsed = DateTime.Parse(reader.GetString(5)).ToUniversalTime();
 
                 graph.InitializeArgumentSequence(command, firstArg, secondArg, usageCount, firstSeen, lastUsed);
+            }
+        }
+
+        // Load parameters
+        using (var cmd = connection.CreateCommand())
+        {
+            cmd.CommandText = @"
+                SELECT command, parameter, usage_count, first_seen, last_used
+                FROM parameters
+            ";
+            using var reader = cmd.ExecuteReader();
+
+            while (reader.Read())
+            {
+                var command = reader.GetString(0);
+                var parameter = reader.GetString(1);
+                var usageCount = reader.GetInt32(2);
+                var firstSeen = DateTime.Parse(reader.GetString(3)).ToUniversalTime();
+                var lastUsed = DateTime.Parse(reader.GetString(4)).ToUniversalTime();
+
+                graph.InitializeParameter(command, parameter, usageCount, firstSeen, lastUsed);
+            }
+        }
+
+        // Load parameter-value pairs
+        using (var cmd = connection.CreateCommand())
+        {
+            cmd.CommandText = @"
+                SELECT command, parameter, value, usage_count, first_seen, last_used
+                FROM parameter_values
+            ";
+            using var reader = cmd.ExecuteReader();
+
+            while (reader.Read())
+            {
+                var command = reader.GetString(0);
+                var parameter = reader.GetString(1);
+                var value = reader.GetString(2);
+                var usageCount = reader.GetInt32(3);
+                var firstSeen = DateTime.Parse(reader.GetString(4)).ToUniversalTime();
+                var lastUsed = DateTime.Parse(reader.GetString(5)).ToUniversalTime();
+
+                graph.InitializeParameterValue(command, parameter, value, usageCount, firstSeen, lastUsed);
             }
         }
 
