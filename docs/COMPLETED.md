@@ -40,6 +40,7 @@ For current and future work, see [TODO.md](TODO.md).
 - **Phase 18.2**: Time-Based Workflow Detection ✅ (completed as part of 18.1)
 - **Phase 19.0**: PCD Suggestion Precedence Review & Optimization ✅
 - **Phase 20**: Parameter-Value Binding (Smart Argument Tracking) ✅
+- **Phase 21**: PCD Quality Improvements (Symlinks, Filtering, Match Quality) ✅
 - **CI/CD & Distribution**: GitHub Actions Automated Releases ✅
 
 ---
@@ -1939,6 +1940,180 @@ CREATE TABLE parameter_values (
 - ✅ Self-documenting data structure
 
 **Result**: PSCue now understands command structure and provides intelligent, context-aware suggestions that respect parameter-value relationships.
+
+---
+
+### Phase 21: PCD Quality Improvements (Symlinks, Filtering, Match Quality) ✅
+
+**Completed**: 2025-11-17
+**Effort**: ~18 hours (6 sub-phases)
+**Goal**: Fix PCD suggestion quality issues with symlink deduplication, cache directory filtering, exact match prioritization, and improved fuzzy matching.
+
+**Issues Addressed**:
+1. ✅ Symlink resolution causes duplicate suggestions (both real and symlinked paths)
+2. ✅ Fuzzy matches rank higher than exact matches
+3. ✅ Cache/metadata directories clutter results (`.codeium`, `.claude`, `.dotnet`, etc.)
+4. ✅ Fuzzy matching too permissive (unrelated directories match)
+5. ✅ No exact match boost (exact substring matches not prioritized)
+
+**Implementation Details**:
+
+#### Phase 21.1: Symlink Resolution & Deduplication ✅
+**Effort**: ~6 hours
+
+**Features Implemented**:
+- Symlink resolution in path normalization (`ArgumentGraph.cs`, `PcdCompletionEngine.cs`)
+- `ResolveSymlinkFullPath()` method that walks path components and resolves reparse points
+- All paths normalized to real paths before deduplication
+- Storage and comparison of paths as resolved real paths
+- Support for Windows symlinks, junctions, and directory links
+- Unix symbolic link support on Linux/macOS
+
+**Key Implementation**:
+```csharp
+private static string ResolveSymlinkFullPath(string path)
+{
+    // Walk path components from root, checking each for ReparsePoint attribute
+    // Resolve via LinkTarget property
+    // Returns canonical real path
+}
+```
+
+**Critical Fix**: Must provide `workingDirectory` parameter to `RecordUsage()` for path normalization to run.
+
+**Tests Added**: 10 symlink resolution tests, all passing
+
+#### Phase 21.2: Cache/Metadata Directory Filtering ✅
+**Effort**: ~4 hours
+
+**Features Implemented**:
+- Blocklist of cache/metadata patterns in `PcdConfiguration.cs`:
+  - Development caches: `.codeium/`, `.claude/`, `.dotnet/`, `.nuget/`, `.git/`
+  - Editor configs: `.vs`, `.vscode`, `.idea`
+  - Build artifacts: `node_modules/`, `bin/`, `obj/`, `target/`
+  - Python caches: `__pycache__`, `.pytest_cache`
+- Filter blocklisted directories UNLESS user explicitly typed pattern
+- Detection: Check if input string contains blocklisted segment
+- Configuration: `$env:PSCUE_PCD_ENABLE_DOT_DIR_FILTER` (default: true)
+- Custom blocklist: `$env:PSCUE_PCD_CUSTOM_BLOCKLIST` (comma-separated)
+
+**Key Implementation**:
+```csharp
+private bool ShouldFilterDirectory(string path, string searchTerm)
+{
+    // Filter blocklisted patterns unless searchTerm contains pattern
+    // Applied in 3 locations: learned dirs, direct search, recursive search
+}
+```
+
+**Tests Added**: Tests for filtering behavior and explicit typing override
+
+#### Phase 21.3: Exact Match Scoring Boost ✅
+**Effort**: ~3 hours
+
+**Features Implemented**:
+- Exact substring match detection in `PcdCompletionEngine.cs`
+- `IsExactMatch()` method checking full path and directory name equality
+- Configurable boost multiplier (default: 100.0)
+- Exact matches always rank above fuzzy matches
+- Configuration: `$env:PSCUE_PCD_EXACT_MATCH_BOOST` (default: 100.0)
+
+**Boost Applied When**:
+- Directory name exactly equals search term (case-insensitive)
+- Directory path exactly equals search term
+
+**Key Implementation**:
+```csharp
+if (IsExactMatch(dirInfo.Name, path, searchTerm))
+{
+    matchScore *= exactMatchBoost;  // Default: 100.0
+}
+```
+
+**Tests Added**: 5 exact match regression tests, all passing
+
+#### Phase 21.4: Improved Fuzzy Matching Quality ✅
+**Effort**: ~3 hours
+
+**Features Implemented**:
+- Minimum match percentage requirement (default: 70%)
+- Longest common substring (LCS) check for long queries (>10 chars)
+- LCS requires 60% of query as continuous substring
+- Configuration: `$env:PSCUE_PCD_FUZZY_MIN_MATCH_PCT` (default: 0.7)
+
+**Key Implementation**:
+```csharp
+private double CalculateFuzzyMatchScore(string directory, string searchTerm)
+{
+    // Levenshtein distance with minimum similarity threshold
+    // For long queries (>10 chars), also check LCS >= 60%
+    // Prevents unrelated matches like "dd-trace-js" matching "dd-trace-dotnet"
+}
+```
+
+**Quality Controls**:
+- Minimum 70% similarity required
+- Long queries require 60% continuous substring overlap
+- Prevents false positives while allowing legitimate typos
+
+**Tests Added**: 6 fuzzy matching quality tests
+
+#### Phase 21.5: Integration Testing ✅
+**Effort**: ~2 hours
+
+**Comprehensive Test Suite**:
+- User scenario: "dd-trace-dotnet" test case
+- Expected: exact match first, fuzzy matches after
+- Filtered out: `.codeium`, `.claude`, `.dotnet`, `dd-trace-js`
+- Symlink deduplication verification
+- Exact match prioritization (predictor + tab completion depths)
+- Cache directory filtering (with/without explicit typing)
+- Performance regression tests (tab <50ms, predictor <10ms)
+
+**Tests Added**: 7 integration tests combining all Phase 21 features
+
+#### Phase 21.6: Documentation Updates ✅
+**Effort**: ~1 hour
+
+**Documentation Completed**:
+- ✅ Updated `CLAUDE.md`: PCD configuration options (Phases 21.2, 21.3, 21.4)
+- ✅ Updated `CLAUDE.md`: Symlink resolution behavior (Phase 21.1)
+- ✅ Updated `CLAUDE.md`: Cache/metadata filtering rules (Phase 21.2)
+- ✅ Updated `README.md`: Configuration section with new env vars
+- ✅ Created `docs/TROUBLESHOOTING.md`: Symlink duplicates troubleshooting entry
+
+**Configuration Variables Added**:
+```powershell
+# Cache/metadata filtering (Phase 21.2)
+$env:PSCUE_PCD_ENABLE_DOT_DIR_FILTER = "true"      # Default: true
+$env:PSCUE_PCD_CUSTOM_BLOCKLIST = ".myapp,.temp"   # Optional
+
+# Match quality scoring (Phase 21.3, 21.4)
+$env:PSCUE_PCD_EXACT_MATCH_BOOST = "100.0"         # Default: 100.0
+$env:PSCUE_PCD_FUZZY_MIN_MATCH_PCT = "0.7"         # Default: 0.7 (70%)
+```
+
+**Success Criteria Achieved**:
+- ✅ No duplicate suggestions for symlinked paths (Phase 21.1)
+- ✅ Exact matches rank higher than fuzzy matches (Phase 21.3)
+- ✅ Cache/metadata directories filtered by default (Phase 21.2)
+- ✅ Fuzzy matching rejects unrelated directories (Phase 21.4)
+- ✅ Explicit typing overrides blocklist filtering (Phase 21.2)
+- ✅ Performance targets maintained (<50ms tab, <10ms predictor)
+- ✅ All tests passing (413 tests total)
+- ✅ Cross-platform support (Windows + Linux symlinks)
+
+**Key Files Modified**:
+- `src/PSCue.Module/ArgumentGraph.cs`: Symlink resolution in path normalization
+- `src/PSCue.Module/PcdCompletionEngine.cs`: Filtering, exact match boost, improved fuzzy matching
+- `src/PSCue.Module/PcdConfiguration.cs`: New configuration properties
+- `test/PSCue.Module.Tests/PcdEnhancedTests.cs`: Comprehensive integration tests
+- `docs/TROUBLESHOOTING.md`: New troubleshooting guide (created)
+- `CLAUDE.md`, `README.md`: Configuration documentation
+
+**Dependencies**: Phase 19.0 (PCD shared configuration infrastructure)
+
+**Result**: PCD now provides high-quality directory suggestions with proper deduplication, intelligent filtering, exact match prioritization, and improved fuzzy matching accuracy.
 
 ---
 
