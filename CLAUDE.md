@@ -294,7 +294,6 @@ $env:PSCUE_IGNORE_PATTERNS = "aws *,terraform *,*custom-secret*"
 - **Key Features**: Multi-word predictions, dynamic workflow learning, smart directory navigation (pcd)
 
 # Misc
-When adding support for new commands, add the completer registration in module/PSCue.psm1
-- don't mention TODO phases in code (like "// Add multi-word suggestions (Phase 17.4)")
+- When adding support for new commands, add the completer registration in module/PSCue.psm1 as well
 - when running ./scripts/install-local.ps1, always use -Force
-- don't reference phases in code, e.g. "// Phase 20: Parse command to understand parameter-value context"
+- don't reference phases in code, e.g. "// Phase 20: Parse command to understand parameter-value context" or "// Add multi-word suggestions (Phase 17.4)"
