@@ -187,6 +187,10 @@ $env:PSCUE_PCD_DISTANCE_WEIGHT = "0.2"   # Default: 20% weight
 $env:PSCUE_PCD_RECURSIVE_SEARCH = "true"         # Default: true (set to false to disable)
 $env:PSCUE_PCD_MAX_DEPTH = "3"                   # Tab completion depth (default: 3)
 $env:PSCUE_PCD_PREDICTOR_MAX_DEPTH = "1"         # Inline predictor depth (default: 1, faster)
+
+# Cache/metadata directory filtering (filters noise like .codeium, node_modules, bin, obj)
+$env:PSCUE_PCD_ENABLE_DOT_DIR_FILTER = "true"    # Default: true (set to false to disable)
+$env:PSCUE_PCD_CUSTOM_BLOCKLIST = ".myapp,temp"  # Optional: additional patterns to filter (comma-separated)
 ```
 
 Example workflows:

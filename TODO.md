@@ -69,16 +69,19 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-r
    - [ ] Test on Windows with symlinks, junctions, and directory links
    - [ ] Add regression test for user's scenario: `C:\Users\lucas\source` → `D:\source` symlink
 
-2. **Phase 21.2: Cache/Metadata Directory Filtering** (~4 hours)
-   - [ ] Add blocklist of cache/metadata patterns in `PcdConfiguration.cs`:
+2. **Phase 21.2: Cache/Metadata Directory Filtering** ✅ **COMPLETE** (~4 hours actual)
+   - [x] Add blocklist of cache/metadata patterns in `PcdConfiguration.cs`:
      - `.codeium/`, `.claude/`, `.dotnet/`, `.nuget/`, `.git/` (internals only, not `.github/`)
      - `node_modules/`, `bin/`, `obj/`, `target/` (build artifacts)
-   - [ ] Filter out blocklisted directories in `PcdCompletionEngine` UNLESS user explicitly typed pattern
-   - [ ] Detection: Check if input string contains blocklisted segment (e.g., ".claude" in input allows `.claude/` results)
-   - [ ] Add configuration: `$env:PSCUE_PCD_ENABLE_DOT_DIR_FILTER` (default: true)
-   - [ ] Add configuration: `$env:PSCUE_PCD_CUSTOM_BLOCKLIST` (comma-separated patterns, optional)
-   - [ ] Test filtering behavior (both tab and predictor)
-   - [ ] Test explicit typing override (typing `.claude` shows `.claude/` directories)
+     - Plus: `.vs`, `.vscode`, `.idea`, `__pycache__`, `.pytest_cache`
+   - [x] Filter out blocklisted directories in `PcdCompletionEngine` UNLESS user explicitly typed pattern
+   - [x] Detection: Check if input string contains blocklisted segment (e.g., ".claude" in input allows `.claude/` results)
+   - [x] Add configuration: `$env:PSCUE_PCD_ENABLE_DOT_DIR_FILTER` (default: true)
+   - [x] Add configuration: `$env:PSCUE_PCD_CUSTOM_BLOCKLIST` (comma-separated patterns, optional)
+   - [x] Test filtering behavior (both tab and predictor)
+   - [x] Test explicit typing override (typing `.claude` shows `.claude/` directories)
+   - [x] Added `ShouldFilterDirectory()` helper method (PcdCompletionEngine.cs:448)
+   - [x] Applied filtering in 3 locations: learned dirs, direct search, recursive search
 
 3. **Phase 21.3: Exact Match Scoring Boost** (~3 hours)
    - [ ] Add exact substring match detection in `PcdCompletionEngine.cs` scoring logic
@@ -853,7 +856,7 @@ dotnet test test/PSCue.Module.Tests/
 dotnet test --filter "FullyQualifiedName~ModuleFunctions"
 
 # Install locally
-./scripts/install-local.ps1
+./scripts/install-local.ps1 -Force
 ```
 
 ### Module Functions (Phase 16 + Phase 18.1)

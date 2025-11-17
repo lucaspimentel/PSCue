@@ -145,14 +145,21 @@ Invoke-PCD [path]                                  # Long-form function name
 # - Performance: <50ms tab completion, <10ms predictor
 # - Code sharing: Unified configuration via PcdConfiguration class (Phase 19.0)
 
-# Algorithm (Phase 17.6 + 17.9 + 19.0 + Exact Match Fix - PcdCompletionEngine):
+# Algorithm (Phase 17.6 + 17.9 + 19.0 + 21.2 + Bug Fixes - PcdCompletionEngine):
 # - Stage 1: Well-known shortcuts (~, ..) - skipped for absolute paths
 # - Stage 2: Learned directories - parent directory filtered for absolute paths
 #   - Exact match boost: 100× multiplier ensures exact matches always appear first (PcdCompletionEngine.cs:246)
+#   - Cache filtering: Filters .codeium, .claude, .dotnet, node_modules, bin, obj, etc. (Phase 21.2)
 # - Stage 3a: Direct filesystem search (non-recursive) - always enabled
+#   - Cache filtering: Applied to discovered directories
 # - Stage 3b: Recursive filesystem search - ALWAYS enabled when configured (depth-controlled)
 #   - Tab completion: maxDepth=3 (thorough, can afford deeper search)
 #   - Inline predictor: maxDepth=1 (fast, shallow search only)
+#   - Cache filtering: Applied to recursively discovered directories
+# - Cache/metadata filtering (Phase 21.2): Blocklisted directories are filtered UNLESS explicitly typed
+#   - Default blocklist: .codeium, .claude, .dotnet, .nuget, .git, .vs, .vscode, .idea, node_modules, bin, obj, target, __pycache__, .pytest_cache
+#   - Explicit typing overrides: typing ".claude" will show .claude directories
+#   - Configurable via PSCUE_PCD_ENABLE_DOT_DIR_FILTER and PSCUE_PCD_CUSTOM_BLOCKLIST
 # - Fuzzy matching: Substring + Levenshtein distance for typo tolerance
 # - Frecency scoring: Configurable blend (default: 50% frequency, 30% recency, 20% distance)
 # - Distance scoring: Parent (0.9), Child (0.85-0.5), Sibling (0.7), Ancestor (0.6-0.1)
@@ -260,13 +267,15 @@ $env:PSCUE_WORKFLOW_MIN_CONFIDENCE = "0.6"       # Min confidence threshold (def
 # Partial command predictions (Phase 17.8: Frequency-based command suggestions)
 $env:PSCUE_PARTIAL_COMMAND_PREDICTIONS = "true"  # Enable partial command predictions (default: true)
 
-# PCD (Smart Directory Navigation) configuration (Phases 17.5-17.9 + 19.0)
+# PCD (Smart Directory Navigation) configuration (Phases 17.5-17.9 + 19.0 + 21.2)
 $env:PSCUE_PCD_FREQUENCY_WEIGHT = "0.5"          # Frecency scoring: frequency weight (default: 0.5)
 $env:PSCUE_PCD_RECENCY_WEIGHT = "0.3"            # Frecency scoring: recency weight (default: 0.3)
 $env:PSCUE_PCD_DISTANCE_WEIGHT = "0.2"           # Frecency scoring: distance weight (default: 0.2)
 $env:PSCUE_PCD_MAX_DEPTH = "3"                   # Recursive search depth for tab completion (default: 3)
-$env:PSCUE_PCD_PREDICTOR_MAX_DEPTH = "1"         # Recursive search depth for inline predictor (default: 1, Phase 19.0)
-$env:PSCUE_PCD_RECURSIVE_SEARCH = "true"         # Enable recursive filesystem search (default: true, Phase 19.0)
+$env:PSCUE_PCD_PREDICTOR_MAX_DEPTH = "1"         # Recursive search depth for inline predictor (default: 1)
+$env:PSCUE_PCD_RECURSIVE_SEARCH = "true"         # Enable recursive filesystem search (default: true)
+$env:PSCUE_PCD_ENABLE_DOT_DIR_FILTER = "true"    # Filter cache/metadata directories (default: true)
+$env:PSCUE_PCD_CUSTOM_BLOCKLIST = ".myapp,temp"  # Additional patterns to filter (comma-separated)
 
 # Privacy & Security: Command filtering
 # BUILT-IN patterns (always active, cannot be disabled):
