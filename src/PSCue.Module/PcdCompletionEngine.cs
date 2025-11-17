@@ -208,6 +208,10 @@ public class PcdCompletionEngine
             if (!Directory.Exists(path))
                 continue;
 
+            // Filter out cache/metadata directories unless explicitly typed
+            if (ShouldFilterDirectory(path, wordToComplete))
+                continue;
+
             // Skip parent directories when user is typing an absolute path
             // Example: typing "pcd D:\source\datadog\doc" should not suggest "D:\source\datadog\"
             if (Path.IsPathRooted(wordToComplete) && !string.IsNullOrEmpty(wordToComplete))
@@ -305,6 +309,10 @@ public class PcdCompletionEngine
                 {
                     var dirName = Path.GetFileName(subDir);
                     if (string.IsNullOrEmpty(dirName))
+                        continue;
+
+                    // Filter out cache/metadata directories unless explicitly typed
+                    if (ShouldFilterDirectory(subDir, wordToComplete))
                         continue;
 
                     // Check if directory name matches the search pattern (prefix or fuzzy match)
@@ -407,6 +415,10 @@ public class PcdCompletionEngine
                 if (string.IsNullOrEmpty(dirName))
                     continue;
 
+                // Filter out cache/metadata directories unless explicitly typed
+                if (ShouldFilterDirectory(subDir, searchTerm))
+                    continue;
+
                 // Check if directory name matches
                 var matchScore = CalculateFuzzyMatchScore(dirName, searchTerm);
                 if (matchScore > 0.3) // Threshold for fuzzy match
@@ -434,6 +446,49 @@ public class PcdCompletionEngine
         {
             // Ignore access denied and other errors
         }
+    }
+
+    /// <summary>
+    /// Checks if a directory should be filtered out based on the blocklist.
+    /// Directories are filtered if:
+    /// 1. They match a blocklisted pattern, AND
+    /// 2. The user didn't explicitly type the pattern (e.g., typing ".claude" allows .claude results)
+    /// </summary>
+    /// <param name="directoryPath">Full path to the directory.</param>
+    /// <param name="userInput">The input string the user typed.</param>
+    /// <returns>True if the directory should be filtered out (not shown).</returns>
+    private static bool ShouldFilterDirectory(string directoryPath, string userInput)
+    {
+        var blocklist = PcdConfiguration.Blocklist;
+        if (blocklist.Count == 0)
+        {
+            return false; // Filtering disabled
+        }
+
+        var dirName = Path.GetFileName(directoryPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        if (string.IsNullOrEmpty(dirName))
+        {
+            return false;
+        }
+
+        // Check if directory matches any blocklisted pattern
+        foreach (var pattern in blocklist)
+        {
+            if (dirName.Equals(pattern, StringComparison.OrdinalIgnoreCase))
+            {
+                // Exception: Allow if user explicitly typed this pattern
+                // e.g., typing ".claude" should show .claude directories
+                if (!string.IsNullOrWhiteSpace(userInput) &&
+                    userInput.Contains(pattern, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false; // Don't filter - user explicitly wants this
+                }
+
+                return true; // Filter out
+            }
+        }
+
+        return false; // Not blocklisted
     }
 
     /// <summary>

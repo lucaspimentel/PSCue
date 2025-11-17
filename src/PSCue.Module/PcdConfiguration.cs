@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace PSCue.Module;
 
@@ -8,6 +10,28 @@ namespace PSCue.Module;
 /// </summary>
 public static class PcdConfiguration
 {
+    /// <summary>
+    /// Default blocklist of cache/metadata directories to filter out.
+    /// These directories clutter results and are rarely navigation targets.
+    /// </summary>
+    private static readonly string[] DefaultBlocklist =
+    {
+        ".codeium",     // Codeium cache
+        ".claude",      // Claude AI metadata
+        ".dotnet",      // .NET tools cache
+        ".nuget",       // NuGet package cache
+        ".git",         // Git internals (but .github is allowed)
+        ".vs",          // Visual Studio cache
+        ".vscode",      // VSCode cache (but .vscode/extensions might be useful)
+        ".idea",        // JetBrains IDE cache
+        "node_modules", // NPM packages
+        "bin",          // Build output
+        "obj",          // Build intermediate files
+        "target",       // Build output (Rust, Java)
+        "__pycache__",  // Python cache
+        ".pytest_cache" // Pytest cache
+    };
+
     /// <summary>
     /// Gets the frequency weight for frecency scoring.
     /// Environment variable: PSCUE_PCD_FREQUENCY_WEIGHT
@@ -62,6 +86,38 @@ public static class PcdConfiguration
     /// Default: true
     /// </summary>
     public static bool EnablePartialCommandPredictions => GetEnvBool("PSCUE_PARTIAL_COMMAND_PREDICTIONS", true);
+
+    /// <summary>
+    /// Gets whether cache/metadata directory filtering is enabled.
+    /// Environment variable: PSCUE_PCD_ENABLE_DOT_DIR_FILTER
+    /// Default: true
+    /// </summary>
+    public static bool EnableDotDirFilter => GetEnvBool("PSCUE_PCD_ENABLE_DOT_DIR_FILTER", true);
+
+    /// <summary>
+    /// Gets the combined blocklist (default + custom patterns).
+    /// Custom patterns can be specified via PSCUE_PCD_CUSTOM_BLOCKLIST (comma-separated).
+    /// </summary>
+    public static IReadOnlyList<string> Blocklist
+    {
+        get
+        {
+            if (!EnableDotDirFilter)
+            {
+                return Array.Empty<string>();
+            }
+
+            var customBlocklist = Environment.GetEnvironmentVariable("PSCUE_PCD_CUSTOM_BLOCKLIST");
+            if (string.IsNullOrWhiteSpace(customBlocklist))
+            {
+                return DefaultBlocklist;
+            }
+
+            // Combine default + custom patterns
+            var customPatterns = customBlocklist.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            return DefaultBlocklist.Concat(customPatterns).ToArray();
+        }
+    }
 
     /// <summary>
     /// Helper to read double from environment variable.

@@ -1043,4 +1043,134 @@ public class PcdEnhancedTests : IDisposable
     }
 
     #endregion
+
+    #region Cache/Metadata Directory Filtering Tests
+
+    [Fact]
+    public void GetSuggestions_FiltersOutCacheDirectories()
+    {
+        // Arrange - Create both normal and cache directories
+        var normalDir = CreateTempDirectory("my-project");
+        var cacheDir1 = CreateTempDirectory(".codeium");
+        var cacheDir2 = CreateTempDirectory("node_modules");
+        var cacheDir3 = CreateTempDirectory(".dotnet");
+
+        // Record usage for all directories
+        _graph.RecordUsage("cd", new[] { normalDir }, null);
+        _graph.RecordUsage("cd", new[] { cacheDir1 }, null);
+        _graph.RecordUsage("cd", new[] { cacheDir2 }, null);
+        _graph.RecordUsage("cd", new[] { cacheDir3 }, null);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Get suggestions without any specific filter
+        var suggestions = engine.GetSuggestions("", _testRootDir, 20);
+
+        // Assert - Cache directories should be filtered out
+        Assert.Contains(suggestions, s => s.DisplayPath.Contains("my-project", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(suggestions, s => s.DisplayPath.Contains(".codeium", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(suggestions, s => s.DisplayPath.Contains("node_modules", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(suggestions, s => s.DisplayPath.Contains(".dotnet", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void GetSuggestions_AllowsCacheDirectories_WhenExplicitlyTyped()
+    {
+        // Arrange - Create cache directory
+        var cacheDir = CreateTempDirectory(".claude");
+        _graph.RecordUsage("cd", new[] { cacheDir }, null);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Explicitly type ".claude" to search for it
+        var suggestions = engine.GetSuggestions(".claude", _testRootDir, 20);
+
+        // Assert - .claude should be included when explicitly typed
+        Assert.Contains(suggestions, s => s.DisplayPath.Contains(".claude", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void GetSuggestions_FiltersOutCacheDirectories_InFilesystemSearch()
+    {
+        // Arrange - Create cache directories directly in filesystem (not learned)
+        var normalDir = Path.Combine(_testRootDir, "normal-dir");
+        var cacheDir1 = Path.Combine(_testRootDir, ".git");
+        var cacheDir2 = Path.Combine(_testRootDir, "bin");
+
+        Directory.CreateDirectory(normalDir);
+        Directory.CreateDirectory(cacheDir1);
+        Directory.CreateDirectory(cacheDir2);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Search with partial input to trigger filesystem search
+        // Using "n" should find "normal-dir" but not cache directories
+        var suggestions = engine.GetSuggestions("n", _testRootDir, 20);
+
+        // Assert - Cache directories should be filtered even from filesystem search
+        var displayPaths = suggestions.Select(s => s.DisplayPath).ToList();
+        Assert.Contains(displayPaths, p => p.Contains("normal-dir", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(displayPaths, p => p.Contains(".git", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(displayPaths, p => p.EndsWith("bin" + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void GetSuggestions_FilteringCanBeDisabled()
+    {
+        // Arrange - Create cache directory
+        var cacheDir = CreateTempDirectory("obj");
+        _graph.RecordUsage("cd", new[] { cacheDir }, null);
+
+        // Set environment variable to disable filtering
+        Environment.SetEnvironmentVariable("PSCUE_PCD_ENABLE_DOT_DIR_FILTER", "false");
+
+        try
+        {
+            var engine = new PcdCompletionEngine(_graph);
+
+            // Act - Get suggestions with filtering disabled
+            var suggestions = engine.GetSuggestions("", _testRootDir, 20);
+
+            // Assert - Cache directory should be included when filtering is disabled
+            Assert.Contains(suggestions, s => s.DisplayPath.Contains("obj", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            // Cleanup - Re-enable filtering for other tests
+            Environment.SetEnvironmentVariable("PSCUE_PCD_ENABLE_DOT_DIR_FILTER", "true");
+        }
+    }
+
+    [Fact]
+    public void GetSuggestions_CustomBlocklist_FiltersAdditionalPatterns()
+    {
+        // Arrange - Create custom directory to block
+        var customDir = CreateTempDirectory("my-cache");
+        var normalDir = CreateTempDirectory("my-project");
+
+        _graph.RecordUsage("cd", new[] { customDir }, null);
+        _graph.RecordUsage("cd", new[] { normalDir }, null);
+
+        // Add custom pattern to blocklist
+        Environment.SetEnvironmentVariable("PSCUE_PCD_CUSTOM_BLOCKLIST", "my-cache,temp");
+
+        try
+        {
+            var engine = new PcdCompletionEngine(_graph);
+
+            // Act - Get suggestions
+            var suggestions = engine.GetSuggestions("", _testRootDir, 20);
+
+            // Assert - Custom blocked directory should be filtered
+            Assert.Contains(suggestions, s => s.DisplayPath.Contains("my-project", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(suggestions, s => s.DisplayPath.Contains("my-cache", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            // Cleanup
+            Environment.SetEnvironmentVariable("PSCUE_PCD_CUSTOM_BLOCKLIST", null);
+        }
+    }
+
+    #endregion
 }
