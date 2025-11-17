@@ -33,6 +33,9 @@ This document tracks active and planned work for PSCue. For architectural detail
   - PCD exact match priority: Exact path matches now always appear first (100× score boost)
   - PCD trailing separators: Directory paths consistently end with `\` in both tab completion and inline predictions
 
+**Next Up**:
+- Phase 21: PCD quality improvements (symlink deduplication, cache/metadata filtering, exact match boost, improved fuzzy matching)
+
 **Installation**:
 ```powershell
 irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-remote.ps1 | iex
@@ -365,6 +368,104 @@ public List<PredictionSuggestion> GetSuggestions(string inputString, int maxResu
 ✅ Database stores bound pairs
 ✅ Performance impact negligible
 ✅ 30 tests passing
+
+---
+
+### Phase 21: PCD Quality Improvements (Symlinks, Filtering, Match Quality)
+**Status**: Planned
+**Priority**: High
+**Estimated Effort**: 15-20 hours
+
+**Goal**: Fix PCD suggestion quality issues: symlink deduplication, cache/metadata directory filtering, exact match prioritization, and improved fuzzy matching.
+
+**Issues Identified**:
+1. **Symlink resolution causes duplicate suggestions**: Both real path (`D:\source\...`) and symlinked path (`C:\Users\lucas\source\...`) appear as separate entries
+2. **ICommandPredictor wrong ordering**: Fuzzy matches rank higher than exact substring matches (e.g., `dd-trace-dotnet-APMSVLS-58` before `dd-trace-dotnet`)
+3. **ArgumentCompleter includes cache/metadata noise**: `.codeium`, `.claude`, `.dotnet`, etc. clutter results
+4. **Fuzzy matching too permissive**: Unrelated directories match (e.g., `dd-trace-js` matches "dd-trace-dotnet")
+5. **No exact match boost**: Exact substring matches don't get prioritized over partial/fuzzy matches
+
+**Tasks**:
+
+1. **Phase 21.1: Symlink Resolution & Deduplication** (~4 hours)
+   - [ ] Add symlink resolution in path normalization (`PcdCompletionEngine.cs`)
+   - [ ] Use `Directory.ResolveLinkTarget()` or `FileInfo.LinkTarget` to resolve symlinks
+   - [ ] Normalize all paths to real paths before deduplication
+   - [ ] Store and compare paths as resolved real paths
+   - [ ] Test on Windows with symlinks, junctions, and directory links
+   - [ ] Add regression test for user's scenario: `C:\Users\lucas\source` → `D:\source` symlink
+
+2. **Phase 21.2: Cache/Metadata Directory Filtering** (~4 hours)
+   - [ ] Add blocklist of cache/metadata patterns in `PcdConfiguration.cs`:
+     - `.codeium/`, `.claude/`, `.dotnet/`, `.nuget/`, `.git/` (internals only, not `.github/`)
+     - `node_modules/`, `bin/`, `obj/`, `target/` (build artifacts)
+   - [ ] Filter out blocklisted directories in `PcdCompletionEngine` UNLESS user explicitly typed pattern
+   - [ ] Detection: Check if input string contains blocklisted segment (e.g., ".claude" in input allows `.claude/` results)
+   - [ ] Add configuration: `$env:PSCUE_PCD_ENABLE_DOT_DIR_FILTER` (default: true)
+   - [ ] Add configuration: `$env:PSCUE_PCD_CUSTOM_BLOCKLIST` (comma-separated patterns, optional)
+   - [ ] Test filtering behavior (both tab and predictor)
+   - [ ] Test explicit typing override (typing `.claude` shows `.claude/` directories)
+
+3. **Phase 21.3: Exact Match Scoring Boost** (~3 hours)
+   - [ ] Add exact substring match detection in `PcdCompletionEngine.cs` scoring logic
+   - [ ] Apply significant boost (e.g., +10.0 or 3x multiplier) when:
+     - Directory name exactly equals search term
+     - Directory path ends with exact search term (e.g., `D:\foo\bar\dd-trace-dotnet`)
+   - [ ] Ensure exact matches always rank above fuzzy matches
+   - [ ] Add scoring configuration: `$env:PSCUE_PCD_EXACT_MATCH_BOOST` (default: 3.0)
+   - [ ] Add regression test: "dd-trace-dotnet" should rank `dd-trace-dotnet` above `dd-trace-dotnet-APMSVLS-58`
+   - [ ] Test with various scenarios (exact name, exact suffix, partial match)
+
+4. **Phase 21.4: Improve Fuzzy Matching Quality** (~3 hours)
+   - [ ] Tighten fuzzy matching criteria in `PcdCompletionEngine.cs`:
+     - Option A: Reduce acceptable Levenshtein distance threshold
+     - Option B: Require minimum substring match percentage (e.g., 70% of search term must match)
+     - Option C: Reject matches that only share a prefix if search term is long (e.g., >10 chars)
+   - [ ] Add configuration: `$env:PSCUE_PCD_FUZZY_MIN_MATCH_PCT` (default: 0.7 = 70%)
+   - [ ] Test that `dd-trace-js` no longer matches "dd-trace-dotnet"
+   - [ ] Test that legitimate typos still match (e.g., "dd-trac-dotnet" matches "dd-trace-dotnet")
+   - [ ] Balance precision vs recall (don't break valid fuzzy matches)
+
+5. **Phase 21.5: Integration Testing** (~2 hours)
+   - [ ] Create comprehensive test suite for user's scenario:
+     - Input: "pcd dd-trace-dotnet" from `C:\Users\lucas`
+     - Expected top results: `D:\source\datadog\dd-trace-dotnet`, `D:\source\datadog\dd-trace-dotnet-APMSVLS-58` (in that order)
+     - Expected filtered out: `.codeium`, `.claude`, `.dotnet`, `dd-trace-js`
+   - [ ] Test symlink deduplication (no duplicates for symlinked paths)
+   - [ ] Test exact match prioritization (predictor + tab completion)
+   - [ ] Test cache directory filtering (with and without explicit typing)
+   - [ ] Performance regression tests (ensure <50ms tab, <10ms predictor)
+   - [ ] Cross-platform tests (Windows symlinks, Linux symlinks)
+
+6. **Phase 21.6: Documentation Updates** (~1 hour)
+   - [ ] Update `CLAUDE.md`: Document new PCD configuration options
+   - [ ] Update `CLAUDE.md`: Document symlink resolution behavior
+   - [ ] Update `CLAUDE.md`: Document cache/metadata filtering rules
+   - [ ] Update `README.md`: Configuration section with new env vars
+   - [ ] Add troubleshooting entry for symlink duplicates
+
+**New Configuration Variables**:
+```powershell
+# Cache/metadata filtering (Phase 21.2)
+$env:PSCUE_PCD_ENABLE_DOT_DIR_FILTER = "true"      # Default: true
+$env:PSCUE_PCD_CUSTOM_BLOCKLIST = ".myapp,.temp"   # Optional: additional patterns
+
+# Match quality scoring (Phase 21.3, 21.4)
+$env:PSCUE_PCD_EXACT_MATCH_BOOST = "3.0"           # Default: 3.0 (multiply score by 3)
+$env:PSCUE_PCD_FUZZY_MIN_MATCH_PCT = "0.7"         # Default: 0.7 (70% of search term must match)
+```
+
+**Success Criteria**:
+- ✅ No duplicate suggestions for symlinked paths
+- ✅ Exact matches rank higher than fuzzy matches
+- ✅ Cache/metadata directories filtered by default
+- ✅ Fuzzy matching rejects unrelated directories
+- ✅ Explicit typing overrides blocklist filtering
+- ✅ Performance targets maintained (<50ms tab, <10ms predictor)
+- ✅ All tests passing
+- ✅ Cross-platform support (Windows + Linux symlinks)
+
+**Dependencies**: Phase 19.0 (PCD shared configuration infrastructure)
 
 ---
 
