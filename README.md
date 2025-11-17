@@ -12,6 +12,7 @@
 - **🤖 ML-Based Predictions**: N-gram sequence learning predicts your next command (e.g., `git add` → `git commit`)
 - **🔄 Workflow Learning**: Automatically learns command sequences and predicts next command based on your usage patterns
 - **📁 Smart Directory Navigation**: `pcd` command with intelligent tab completion based on your cd history
+- **🔗 Symlink Deduplication**: Automatically resolves symlinks, junctions, and directory links to prevent duplicate suggestions
 - **⚡ PowerShell Module Functions**: Native PowerShell functions for learning, database, workflow, and navigation management
 - **🧠 Universal Learning System**: Learns from ALL commands (not just pre-configured ones) and adapts to your workflow patterns
 - **🔒 Privacy & Security**: Built-in sensitive data detection - never learns commands with API keys, passwords, or tokens

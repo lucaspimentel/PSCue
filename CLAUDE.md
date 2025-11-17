@@ -10,7 +10,8 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 - **Multi-Word Suggestions**: Shows common argument combinations (e.g., "git checkout master")
 - **Workflow Learning**: Learns command sequences and predicts next command based on usage patterns
 - **Cross-Session Persistence**: SQLite database stores learned data across sessions
-- **Directory-Aware Navigation**: Smart cd/Set-Location suggestions with path normalization
+- **Directory-Aware Navigation**: Smart cd/Set-Location suggestions with path normalization and symlink resolution
+- **Symlink Deduplication**: Resolves symlinks, junctions, and directory links to prevent duplicate suggestions (Phase 21.1)
 - **ML Sequence Prediction**: N-gram based next-command prediction
 - **Privacy Protection**: Filters sensitive data (passwords, tokens, keys)
 - **PowerShell Module Functions**: 14 functions for learning, database, workflow management, and smart navigation (no IPC overhead)
@@ -62,14 +63,14 @@ src/
 - `src/PSCue.Module/ModuleInitializer.cs`: Module lifecycle, subsystem registration
 - `src/PSCue.Module/PSCueModule.cs`: Static module state container for PowerShell functions
 - `src/PSCue.Module/CommandParser.cs`: Command line parser for parameter-value binding (Phase 20)
-- `src/PSCue.Module/ArgumentGraph.cs`: Knowledge graph with path normalization + argument sequences + parameter tracking
+- `src/PSCue.Module/ArgumentGraph.cs`: Knowledge graph with path normalization + symlink resolution + argument sequences + parameter tracking (Phase 21.1)
 - `src/PSCue.Module/GenericPredictor.cs`: Context-aware suggestions (values only after parameters, multi-word support)
 - `src/PSCue.Module/CommandPredictor.cs`: Hybrid predictor with multi-word Combine support
 - `src/PSCue.Module/SequencePredictor.cs`: N-gram ML prediction for command sequences
 - `src/PSCue.Module/WorkflowLearner.cs`: Dynamic workflow learning with timing-aware predictions
 - `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence with 10 tables
-- `src/PSCue.Module/PcdCompletionEngine.cs`: Enhanced PCD algorithm with fuzzy matching, frecency scoring, filesystem search (Phase 17.6 + 17.9 + 19.0)
-- `src/PSCue.Module/PcdConfiguration.cs`: Shared configuration for PCD (tab completion + predictor) (Phase 19.0)
+- `src/PSCue.Module/PcdCompletionEngine.cs`: Enhanced PCD algorithm with fuzzy matching, frecency scoring, filesystem search, symlink resolution (Phases 17.6 + 17.9 + 19.0 + 21.1)
+- `src/PSCue.Module/PcdConfiguration.cs`: Shared configuration for PCD (tab completion + predictor) (Phase 19.0 + 21.2)
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
 - `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system
 - `module/Functions/DatabaseManagement.ps1`: PowerShell functions for database queries
@@ -82,7 +83,7 @@ src/
 - `test/PSCue.Module.Tests/SequencePredictorTests.cs`: N-gram predictor unit tests
 - `test/PSCue.Module.Tests/WorkflowLearnerTests.cs`: Workflow learning tests (Phase 18.1)
 - `test/PSCue.Module.Tests/PCDTests.cs`: Smart directory navigation tests (Phase 17.5)
-- `test/PSCue.Module.Tests/PcdEnhancedTests.cs`: Enhanced PCD algorithm tests with regression tests (Phase 17.6 + 17.9)
+- `test/PSCue.Module.Tests/PcdEnhancedTests.cs`: Enhanced PCD algorithm tests with symlink resolution (Phases 17.6 + 17.9 + 21.1 + 21.2)
 - `test/PSCue.Module.Tests/PersistenceManagerTests.cs`: Persistence unit tests
 - `test/PSCue.Module.Tests/PersistenceConcurrencyTests.cs`: Multi-session concurrency tests
 - `test/PSCue.Module.Tests/PersistenceIntegrationTests.cs`: End-to-end integration tests
@@ -232,6 +233,7 @@ public void TestLearningAccess()
 6. **Initialize methods must record baseline**: When adding new `Initialize*` methods in ArgumentGraph (used by PersistenceManager during load), always record the loaded values in `_baseline` dictionary. Without baseline tracking, delta calculations will return full counts, causing values to be added again on save, leading to exponential growth and eventual overflow.
 7. **PCD exact match not first**: When frecency scoring dominates match quality, use a boost multiplier for exact matches. Small match score components (0.1) can be overwhelmed by frequency/recency scores. Solution: Apply 100× boost for exact matches (matchScore >= 1.0) to ensure they always rank first.
 8. **Inconsistent trailing separators**: Directory completions must have trailing separators in BOTH tab completion (ArgumentCompleter) and inline predictions (ICommandPredictor). Check both code paths when modifying directory suggestion logic.
+9. **Path normalization requires workingDirectory**: When calling `ArgumentGraph.RecordUsage()` for navigation commands (cd, sl, chdir), MUST provide the `workingDirectory` parameter. If null/empty, path normalization (including symlink resolution) is skipped. This causes duplicate entries for symlinked paths. Always pass a valid working directory for proper deduplication.
 
 ## Documentation
 - **Implementation status**:

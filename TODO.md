@@ -29,12 +29,15 @@ This document tracks active and planned work for PSCue. For architectural detail
 - ✅ Phase 17.9: PCD completion improvements - archived to docs/COMPLETED.md
 - ✅ Phase 19.0: PCD precedence review and optimization - archived to docs/COMPLETED.md
 - ✅ Phase 20: Parameter-value binding - archived to docs/COMPLETED.md
+- ✅ Phase 21.1: Symlink resolution & deduplication - COMPLETE
+- ✅ Phase 21.2: Cache/metadata directory filtering - COMPLETE
 - **Bug Fixes**:
   - PCD exact match priority: Exact path matches now always appear first (100× score boost)
   - PCD trailing separators: Directory paths consistently end with `\` in both tab completion and inline predictions
 
 **Next Up**:
-- Phase 21: PCD quality improvements (symlink deduplication, cache/metadata filtering, exact match boost, improved fuzzy matching)
+- Phase 21.3: Exact match scoring boost
+- Phase 21.4: Improved fuzzy matching quality
 
 **Installation**:
 ```powershell
@@ -46,9 +49,9 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-r
 ## Planned Work
 
 ### Phase 21: PCD Quality Improvements (Symlinks, Filtering, Match Quality)
-**Status**: Planned
+**Status**: In Progress (2 of 6 sub-phases complete)
 **Priority**: High
-**Estimated Effort**: 15-20 hours
+**Estimated Effort**: 15-20 hours (10 hours actual so far)
 
 **Goal**: Fix PCD suggestion quality issues: symlink deduplication, cache/metadata directory filtering, exact match prioritization, and improved fuzzy matching.
 
@@ -61,13 +64,16 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-r
 
 **Tasks**:
 
-1. **Phase 21.1: Symlink Resolution & Deduplication** (~4 hours)
-   - [ ] Add symlink resolution in path normalization (`PcdCompletionEngine.cs`)
-   - [ ] Use `Directory.ResolveLinkTarget()` or `FileInfo.LinkTarget` to resolve symlinks
-   - [ ] Normalize all paths to real paths before deduplication
-   - [ ] Store and compare paths as resolved real paths
-   - [ ] Test on Windows with symlinks, junctions, and directory links
-   - [ ] Add regression test for user's scenario: `C:\Users\lucas\source` → `D:\source` symlink
+1. **Phase 21.1: Symlink Resolution & Deduplication** ✅ **COMPLETE** (~6 hours actual)
+   - [x] Add symlink resolution in path normalization (`ArgumentGraph.cs` and `PcdCompletionEngine.cs`)
+   - [x] Implemented `ResolveSymlinkFullPath()` method that walks path components and resolves reparse points
+   - [x] Normalize all paths to real paths before deduplication
+   - [x] Store and compare paths as resolved real paths in ArgumentGraph
+   - [x] Tested on Windows with symlinks, junctions, and directory links
+   - [x] Added comprehensive test suite (10 symlink tests, all passing)
+   - [x] Added regression test for user's scenario: `C:\Users\lucas\source` → `D:\source` symlink
+   - **Key implementation**: Walk path components from root, checking each for ReparsePoint attribute and resolving via `LinkTarget`
+   - **Critical fix**: Must provide `workingDirectory` parameter to `RecordUsage()` for path normalization to run
 
 2. **Phase 21.2: Cache/Metadata Directory Filtering** ✅ **COMPLETE** (~4 hours actual)
    - [x] Add blocklist of cache/metadata patterns in `PcdConfiguration.cs`:
@@ -133,14 +139,14 @@ $env:PSCUE_PCD_FUZZY_MIN_MATCH_PCT = "0.7"         # Default: 0.7 (70% of search
 ```
 
 **Success Criteria**:
-- ✅ No duplicate suggestions for symlinked paths
-- ✅ Exact matches rank higher than fuzzy matches
-- ✅ Cache/metadata directories filtered by default
-- ✅ Fuzzy matching rejects unrelated directories
-- ✅ Explicit typing overrides blocklist filtering
-- ✅ Performance targets maintained (<50ms tab, <10ms predictor)
-- ✅ All tests passing
-- ✅ Cross-platform support (Windows + Linux symlinks)
+- ✅ No duplicate suggestions for symlinked paths (Phase 21.1 - COMPLETE)
+- ⏳ Exact matches rank higher than fuzzy matches (Phase 21.3 - Planned)
+- ✅ Cache/metadata directories filtered by default (Phase 21.2 - COMPLETE)
+- ⏳ Fuzzy matching rejects unrelated directories (Phase 21.4 - Planned)
+- ✅ Explicit typing overrides blocklist filtering (Phase 21.2 - COMPLETE)
+- ✅ Performance targets maintained (<50ms tab, <10ms predictor) (Phases 21.1 & 21.2 - COMPLETE)
+- ✅ All tests passing (Phase 21.1 & 21.2 - COMPLETE)
+- ✅ Cross-platform support (Windows + Linux symlinks) (Phase 21.1 - COMPLETE)
 
 **Dependencies**: Phase 19.0 (PCD shared configuration infrastructure)
 
