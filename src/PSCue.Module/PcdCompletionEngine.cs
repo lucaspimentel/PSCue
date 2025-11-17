@@ -91,9 +91,16 @@ public class PcdCompletionEngine
             suggestions.AddRange(recursiveSuggestions);
         }
 
-        // Normalize paths: ensure DisplayPath has trailing separator for consistency
+        // Normalize paths: resolve symlinks and ensure DisplayPath has trailing separator for consistency
         foreach (var suggestion in suggestions)
         {
+            // Resolve symlinks to real paths for proper deduplication
+            var resolvedPath = ResolveSymlink(suggestion.DisplayPath);
+            if (resolvedPath != null)
+            {
+                suggestion.DisplayPath = resolvedPath;
+            }
+
             if (!suggestion.DisplayPath.EndsWith(Path.DirectorySeparatorChar) &&
                 !suggestion.DisplayPath.EndsWith(Path.AltDirectorySeparatorChar))
             {
@@ -101,7 +108,7 @@ public class PcdCompletionEngine
             }
         }
 
-        // Deduplicate by DisplayPath (normalized full path) and sort by score
+        // Deduplicate by DisplayPath (normalized full path with symlinks resolved) and sort by score
         return suggestions
             .GroupBy(s => s.DisplayPath, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.OrderByDescending(s => s.Score).First())
@@ -766,6 +773,79 @@ public class PcdCompletionEngine
             return MatchType.Fuzzy;
 
         return MatchType.Learned;
+    }
+
+    /// <summary>
+    /// Resolves symlinks, junctions, and directory links to their real target paths.
+    /// Handles both the directory itself and any symlinked parent directories in the path.
+    /// Returns the fully resolved path, or null if resolution fails.
+    /// </summary>
+    private static string? ResolveSymlink(string path)
+    {
+        try
+        {
+            if (!Directory.Exists(path))
+                return null;
+
+            // Use Path.GetFullPath to get the absolute path first
+            var realPath = Path.GetFullPath(path);
+
+            // Walk from the root down, resolving symlinks as we go
+            // This ensures we resolve symlinks in parent directories
+            var parts = realPath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+            var currentPath = string.Empty;
+
+            // Handle drive letter on Windows (e.g., "C:")
+            if (parts.Length > 0 && parts[0].EndsWith(":"))
+            {
+                currentPath = parts[0] + Path.DirectorySeparatorChar;
+                parts = parts.Skip(1).ToArray();
+            }
+            else if (realPath.StartsWith(Path.DirectorySeparatorChar.ToString()))
+            {
+                // Unix-style absolute path
+                currentPath = Path.DirectorySeparatorChar.ToString();
+            }
+
+            foreach (var part in parts)
+            {
+                currentPath = Path.Combine(currentPath, part);
+
+                if (Directory.Exists(currentPath))
+                {
+                    var dirInfo2 = new DirectoryInfo(currentPath);
+
+                    // Check if this component is a symlink
+                    if ((dirInfo2.Attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint)
+                    {
+                        var target = dirInfo2.LinkTarget;
+                        if (!string.IsNullOrEmpty(target))
+                        {
+                            // Make target absolute if relative
+                            if (!Path.IsPathRooted(target))
+                            {
+                                var parent = dirInfo2.Parent?.FullName;
+                                if (!string.IsNullOrEmpty(parent))
+                                {
+                                    target = Path.GetFullPath(Path.Combine(parent, target));
+                                }
+                            }
+
+                            // Replace current path with resolved target
+                            currentPath = target;
+                        }
+                    }
+                }
+            }
+
+            // Return the resolved path (different from original means symlink was resolved)
+            return currentPath.Equals(realPath, StringComparison.OrdinalIgnoreCase) ? null : currentPath;
+        }
+        catch
+        {
+            // Resolution failed - caller will use original path
+            return null;
+        }
     }
 }
 

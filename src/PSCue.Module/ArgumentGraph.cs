@@ -488,6 +488,7 @@ public class ArgumentGraph
     /// <summary>
     /// Normalizes a single path to absolute form.
     /// Handles ~, relative paths (., .., no prefix), and absolute paths.
+    /// Resolves symlinks, junctions, and directory links to real paths for deduplication.
     /// Returns null if the path is invalid.
     /// </summary>
     private static string? NormalizePath(string path, string workingDirectory)
@@ -505,19 +506,99 @@ public class ArgumentGraph
             }
 
             // If already absolute, just clean it up
+            string fullPath;
             if (Path.IsPathRooted(path))
             {
-                return Path.GetFullPath(path);
+                fullPath = Path.GetFullPath(path);
+            }
+            else
+            {
+                // Relative path - resolve against working directory
+                var combined = Path.Combine(workingDirectory, path);
+                fullPath = Path.GetFullPath(combined);
             }
 
-            // Relative path - resolve against working directory
-            var combined = Path.Combine(workingDirectory, path);
-            return Path.GetFullPath(combined);
+            // Resolve symlinks to real paths for deduplication
+            // Always try to resolve, even if the path itself isn't a symlink (parent directories might be)
+            var realPath = ResolveSymlinkFullPath(fullPath);
+            return realPath;
         }
         catch
         {
             // Path normalization failed - return null
             return null;
+        }
+    }
+
+    /// <summary>
+    /// Resolves symlinks, junctions, and directory links to their real target paths.
+    /// Handles both the directory itself and any symlinked parent directories in the path.
+    /// Returns the fully resolved path, or the original path if no symlinks are involved.
+    /// </summary>
+    private static string ResolveSymlinkFullPath(string path)
+    {
+        try
+        {
+            if (!Directory.Exists(path))
+                return path; // Path doesn't exist, return as-is
+
+            // Use Path.GetFullPath to get the absolute path first
+            var realPath = Path.GetFullPath(path);
+
+            // Walk from the root down, resolving symlinks as we go
+            // This ensures we resolve symlinks in parent directories
+            var parts = realPath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+            var currentPath = string.Empty;
+
+            // Handle drive letter on Windows (e.g., "C:")
+            if (parts.Length > 0 && parts[0].EndsWith(":"))
+            {
+                currentPath = parts[0] + Path.DirectorySeparatorChar;
+                parts = parts.Skip(1).ToArray();
+            }
+            else if (realPath.StartsWith(Path.DirectorySeparatorChar.ToString()))
+            {
+                // Unix-style absolute path
+                currentPath = Path.DirectorySeparatorChar.ToString();
+            }
+
+            foreach (var part in parts)
+            {
+                currentPath = Path.Combine(currentPath, part);
+
+                if (Directory.Exists(currentPath))
+                {
+                    var dirInfo2 = new DirectoryInfo(currentPath);
+
+                    // Check if this component is a symlink
+                    if ((dirInfo2.Attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint)
+                    {
+                        var target = dirInfo2.LinkTarget;
+                        if (!string.IsNullOrEmpty(target))
+                        {
+                            // Make target absolute if relative
+                            if (!Path.IsPathRooted(target))
+                            {
+                                var parent = dirInfo2.Parent?.FullName;
+                                if (!string.IsNullOrEmpty(parent))
+                                {
+                                    target = Path.GetFullPath(Path.Combine(parent, target));
+                                }
+                            }
+
+                            // Replace current path with resolved target
+                            currentPath = target;
+                        }
+                    }
+                }
+            }
+
+            return currentPath;
+        }
+        catch
+        {
+            // Resolution failed - return original path
+            return path;
         }
     }
 

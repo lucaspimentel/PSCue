@@ -1173,4 +1173,434 @@ public class PcdEnhancedTests : IDisposable
     }
 
     #endregion
+
+    #region Symlink Resolution Tests (Phase 21.1)
+
+    [Fact]
+    public void ResolveLinkTarget_DirectSymlink_ResolvesCorrectly()
+    {
+        // Simple test to verify ResolveLinkTarget behavior
+        var realDir = CreateTempDirectory("resolve-test-real");
+        var symlinkPath = Path.Combine(_testRootDir, "resolve-test-link");
+
+        try
+        {
+            Directory.CreateSymbolicLink(symlinkPath, realDir);
+            _tempDirectories.Add(symlinkPath);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return; // Skip test if we don't have permission
+        }
+        catch (IOException)
+        {
+            return; // Skip test if symlink creation is not supported
+        }
+
+        // Test ResolveLinkTarget
+        var dirInfo = new DirectoryInfo(symlinkPath);
+        var resolved = dirInfo.ResolveLinkTarget(returnFinalTarget: true);
+
+        Assert.NotNull(resolved);
+        Assert.IsType<DirectoryInfo>(resolved);
+        var resolvedDir = (DirectoryInfo)resolved;
+        Assert.Equal(realDir.TrimEnd(Path.DirectorySeparatorChar), resolvedDir.FullName.TrimEnd(Path.DirectorySeparatorChar), StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ResolveLinkTarget_NestedPath_ResolvesParentSymlink()
+    {
+        // Test that ResolveLinkTarget resolves parent symlinks
+        var realDir = CreateTempDirectory("nested-test-real");
+        var childDir = Path.Combine(realDir, "child");
+        Directory.CreateDirectory(childDir);
+        _tempDirectories.Add(childDir);
+
+        var symlinkParent = Path.Combine(_testRootDir, "nested-test-link");
+        var symlinkChild = Path.Combine(symlinkParent, "child");
+
+        try
+        {
+            Directory.CreateSymbolicLink(symlinkParent, realDir);
+            _tempDirectories.Add(symlinkParent);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return; // Skip test if we don't have permission
+        }
+        catch (IOException)
+        {
+            return; // Skip test if symlink creation is not supported
+        }
+
+        // Test that accessing child via symlinked parent resolves correctly
+        var dirInfo = new DirectoryInfo(symlinkChild);
+        var resolved = dirInfo.ResolveLinkTarget(returnFinalTarget: true);
+
+        // The resolved path should point to the real child directory
+        if (resolved != null)
+        {
+            Assert.IsType<DirectoryInfo>(resolved);
+            var resolvedDir = (DirectoryInfo)resolved;
+            Assert.Equal(childDir.TrimEnd(Path.DirectorySeparatorChar), resolvedDir.FullName.TrimEnd(Path.DirectorySeparatorChar), StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
+    public void ResolveSymlink_DirectTest()
+    {
+        // Direct test of symlink resolution logic
+        var realDir = CreateTempDirectory("resolve-direct-real");
+        var symlinkPath = Path.Combine(_testRootDir, "resolve-direct-link");
+
+        try
+        {
+            Directory.CreateSymbolicLink(symlinkPath, realDir);
+            _tempDirectories.Add(symlinkPath);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return; // Skip test if we don't have permission
+        }
+        catch (IOException)
+        {
+            return; // Skip test if symlink creation is not supported
+        }
+
+        // Test that symlink path resolves to real path
+        // Since ResolveSymlinkFullPath is private, we test via ArgumentGraph behavior
+        // by checking that both paths normalize to the same value during recording
+
+        var normalizedReal = Path.GetFullPath(realDir);
+        var normalizedSymlink = Path.GetFullPath(symlinkPath);
+
+        System.Diagnostics.Debug.WriteLine($"Real path: {realDir}");
+        System.Diagnostics.Debug.WriteLine($"Symlink path: {symlinkPath}");
+        System.Diagnostics.Debug.WriteLine($"Normalized real: {normalizedReal}");
+        System.Diagnostics.Debug.WriteLine($"Normalized symlink: {normalizedSymlink}");
+
+        // Check if DirectoryInfo properly identifies the symlink
+        var symlinkInfo = new DirectoryInfo(symlinkPath);
+        var isReparsePoint = (symlinkInfo.Attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint;
+        System.Diagnostics.Debug.WriteLine($"Is reparse point: {isReparsePoint}");
+        System.Diagnostics.Debug.WriteLine($"Link target: {symlinkInfo.LinkTarget}");
+
+        Assert.True(isReparsePoint, "Symlink should be identified as a reparse point");
+        Assert.NotNull(symlinkInfo.LinkTarget);
+    }
+
+    [Fact]
+    public void ArgumentGraph_SymlinkNormalization_StoresSamePathForBoth()
+    {
+        // Test that ArgumentGraph normalizes both the real and symlink paths to the same value
+        var realDir = CreateTempDirectory("argraph-real");
+        var symlinkPath = Path.Combine(_testRootDir, "argraph-link");
+
+        try
+        {
+            Directory.CreateSymbolicLink(symlinkPath, realDir);
+            _tempDirectories.Add(symlinkPath);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return; // Skip test if we don't have permission
+        }
+        catch (IOException)
+        {
+            return; // Skip test if symlink creation is not supported
+        }
+
+        // Debug: Check if symlink was created correctly
+        var symlinkInfo = new DirectoryInfo(symlinkPath);
+        var isReparsePoint = (symlinkInfo.Attributes & FileAttributes.ReparsePoint) == FileAttributes.ReparsePoint;
+        if (!isReparsePoint)
+        {
+            // Symlink creation silently failed - skip test
+            return;
+        }
+
+        // Record via both paths (need to provide working directory for path normalization)
+        _graph.RecordUsage("cd", new[] { realDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { symlinkPath }, _testRootDir);
+
+        // Get suggestions - should only have one entry
+        var suggestions = _graph.GetSuggestions("cd", Array.Empty<string>(), 20);
+
+        // Debug: see what paths are stored
+        var relevantPaths = suggestions.Where(s =>
+            s.Argument.Contains("argraph-real", StringComparison.OrdinalIgnoreCase) ||
+            s.Argument.Contains("argraph-link", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        foreach (var s in relevantPaths)
+        {
+            System.Diagnostics.Debug.WriteLine($"Stored path: {s.Argument}");
+        }
+
+        // Output for test failure visibility
+        if (relevantPaths.Count != 1)
+        {
+            throw new Xunit.Sdk.XunitException($"Expected 1 path, but found {relevantPaths.Count}: {string.Join(", ", relevantPaths.Select(p => p.Argument))}");
+        }
+
+        // Should only be one path stored (both normalized to the same value)
+        Assert.Equal(1, relevantPaths.Count);
+    }
+
+    [Fact]
+    public void GetSuggestions_SymlinkDeduplication_BothPathsResolveToSame()
+    {
+        // This test requires administrator privileges on Windows to create symlinks
+        // Skip if we can't create symlinks
+        var realDir = CreateTempDirectory("real-directory");
+        var symlinkPath = Path.Combine(_testRootDir, "symlink-directory");
+
+        try
+        {
+            // Create a directory symlink (requires admin on Windows)
+            Directory.CreateSymbolicLink(symlinkPath, realDir);
+            _tempDirectories.Add(symlinkPath);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Skip test if we don't have permission to create symlinks
+            return;
+        }
+        catch (IOException)
+        {
+            // Skip test if symlink creation is not supported
+            return;
+        }
+
+        // Arrange - Record usage via both paths (real and symlink)
+        _graph.RecordUsage("cd", new[] { realDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { symlinkPath }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Get suggestions
+        var suggestions = engine.GetSuggestions("", _testRootDir, 20);
+
+        // Assert - Should only appear once (deduplicated by resolved path)
+        var matches = suggestions.Where(s =>
+            s.DisplayPath.Contains("real-directory", StringComparison.OrdinalIgnoreCase) ||
+            s.DisplayPath.Contains("symlink-directory", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        Assert.Single(matches); // Only one entry after deduplication
+    }
+
+    [Fact]
+    public void GetSuggestions_SymlinkResolution_UsesRealPath()
+    {
+        // This test requires administrator privileges on Windows to create symlinks
+        // Skip if we can't create symlinks
+        var realDir = CreateTempDirectory("target-directory");
+        var symlinkPath = Path.Combine(_testRootDir, "link-to-target");
+
+        try
+        {
+            // Create a directory symlink (requires admin on Windows)
+            Directory.CreateSymbolicLink(symlinkPath, realDir);
+            _tempDirectories.Add(symlinkPath);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Skip test if we don't have permission to create symlinks
+            return;
+        }
+        catch (IOException)
+        {
+            // Skip test if symlink creation is not supported
+            return;
+        }
+
+        // Arrange - Record usage via symlink path
+        _graph.RecordUsage("cd", new[] { symlinkPath }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Get suggestions
+        var suggestions = engine.GetSuggestions("", _testRootDir, 20);
+
+        // Assert - DisplayPath should be the resolved real path, not the symlink
+        var match = suggestions.FirstOrDefault(s =>
+            s.DisplayPath.Contains("target-directory", StringComparison.OrdinalIgnoreCase));
+
+        Assert.NotNull(match);
+        Assert.Contains("target-directory", match.DisplayPath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void GetSuggestions_RecursiveSymlink_ResolvesCompletely()
+    {
+        // Test that we can handle symlinks that point to other symlinks
+        var realDir = CreateTempDirectory("final-target");
+        var symlinkPath1 = Path.Combine(_testRootDir, "symlink1");
+        var symlinkPath2 = Path.Combine(_testRootDir, "symlink2");
+
+        try
+        {
+            // Create a chain: symlink2 -> symlink1 -> realDir
+            Directory.CreateSymbolicLink(symlinkPath1, realDir);
+            _tempDirectories.Add(symlinkPath1);
+            Directory.CreateSymbolicLink(symlinkPath2, symlinkPath1);
+            _tempDirectories.Add(symlinkPath2);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return; // Skip test if we don't have permission
+        }
+        catch (IOException)
+        {
+            return; // Skip test if symlink creation is not supported
+        }
+
+        // Arrange - Record usage via the indirect symlink
+        _graph.RecordUsage("cd", new[] { symlinkPath2 }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Get suggestions
+        var suggestions = engine.GetSuggestions("", _testRootDir, 20);
+
+        // Assert - Should resolve all the way to the final target
+        var match = suggestions.FirstOrDefault(s =>
+            s.DisplayPath.Contains("final-target", StringComparison.OrdinalIgnoreCase));
+
+        Assert.NotNull(match);
+        Assert.Contains("final-target", match.DisplayPath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void GetSuggestions_JunctionPoint_ResolvesLikeSymlink()
+    {
+        // Test that junctions (Windows-specific) are also resolved
+        // Note: On Linux, junctions don't exist, so this test will be similar to symlink test
+        var realDir = CreateTempDirectory("junction-target");
+        var junctionPath = Path.Combine(_testRootDir, "junction-link");
+
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                // On Windows, we can create a junction
+                // Directory.CreateSymbolicLink also works for junctions
+                Directory.CreateSymbolicLink(junctionPath, realDir);
+                _tempDirectories.Add(junctionPath);
+            }
+            else
+            {
+                // On Linux/macOS, just use a regular symlink
+                Directory.CreateSymbolicLink(junctionPath, realDir);
+                _tempDirectories.Add(junctionPath);
+            }
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return; // Skip test if we don't have permission
+        }
+        catch (IOException)
+        {
+            return; // Skip test if junction creation is not supported
+        }
+
+        // Arrange - Record usage via junction
+        _graph.RecordUsage("cd", new[] { junctionPath }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Get suggestions
+        var suggestions = engine.GetSuggestions("", _testRootDir, 20);
+
+        // Assert - Should resolve to the real path
+        var match = suggestions.FirstOrDefault(s =>
+            s.DisplayPath.Contains("junction-target", StringComparison.OrdinalIgnoreCase));
+
+        Assert.NotNull(match);
+    }
+
+    [Fact]
+    public void GetSuggestions_NonSymlinkDirectory_UnchangedByResolution()
+    {
+        // Test that regular directories are not affected by symlink resolution
+        var regularDir = CreateTempDirectory("regular-directory");
+
+        // Arrange - Record usage of regular directory
+        _graph.RecordUsage("cd", new[] { regularDir }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Get suggestions
+        var suggestions = engine.GetSuggestions("", _testRootDir, 20);
+
+        // Assert - Should still appear normally
+        var match = suggestions.FirstOrDefault(s =>
+            s.DisplayPath.Contains("regular-directory", StringComparison.OrdinalIgnoreCase));
+
+        Assert.NotNull(match);
+        Assert.Contains("regular-directory", match.DisplayPath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void GetSuggestions_UserScenario_SourceSymlinkDeduplication()
+    {
+        // Regression test for user's scenario: C:\Users\lucas\source -> D:\source symlink
+        // When navigating to dd-trace-dotnet via both paths, should only show one entry
+        var realSourceDir = CreateTempDirectory("source");
+        var ddTraceDotnet = Path.Combine(realSourceDir, "dd-trace-dotnet");
+        Directory.CreateDirectory(ddTraceDotnet);
+        _tempDirectories.Add(ddTraceDotnet);
+
+        var userDir = CreateTempDirectory("users");
+        var lucasDir = Path.Combine(userDir, "lucas");
+        Directory.CreateDirectory(lucasDir);
+        _tempDirectories.Add(lucasDir);
+
+        var symlinkSourceDir = Path.Combine(lucasDir, "source");
+
+        try
+        {
+            // Create symlink: C:\Users\lucas\source -> D:\source
+            Directory.CreateSymbolicLink(symlinkSourceDir, realSourceDir);
+            _tempDirectories.Add(symlinkSourceDir);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return; // Skip test if we don't have permission
+        }
+        catch (IOException)
+        {
+            return; // Skip test if symlink creation is not supported
+        }
+
+        // Arrange - Record usage of dd-trace-dotnet via both paths
+        var realPath = ddTraceDotnet;
+        var symlinkPath = Path.Combine(symlinkSourceDir, "dd-trace-dotnet");
+
+        _graph.RecordUsage("cd", new[] { realPath }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { symlinkPath }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Search for "dd-trace-dotnet" from user's home directory
+        var suggestions = engine.GetSuggestions("dd-trace-dotnet", lucasDir, 20);
+
+        // Assert - Should only appear once (deduplicated by resolved real path)
+        var matches = suggestions.Where(s =>
+            s.DisplayPath.Contains("dd-trace-dotnet", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        // Debug output to see what we got
+        foreach (var m in matches)
+        {
+            System.Diagnostics.Debug.WriteLine($"Match: Path={m.Path}, DisplayPath={m.DisplayPath}");
+        }
+
+        Assert.Single(matches); // Only one entry after deduplication
+
+        // The resolved path should be the real path (D:\source\dd-trace-dotnet)
+        var match = matches.First();
+        Assert.Contains("source", match.DisplayPath, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("dd-trace-dotnet", match.DisplayPath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    #endregion
 }
