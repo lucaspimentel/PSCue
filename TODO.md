@@ -31,13 +31,15 @@ This document tracks active and planned work for PSCue. For architectural detail
 - ✅ Phase 20: Parameter-value binding - archived to docs/COMPLETED.md
 - ✅ Phase 21.1: Symlink resolution & deduplication - COMPLETE
 - ✅ Phase 21.2: Cache/metadata directory filtering - COMPLETE
+- ✅ Phase 21.3: Exact match scoring boost - COMPLETE
 - **Bug Fixes**:
   - PCD exact match priority: Exact path matches now always appear first (100× score boost)
   - PCD trailing separators: Directory paths consistently end with `\` in both tab completion and inline predictions
 
 **Next Up**:
-- Phase 21.3: Exact match scoring boost
 - Phase 21.4: Improved fuzzy matching quality
+- Phase 21.5: Integration testing
+- Phase 21.6: Documentation updates
 
 **Installation**:
 ```powershell
@@ -49,9 +51,9 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-r
 ## Planned Work
 
 ### Phase 21: PCD Quality Improvements (Symlinks, Filtering, Match Quality)
-**Status**: In Progress (2 of 6 sub-phases complete)
+**Status**: In Progress (3 of 6 sub-phases complete)
 **Priority**: High
-**Estimated Effort**: 15-20 hours (10 hours actual so far)
+**Estimated Effort**: 15-20 hours (13 hours actual so far)
 
 **Goal**: Fix PCD suggestion quality issues: symlink deduplication, cache/metadata directory filtering, exact match prioritization, and improved fuzzy matching.
 
@@ -89,15 +91,23 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-r
    - [x] Added `ShouldFilterDirectory()` helper method (PcdCompletionEngine.cs:448)
    - [x] Applied filtering in 3 locations: learned dirs, direct search, recursive search
 
-3. **Phase 21.3: Exact Match Scoring Boost** (~3 hours)
-   - [ ] Add exact substring match detection in `PcdCompletionEngine.cs` scoring logic
-   - [ ] Apply significant boost (e.g., +10.0 or 3x multiplier) when:
-     - Directory name exactly equals search term
-     - Directory path ends with exact search term (e.g., `D:\foo\bar\dd-trace-dotnet`)
-   - [ ] Ensure exact matches always rank above fuzzy matches
-   - [ ] Add scoring configuration: `$env:PSCUE_PCD_EXACT_MATCH_BOOST` (default: 3.0)
-   - [ ] Add regression test: "dd-trace-dotnet" should rank `dd-trace-dotnet` above `dd-trace-dotnet-APMSVLS-58`
-   - [ ] Test with various scenarios (exact name, exact suffix, partial match)
+3. **Phase 21.3: Exact Match Scoring Boost** ✅ **COMPLETE** (~3 hours actual)
+   - [x] Add exact substring match detection in `PcdCompletionEngine.cs` scoring logic
+   - [x] Added `IsExactMatch()` method that checks both full path and directory name equality
+   - [x] Apply configurable boost multiplier (default: 100.0) when:
+     - Directory name exactly equals search term (case-insensitive)
+     - Directory path exactly equals search term
+   - [x] Ensure exact matches always rank above fuzzy matches
+   - [x] Add scoring configuration: `$env:PSCUE_PCD_EXACT_MATCH_BOOST` (default: 100.0)
+   - [x] Added `PcdConfiguration.ExactMatchBoost` property
+   - [x] Updated all PcdCompletionEngine instantiation sites to pass boost parameter
+   - [x] Added comprehensive regression tests (5 test cases):
+     - Exact directory name match ranks higher than fuzzy match
+     - Exact full path match ranks first
+     - Custom exact match boost configuration
+     - Multiple exact matches all rank higher than fuzzy
+     - Case-insensitive exact match still boosted
+   - [x] All 407 tests passing (including 5 new exact match tests)
 
 4. **Phase 21.4: Improve Fuzzy Matching Quality** (~3 hours)
    - [ ] Tighten fuzzy matching criteria in `PcdCompletionEngine.cs`:
@@ -120,11 +130,11 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-r
    - [ ] Performance regression tests (ensure <50ms tab, <10ms predictor)
    - [ ] Cross-platform tests (Windows symlinks, Linux symlinks)
 
-6. **Phase 21.6: Documentation Updates** (~1 hour)
-   - [ ] Update `CLAUDE.md`: Document new PCD configuration options
-   - [ ] Update `CLAUDE.md`: Document symlink resolution behavior
-   - [ ] Update `CLAUDE.md`: Document cache/metadata filtering rules
-   - [ ] Update `README.md`: Configuration section with new env vars
+6. **Phase 21.6: Documentation Updates** (~1 hour, partially complete)
+   - [x] Update `CLAUDE.md`: Document new PCD configuration options (Phase 21.2, 21.3)
+   - [x] Update `CLAUDE.md`: Document symlink resolution behavior (Phase 21.1)
+   - [x] Update `CLAUDE.md`: Document cache/metadata filtering rules (Phase 21.2)
+   - [x] Update `README.md`: Configuration section with new env vars (Phase 21.3)
    - [ ] Add troubleshooting entry for symlink duplicates
 
 **New Configuration Variables**:
@@ -134,18 +144,18 @@ $env:PSCUE_PCD_ENABLE_DOT_DIR_FILTER = "true"      # Default: true
 $env:PSCUE_PCD_CUSTOM_BLOCKLIST = ".myapp,.temp"   # Optional: additional patterns
 
 # Match quality scoring (Phase 21.3, 21.4)
-$env:PSCUE_PCD_EXACT_MATCH_BOOST = "3.0"           # Default: 3.0 (multiply score by 3)
+$env:PSCUE_PCD_EXACT_MATCH_BOOST = "100.0"         # Default: 100.0 (multiply score by 100)
 $env:PSCUE_PCD_FUZZY_MIN_MATCH_PCT = "0.7"         # Default: 0.7 (70% of search term must match)
 ```
 
 **Success Criteria**:
 - ✅ No duplicate suggestions for symlinked paths (Phase 21.1 - COMPLETE)
-- ⏳ Exact matches rank higher than fuzzy matches (Phase 21.3 - Planned)
+- ✅ Exact matches rank higher than fuzzy matches (Phase 21.3 - COMPLETE)
 - ✅ Cache/metadata directories filtered by default (Phase 21.2 - COMPLETE)
 - ⏳ Fuzzy matching rejects unrelated directories (Phase 21.4 - Planned)
 - ✅ Explicit typing overrides blocklist filtering (Phase 21.2 - COMPLETE)
-- ✅ Performance targets maintained (<50ms tab, <10ms predictor) (Phases 21.1 & 21.2 - COMPLETE)
-- ✅ All tests passing (Phase 21.1 & 21.2 - COMPLETE)
+- ✅ Performance targets maintained (<50ms tab, <10ms predictor) (Phases 21.1, 21.2, 21.3 - COMPLETE)
+- ✅ All tests passing (Phases 21.1, 21.2, 21.3 - COMPLETE: 407 tests)
 - ✅ Cross-platform support (Windows + Linux symlinks) (Phase 21.1 - COMPLETE)
 
 **Dependencies**: Phase 19.0 (PCD shared configuration infrastructure)

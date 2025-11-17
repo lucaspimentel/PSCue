@@ -18,6 +18,7 @@ public class PcdCompletionEngine
     private readonly double _distanceWeight;
     private readonly int _maxRecursiveDepth;
     private readonly bool _enableRecursiveSearch;
+    private readonly double _exactMatchBoost;
 
     /// <summary>
     /// Well-known directory shortcuts that should be handled quickly.
@@ -39,6 +40,7 @@ public class PcdCompletionEngine
     /// <param name="distanceWeight">Weight for distance scoring (default: 0.2).</param>
     /// <param name="maxRecursiveDepth">Maximum depth for recursive search (default: 3).</param>
     /// <param name="enableRecursiveSearch">Enable recursive filesystem search (default: true).</param>
+    /// <param name="exactMatchBoost">Multiplier for exact match scores (default: 100.0).</param>
     public PcdCompletionEngine(
         ArgumentGraph graph,
         int scoreDecayDays = 30,
@@ -46,7 +48,8 @@ public class PcdCompletionEngine
         double recencyWeight = 0.3,
         double distanceWeight = 0.2,
         int maxRecursiveDepth = 3,
-        bool enableRecursiveSearch = true)
+        bool enableRecursiveSearch = true,
+        double exactMatchBoost = 100.0)
     {
         _graph = graph ?? throw new ArgumentNullException(nameof(graph));
         _scoreDecayDays = scoreDecayDays;
@@ -55,6 +58,7 @@ public class PcdCompletionEngine
         _distanceWeight = distanceWeight;
         _maxRecursiveDepth = maxRecursiveDepth;
         _enableRecursiveSearch = enableRecursiveSearch;
+        _exactMatchBoost = exactMatchBoost;
     }
 
     /// <summary>
@@ -254,8 +258,9 @@ public class PcdCompletionEngine
 
             // Combined score with configurable weights
             // Exact matches get massive boost to ensure they appear first
-            var exactMatchBoost = matchScore >= 1.0 ? 100.0 : 1.0;
-            var totalScore = (matchScore * 0.1 * exactMatchBoost) +
+            var isExactMatch = IsExactMatch(path, wordToComplete);
+            var exactMatchMultiplier = isExactMatch ? _exactMatchBoost : 1.0;
+            var totalScore = (matchScore * 0.1 * exactMatchMultiplier) +
                            (_frequencyWeight * frequencyScore) +
                            (_recencyWeight * recencyScore) +
                            (_distanceWeight * distanceScore);
@@ -496,6 +501,37 @@ public class PcdCompletionEngine
         }
 
         return false; // Not blocklisted
+    }
+
+    /// <summary>
+    /// Determines if a path is an exact match to the search term.
+    /// Checks both full path equality and exact directory name match.
+    /// </summary>
+    /// <param name="path">The directory path to check.</param>
+    /// <param name="wordToComplete">The search term entered by the user.</param>
+    /// <returns>True if the path exactly matches the search term.</returns>
+    private bool IsExactMatch(string path, string wordToComplete)
+    {
+        if (string.IsNullOrWhiteSpace(wordToComplete))
+            return false; // Empty input doesn't count as exact match
+
+        // Exact full path match
+        if (path.Equals(wordToComplete, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Extract directory name from both path and search term for comparison
+        var pathDirName = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        var searchDirName = Path.GetFileName(wordToComplete.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+
+        // Exact directory name match (e.g., "dd-trace-dotnet" matches "D:\source\datadog\dd-trace-dotnet")
+        if (!string.IsNullOrEmpty(pathDirName) &&
+            !string.IsNullOrEmpty(searchDirName) &&
+            pathDirName.Equals(searchDirName, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>

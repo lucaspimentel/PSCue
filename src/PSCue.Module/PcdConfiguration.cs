@@ -95,6 +95,16 @@ public static class PcdConfiguration
     public static bool EnableDotDirFilter => GetEnvBool("PSCUE_PCD_ENABLE_DOT_DIR_FILTER", true);
 
     /// <summary>
+    /// Gets the exact match score boost multiplier.
+    /// When a directory name or path exactly matches the search term,
+    /// the match score is multiplied by this factor to ensure exact matches
+    /// always rank higher than fuzzy matches.
+    /// Environment variable: PSCUE_PCD_EXACT_MATCH_BOOST
+    /// Default: 100.0
+    /// </summary>
+    public static double ExactMatchBoost => GetEnvDouble("PSCUE_PCD_EXACT_MATCH_BOOST", 100.0);
+
+    /// <summary>
     /// Gets the combined blocklist (default + custom patterns).
     /// Custom patterns can be specified via PSCUE_PCD_CUSTOM_BLOCKLIST (comma-separated).
     /// </summary>

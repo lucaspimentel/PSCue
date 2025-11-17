@@ -155,7 +155,8 @@ public class CommandPredictor : ICommandPredictor
                 PcdConfiguration.RecencyWeight,
                 PcdConfiguration.DistanceWeight,
                 PcdConfiguration.PredictorMaxDepth, // Use predictor-specific depth (shallow for speed)
-                PcdConfiguration.EnableRecursiveSearch
+                PcdConfiguration.EnableRecursiveSearch,
+                PcdConfiguration.ExactMatchBoost
             );
 
             // Get suggestions (allow multiple for predictor)

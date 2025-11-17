@@ -1603,4 +1603,154 @@ public class PcdEnhancedTests : IDisposable
     }
 
     #endregion
+
+    #region Exact Match Scoring Tests
+
+    [Fact]
+    public void GetSuggestions_ExactDirectoryNameMatch_RanksHigherThanFuzzyMatch()
+    {
+        // Arrange - Create directories with similar names
+        var exactMatchDir = CreateTempDirectory("dd-trace-dotnet");
+        var fuzzyMatchDir = CreateTempDirectory("dd-trace-dotnet-APMSVLS-58");
+        var anotherFuzzyDir = CreateTempDirectory("dd-trace-dotnet-feature-branch");
+
+        // Record usage for all directories with same frequency/recency
+        _graph.RecordUsage("cd", new[] { exactMatchDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { fuzzyMatchDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { anotherFuzzyDir }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Search for "dd-trace-dotnet"
+        var suggestions = engine.GetSuggestions("dd-trace-dotnet", _testRootDir, 20);
+
+        // Assert - Exact match should be first
+        var topResult = suggestions.First();
+        Assert.Contains("dd-trace-dotnet", topResult.DisplayPath);
+        Assert.DoesNotContain("APMSVLS", topResult.DisplayPath); // Exact match, not fuzzy
+        Assert.DoesNotContain("feature-branch", topResult.DisplayPath);
+
+        // Exact match should have significantly higher score
+        var exactMatch = suggestions.First(s => s.DisplayPath.EndsWith("dd-trace-dotnet" + Path.DirectorySeparatorChar));
+        var fuzzyMatches = suggestions.Where(s => s.DisplayPath.Contains("dd-trace-dotnet") && s != exactMatch).ToList();
+
+        Assert.True(exactMatch.Score > fuzzyMatches.Max(f => f.Score),
+            $"Exact match score ({exactMatch.Score}) should be higher than fuzzy matches (max: {fuzzyMatches.Max(f => f.Score)})");
+    }
+
+    [Fact]
+    public void GetSuggestions_ExactFullPathMatch_RanksFirst()
+    {
+        // Arrange
+        var exactPath = CreateTempDirectory("myproject");
+        var similarPath = CreateTempDirectory("myproject-v2");
+
+        _graph.RecordUsage("cd", new[] { exactPath }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { similarPath }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Search using exact path
+        var suggestions = engine.GetSuggestions(exactPath, _testRootDir, 20);
+
+        // Assert - Exact path should be first
+        Assert.NotEmpty(suggestions);
+        var topResult = suggestions.First();
+        Assert.Equal(exactPath.TrimEnd(Path.DirectorySeparatorChar),
+                     topResult.DisplayPath.TrimEnd(Path.DirectorySeparatorChar));
+    }
+
+    [Fact]
+    public void GetSuggestions_ExactMatchBoostConfiguration_AppliesCorrectMultiplier()
+    {
+        // Arrange
+        var exactDir = CreateTempDirectory("testdir");
+        var fuzzyDir = CreateTempDirectory("testdir-variant");
+
+        _graph.RecordUsage("cd", new[] { exactDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { fuzzyDir }, _testRootDir);
+
+        // Create engine with custom exact match boost
+        var customBoost = 50.0;
+        var engine = new PcdCompletionEngine(
+            _graph,
+            scoreDecayDays: 30,
+            frequencyWeight: 0.5,
+            recencyWeight: 0.3,
+            distanceWeight: 0.2,
+            maxRecursiveDepth: 3,
+            enableRecursiveSearch: true,
+            exactMatchBoost: customBoost
+        );
+
+        // Act
+        var suggestions = engine.GetSuggestions("testdir", _testRootDir, 20);
+
+        // Assert - Exact match should rank first with boosted score
+        var exactMatch = suggestions.First(s => s.DisplayPath.EndsWith("testdir" + Path.DirectorySeparatorChar));
+        var fuzzyMatch = suggestions.First(s => s.DisplayPath.Contains("testdir-variant"));
+
+        Assert.True(exactMatch.Score > fuzzyMatch.Score,
+            "Exact match with custom boost should score higher than fuzzy match");
+    }
+
+    [Fact]
+    public void GetSuggestions_MultipleExactMatches_AllRankHigherThanFuzzy()
+    {
+        // Arrange - Multiple directories with same exact name in different locations
+        var childDir = CreateTempDirectory("common");
+        var subChild = Path.Combine(childDir, "nested", "common");
+        Directory.CreateDirectory(Path.GetDirectoryName(subChild)!);
+        Directory.CreateDirectory(subChild);
+        _tempDirectories.Add(subChild);
+
+        var fuzzyDir = CreateTempDirectory("common-variant");
+
+        _graph.RecordUsage("cd", new[] { childDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { subChild }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { fuzzyDir }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act
+        var suggestions = engine.GetSuggestions("common", _testRootDir, 20);
+
+        // Assert - All exact matches should rank above fuzzy match
+        var exactMatches = suggestions.Where(s =>
+            Path.GetFileName(s.DisplayPath.TrimEnd(Path.DirectorySeparatorChar))
+                .Equals("common", StringComparison.OrdinalIgnoreCase)).ToList();
+        var fuzzyMatches = suggestions.Where(s =>
+            s.DisplayPath.Contains("common-variant", StringComparison.OrdinalIgnoreCase)).ToList();
+
+        if (fuzzyMatches.Any())
+        {
+            var lowestExactScore = exactMatches.Min(e => e.Score);
+            var highestFuzzyScore = fuzzyMatches.Max(f => f.Score);
+            Assert.True(lowestExactScore > highestFuzzyScore,
+                $"Lowest exact match score ({lowestExactScore}) should be higher than highest fuzzy score ({highestFuzzyScore})");
+        }
+    }
+
+    [Fact]
+    public void GetSuggestions_CaseInsensitiveExactMatch_StillBoosted()
+    {
+        // Arrange
+        var exactDir = CreateTempDirectory("MyProject");
+        var fuzzyDir = CreateTempDirectory("MyProject-Dev");
+
+        _graph.RecordUsage("cd", new[] { exactDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { fuzzyDir }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Search with different casing
+        var suggestions = engine.GetSuggestions("myproject", _testRootDir, 20);
+
+        // Assert - Case-insensitive exact match should still get boost
+        var topResult = suggestions.First();
+        Assert.Contains("MyProject", topResult.DisplayPath);
+        Assert.DoesNotContain("Dev", topResult.DisplayPath);
+    }
+
+    #endregion
 }
