@@ -241,9 +241,9 @@ public void TestLearningAccess()
 ## Documentation
 - **Implementation status**:
   - Active work: See `TODO.md` (includes detailed Phase 18 workflow improvements roadmap)
-  - Completed phases: See `docs/COMPLETED.md` (Phases 1-13, 15, 17.1-17.7, 18.1-18.2 archived)
+  - Completed phases: See `docs/COMPLETED.md` (Phases 1-21 archived, includes all PCD quality improvements)
 - **Database functions**: See `docs/DATABASE-FUNCTIONS.md` for detailed SQLite query examples and schema
-- Full details: See `docs/ARCHITECTURE.md` and `docs/TROUBLESHOOTING.md`
+- **Troubleshooting**: See `docs/TROUBLESHOOTING.md` for common issues and solutions
 - Bug fix history: See git log and commit messages
 - API docs: [ICommandPredictor](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-cmdlet-predictor), [IFeedbackProvider](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider)
 

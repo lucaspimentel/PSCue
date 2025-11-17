@@ -10,7 +10,7 @@ PowerShell module library (`PSCue.Module.dll`) that provides inline predictions 
 - **Generic Learning**: Learns from ALL commands, not just predefined ones
 - **Multi-Word Suggestions**: Shows common argument combinations (e.g., "git checkout master")
 - **Workflow Learning**: Predicts next command based on usage patterns and timing
-- **Smart Directory Navigation**: `pcd` command with fuzzy matching and frecency scoring
+- **Smart Directory Navigation**: `pcd` command with fuzzy matching, frecency scoring, exact match prioritization, and symlink resolution
 - **Cross-Session Persistence**: SQLite database stores learned data (8 tables)
 - **PowerShell Functions**: 14 functions for learning, database, workflow, and navigation management
 

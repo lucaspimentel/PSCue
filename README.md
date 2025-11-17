@@ -11,8 +11,9 @@
 - **🎯 Multi-Word Suggestions**: Shows common argument combinations (e.g., `git checkout master`)
 - **🤖 ML-Based Predictions**: N-gram sequence learning predicts your next command (e.g., `git add` → `git commit`)
 - **🔄 Workflow Learning**: Automatically learns command sequences and predicts next command based on your usage patterns
-- **📁 Smart Directory Navigation**: `pcd` command with intelligent tab completion based on your cd history
-- **🔗 Symlink Deduplication**: Automatically resolves symlinks, junctions, and directory links to prevent duplicate suggestions
+- **📁 Smart Directory Navigation**: `pcd` command with intelligent tab completion, fuzzy matching, and exact match prioritization
+- **🔗 Symlink Resolution**: Automatically resolves symlinks, junctions, and directory links to prevent duplicate suggestions
+- **🧹 Smart Filtering**: Filters cache/metadata directories (`.codeium`, `node_modules`, `bin`, etc.) for cleaner suggestions
 - **⚡ PowerShell Module Functions**: Native PowerShell functions for learning, database, workflow, and navigation management
 - **🧠 Universal Learning System**: Learns from ALL commands (not just pre-configured ones) and adapts to your workflow patterns
 - **🔒 Privacy & Security**: Built-in sensitive data detection - never learns commands with API keys, passwords, or tokens
@@ -161,14 +162,17 @@ The `pcd` (PowerShell Change Directory) command provides:
 
 **Core Features**:
 - **Inline predictions**: See directory suggestions as you type (like other commands)
-- **Exact match prioritization**: Exact directory name matches always rank first (configurable 100× boost)
+- **Exact match prioritization**: Exact directory name matches always rank first (100× boost by default)
+- **Smart fuzzy matching**: Find directories with typos while rejecting unrelated matches (70% minimum similarity, LCS check for long queries)
 - **Clean path display**: Shows relative paths without redundant `.\` prefix (e.g., `childdir` not `.\childdir`)
 - **Recursive filesystem search**: Always enabled for thorough discovery (depth-controlled for performance)
-- **Smart filtering**: Excludes non-existent directories (both tab and predictor), current directory, and parent when typing absolute paths
-- **Symlink deduplication**: Automatically resolves symlinks to prevent duplicate suggestions
+- **Smart filtering**:
+  - Excludes non-existent directories (both tab and predictor)
+  - Filters cache/metadata directories (`.codeium`, `.claude`, `.dotnet`, `node_modules`, `bin`, `obj`, etc.)
+  - Explicit typing overrides filter (typing `.claude` shows `.claude/` directories)
+- **Symlink resolution**: Automatically resolves symlinks, junctions, and directory links to prevent duplicates
 - **Well-known shortcuts**: Instant access to `~` (home), `..` (parent) - only suggested for relative paths
-- **Smart fuzzy matching**: Find directories with typos while filtering unrelated matches (configurable strictness)
-- **Frecency scoring**: Balances frequency + recency for better suggestions
+- **Frecency scoring**: Balances frequency + recency + distance for better suggestions
 - **Distance scoring**: Prefers directories near your current location
 - **Best-match navigation**: `pcd datadog` automatically finds best match if exact path doesn't exist
 - **Path normalization**: All paths include trailing `\` to match PowerShell's native behavior
@@ -727,6 +731,8 @@ All functions support:
 
 ## Troubleshooting
 
+For comprehensive troubleshooting guidance, see [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
+
 ### Tab completions not working
 
 1. Verify module is loaded: `Get-Module PSCue`
@@ -800,7 +806,8 @@ Special thanks to the PowerShell team for the `ICommandPredictor` and `IFeedback
 - **Releases**: https://github.com/lucaspimentel/PSCue/releases
 - **Project Documentation**:
   - [TODO.md](TODO.md) - Current work and future plans
-  - [COMPLETED.md](docs/COMPLETED.md) - Completed implementation phases (Phases 1-13, 15)
+  - [COMPLETED.md](docs/COMPLETED.md) - Completed implementation phases
+  - [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) - Common issues and solutions
   - [CLAUDE.md](CLAUDE.md) - Quick reference for AI agents
   - [DATABASE-FUNCTIONS.md](docs/DATABASE-FUNCTIONS.md) - Database query functions and schema
 - **PowerShell API Documentation**:
