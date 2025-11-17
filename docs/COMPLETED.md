@@ -35,8 +35,11 @@ For current and future work, see [TODO.md](TODO.md).
 - **Phase 17.6**: Enhanced PCD Algorithm ✅
 - **Phase 17.7**: PCD Inline Predictions & Relative Paths ✅
 - **Phase 17.8**: Partial Command Predictions ✅
+- **Phase 17.9**: PCD Completion Improvements ✅
 - **Phase 18.1**: Dynamic Workflow Learning ✅
 - **Phase 18.2**: Time-Based Workflow Detection ✅ (completed as part of 18.1)
+- **Phase 19.0**: PCD Suggestion Precedence Review & Optimization ✅
+- **Phase 20**: Parameter-Value Binding (Smart Argument Tracking) ✅
 - **CI/CD & Distribution**: GitHub Actions Automated Releases ✅
 
 ---
@@ -1768,6 +1771,176 @@ PS> git c█  # "git commit" suggested with 0.8× penalty (lower confidence)
 ```
 
 **Result**: Predictions are more accurate by considering not just frequency but also typical timing patterns in workflows.
+
+---
+
+### Phase 17.9: PCD Completion Improvements ✅
+
+**Completed**: 2025-11-09
+
+**Goal**: Improve PCD (smart directory navigation) completion quality with filesystem search, context-aware paths, and parent filtering.
+
+**Features Implemented**:
+- **Filesystem search**: Direct child and recursive search for unlearned directories
+- **Context-aware path filtering**: Exclude parent directory when typing absolute paths
+- **Parent filtering**: Don't suggest `..` when user types absolute path (e.g., `D:\source`)
+- **Enhanced discovery**: Find directories that haven't been learned yet
+
+**Code Changes**:
+- Modified: `PcdCompletionEngine.cs` (filesystem search stages)
+- Modified: `CommandPredictor.cs` (path filtering logic)
+- Tests: Added filesystem search tests to `PcdEnhancedTests.cs`
+
+**Result**: PCD discovers more directories and provides cleaner suggestions based on input context.
+
+---
+
+### Phase 19.0: PCD Suggestion Precedence Review & Optimization ✅
+
+**Completed**: 2025-11-09
+**Actual Effort**: ~7 hours
+
+**Goal**: Fix inconsistencies in PCD suggestions between Tab completion and inline predictions, improve path display, and optimize recursive search behavior.
+
+**Issues Fixed**:
+1. **Recursive search behavior**: Removed threshold-based conditional logic, made recursive search always enabled with depth control
+2. **Path display consistency**: Removed redundant `.\` prefix from relative child paths (e.g., `child\subdir\` instead of `.\child\subdir\`)
+3. **Existence filtering**: Added filtering for non-existent directories in predictor path
+4. **Code duplication**: Eliminated duplication between tab completion and predictor via shared configuration
+
+**Key Improvements**:
+- **Shared configuration class**: `PcdConfiguration.cs` centralizes all PCD configuration reading
+- **Consistent path display**: Both tab and predictor show clean relative paths without `.\` prefix
+- **Depth-aware search**: Tab uses `maxDepth=3` (thorough), predictor uses `maxDepth=1` (fast)
+- **Performance maintained**: <50ms tab completion, <10ms inline predictions
+
+**Code Changes**:
+- **New files**: `src/PSCue.Module/PcdConfiguration.cs` (~90 lines)
+- **Modified files**:
+  - `PcdCompletionEngine.cs` (recursive search + path display)
+  - `CommandPredictor.cs` (existence filtering + shared config)
+  - `PCD.ps1` (shared config, eliminated duplication)
+  - `PcdEnhancedTests.cs` (+7 tests)
+- **Lines changed**: ~150 additions, ~80 deletions (net: ~70 lines, eliminated ~40 lines duplication)
+
+**New Configuration**:
+```powershell
+$env:PSCUE_PCD_PREDICTOR_MAX_DEPTH = "1"  # Inline predictor recursive depth (default: 1)
+$env:PSCUE_PCD_MAX_DEPTH = "3"            # Tab completion recursive depth (default: 3)
+```
+
+**Tests**: 7 new tests, all 62 PCD tests passing
+
+**Result**: Consistent, clean PCD suggestions across both tab completion and inline predictions with optimized performance.
+
+---
+
+### Phase 20: Parameter-Value Binding (Smart Argument Tracking) ✅
+
+**Completed**: 2025-11-09
+**Actual Effort**: ~20 hours
+**Breaking Change**: YES - requires new database schema
+
+**Goal**: Parse command structure at record time to understand parameter-value relationships, enabling context-aware suggestions.
+
+**Architecture: Command Parser**
+
+**New Argument Types**:
+```csharp
+public enum ArgumentType
+{
+    Verb,              // "build", "checkout", "run"
+    Flag,              // "--verbose", "-v" (standalone, no value)
+    Parameter,         // "-f", "--framework" (requires value)
+    ParameterValue,    // "net6.0" (bound to preceding parameter)
+    Standalone         // file paths, other standalone args
+}
+```
+
+**Detection Strategy**:
+1. **Static definitions**: Known commands in KnownCompletions marked with `RequiresValue = true`
+2. **Heuristic detection** (unknown commands):
+   - Flag followed by non-flag → Parameter + ParameterValue
+   - `--param=value` syntax → Parse and bind
+   - Standalone `--flag` or `-v` → Flag (no value)
+   - First non-flag → Verb
+
+**Database Schema (New Tables)**:
+```sql
+-- Parameters (things that require values)
+CREATE TABLE parameters (
+    command TEXT NOT NULL,
+    parameter TEXT NOT NULL,
+    usage_count INTEGER NOT NULL,
+    first_seen TEXT NOT NULL,
+    last_used TEXT NOT NULL,
+    PRIMARY KEY (command, parameter)
+);
+
+-- Parameter-value pairs (bound together)
+CREATE TABLE parameter_values (
+    command TEXT NOT NULL,
+    parameter TEXT NOT NULL,
+    value TEXT NOT NULL,
+    usage_count INTEGER NOT NULL,
+    first_seen TEXT NOT NULL,
+    last_used TEXT NOT NULL,
+    PRIMARY KEY (command, parameter, value),
+    FOREIGN KEY (command, parameter) REFERENCES parameters(command, parameter)
+);
+```
+
+**Smart Suggestion Logic**:
+- After typing a parameter (e.g., `dotnet build -f`), suggests ONLY values for that parameter (e.g., `net6.0`, `net7.0`)
+- Does NOT suggest other flags or parameters when completing a value
+- Context-aware: understands difference between parameters, values, flags, and verbs
+
+**Example Behavior**:
+```powershell
+# User types: dotnet build -f
+# PSCue detects: "-f" is a Parameter (requires value)
+# Suggests ONLY values: net6.0, net7.0, net8.0, net9.0
+# Does NOT suggest other flags like -c, --no-restore
+
+# User types: dotnet build -f net6.0 -c
+# PSCue detects: "-c" is a Parameter (requires value)
+# Suggests ONLY values: Debug, Release
+# Does NOT suggest other flags
+```
+
+**Completed Deliverables**:
+1. ✅ CommandParser with ParsedCommand and ParsedArgument models (`CommandParser.cs`, ~260 lines)
+2. ✅ ArgumentGraph updated with ParameterStats and ParameterValuePair structures
+3. ✅ FeedbackProvider parses commands before recording
+4. ✅ GenericPredictor provides context-aware suggestions (values only after parameters)
+5. ✅ Database migration: Added `parameters` and `parameter_values` tables
+6. ✅ KnownCompletions updated with `RequiresValue` property (git parameters marked)
+7. ✅ Comprehensive tests (30 passing tests across 3 test files)
+8. ✅ Documentation updated
+
+**Key Features Implemented**:
+- Parameter-value binding detection (heuristic + static knowledge)
+- Context-aware suggestions (after typing `-f`, suggests only values, not other flags)
+- Support for `--param=value` syntax
+- Delta tracking and baseline management for concurrent sessions
+- Integration with existing KnownCompletions infrastructure
+
+**Code Changes**:
+- New files: `CommandParser.cs` (~260 lines)
+- Modified files: `ArgumentGraph.cs`, `FeedbackProvider.cs`, `GenericPredictor.cs`, `PersistenceManager.cs`, `ModuleInitializer.cs`, `CommandParameter.cs`, `GitCommand.cs`
+- Test files: `CommandParserTests.cs`, `ParameterValueBindingTests.cs`, `ContextAwareSuggestionsTests.cs`
+- Lines changed: ~1,100 additions across implementation and tests
+
+**Benefits Delivered**:
+- ✅ Correctness: Never suggests invalid partial commands
+- ✅ Better UX: Context-aware suggestions (values after parameters)
+- ✅ Cleaner separation: Parameters vs Values vs Flags vs Verbs
+- ✅ Foundation for future type-aware suggestions and validation
+- ✅ Self-documenting data structure
+
+**Result**: PSCue now understands command structure and provides intelligent, context-aware suggestions that respect parameter-value relationships.
+
+---
 
 ## Notes
 
