@@ -105,6 +105,16 @@ public static class PcdConfiguration
     public static double ExactMatchBoost => GetEnvDouble("PSCUE_PCD_EXACT_MATCH_BOOST", 100.0);
 
     /// <summary>
+    /// Gets the minimum match percentage required for fuzzy matching.
+    /// Requires that at least this percentage of the search term appears
+    /// in the target directory name to prevent unrelated matches.
+    /// For example, 0.7 means at least 70% of the search term must match.
+    /// Environment variable: PSCUE_PCD_FUZZY_MIN_MATCH_PCT
+    /// Default: 0.7 (70%)
+    /// </summary>
+    public static double FuzzyMinMatchPercentage => GetEnvDouble("PSCUE_PCD_FUZZY_MIN_MATCH_PCT", 0.7);
+
+    /// <summary>
     /// Gets the combined blocklist (default + custom patterns).
     /// Custom patterns can be specified via PSCUE_PCD_CUSTOM_BLOCKLIST (comma-separated).
     /// </summary>

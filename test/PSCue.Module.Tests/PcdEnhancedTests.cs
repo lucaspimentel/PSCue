@@ -1753,4 +1753,165 @@ public class PcdEnhancedTests : IDisposable
     }
 
     #endregion
+
+    #region Improved Fuzzy Matching Tests
+
+    [Fact]
+    public void GetSuggestions_UnrelatedDirectories_DoNotMatch()
+    {
+        // Arrange - Create directories with shared prefix but different purpose
+        var dotnetDir = CreateTempDirectory("dd-trace-dotnet");
+        var jsDir = CreateTempDirectory("dd-trace-js");
+        var pythonDir = CreateTempDirectory("dd-trace-py");
+
+        _graph.RecordUsage("cd", new[] { dotnetDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { jsDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { pythonDir }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Search for "dd-trace-dotnet"
+        var suggestions = engine.GetSuggestions("dd-trace-dotnet", _testRootDir, 20);
+
+        // Assert - Should NOT match dd-trace-js or dd-trace-py
+        var dotnetMatches = suggestions.Where(s => s.DisplayPath.Contains("dd-trace-dotnet")).ToList();
+        var jsMatches = suggestions.Where(s => s.DisplayPath.Contains("dd-trace-js")).ToList();
+        var pyMatches = suggestions.Where(s => s.DisplayPath.Contains("dd-trace-py")).ToList();
+
+        Assert.NotEmpty(dotnetMatches); // Should match dd-trace-dotnet
+        Assert.Empty(jsMatches); // Should NOT match dd-trace-js
+        Assert.Empty(pyMatches); // Should NOT match dd-trace-py
+    }
+
+    [Fact]
+    public void GetSuggestions_LegitimateTypos_StillMatch()
+    {
+        // Arrange
+        var correctDir = CreateTempDirectory("documents");
+        _graph.RecordUsage("cd", new[] { correctDir }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Search with typo (transposed letters: "documetns")
+        var suggestions = engine.GetSuggestions("documetns", _testRootDir, 20);
+
+        // Assert - Should still match despite typo (Levenshtein tolerance)
+        // Short queries (≤10 chars) don't trigger the LCS check, so transposition should work
+        var matches = suggestions.Where(s => s.DisplayPath.Contains("documents")).ToList();
+        Assert.NotEmpty(matches);
+    }
+
+    [Fact]
+    public void GetSuggestions_ShortQuery_MatchesSubstring()
+    {
+        // Arrange
+        var dir = CreateTempDirectory("my-project-folder");
+        _graph.RecordUsage("cd", new[] { dir }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Short query should still work with substring matching
+        var suggestions = engine.GetSuggestions("proj", _testRootDir, 20);
+
+        // Assert
+        var matches = suggestions.Where(s => s.DisplayPath.Contains("my-project-folder")).ToList();
+        Assert.NotEmpty(matches);
+    }
+
+    [Fact]
+    public void GetSuggestions_LongQueryPrefixOnly_DoesNotMatch()
+    {
+        // Arrange - Directory shares only a prefix with the query
+        var prefixOnlyDir = CreateTempDirectory("documentation-old");
+        var fullMatchDir = CreateTempDirectory("documentation-for-developers");
+
+        _graph.RecordUsage("cd", new[] { prefixOnlyDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { fullMatchDir }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Long query (>10 chars) that only shares prefix with "documentation-old"
+        var suggestions = engine.GetSuggestions("documentation-for-developers", _testRootDir, 20);
+
+        // Assert - Should match full match but not prefix-only
+        var fullMatches = suggestions.Where(s => s.DisplayPath.Contains("documentation-for-developers")).ToList();
+        var prefixMatches = suggestions.Where(s => s.DisplayPath.Contains("documentation-old")).ToList();
+
+        Assert.NotEmpty(fullMatches);
+        Assert.Empty(prefixMatches); // Long query requires substantial overlap
+    }
+
+    [Fact]
+    public void GetSuggestions_CustomFuzzyMinMatchPct_RespectsConfiguration()
+    {
+        // Arrange
+        var dir1 = CreateTempDirectory("test-directory");
+        var dir2 = CreateTempDirectory("test-dir");
+
+        _graph.RecordUsage("cd", new[] { dir1 }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { dir2 }, _testRootDir);
+
+        // Create engine with strict matching (90% required)
+        var strictEngine = new PcdCompletionEngine(
+            _graph,
+            scoreDecayDays: 30,
+            frequencyWeight: 0.5,
+            recencyWeight: 0.3,
+            distanceWeight: 0.2,
+            maxRecursiveDepth: 3,
+            enableRecursiveSearch: true,
+            exactMatchBoost: 100.0,
+            fuzzyMinMatchPct: 0.9 // Very strict - 90% match required
+        );
+
+        // Create engine with relaxed matching (50% required)
+        var relaxedEngine = new PcdCompletionEngine(
+            _graph,
+            scoreDecayDays: 30,
+            frequencyWeight: 0.5,
+            recencyWeight: 0.3,
+            distanceWeight: 0.2,
+            maxRecursiveDepth: 3,
+            enableRecursiveSearch: true,
+            exactMatchBoost: 100.0,
+            fuzzyMinMatchPct: 0.5 // Relaxed - 50% match required
+        );
+
+        // Act - Search with partial term
+        var strictResults = strictEngine.GetSuggestions("test-directory-extra", _testRootDir, 20);
+        var relaxedResults = relaxedEngine.GetSuggestions("test-directory-extra", _testRootDir, 20);
+
+        // Assert - Strict should be more selective than relaxed
+        Assert.True(strictResults.Count <= relaxedResults.Count,
+            "Strict matching should return fewer or equal results compared to relaxed matching");
+    }
+
+    [Fact]
+    public void GetSuggestions_SimilarDirectories_DifferentiatesProperly()
+    {
+        // Arrange - Create directories with similar but distinct names
+        var mainDir = CreateTempDirectory("myapp");
+        var configDir = CreateTempDirectory("myapp-config");
+        var testDir = CreateTempDirectory("myapp-tests");
+        var docsDir = CreateTempDirectory("myapp-docs");
+
+        _graph.RecordUsage("cd", new[] { mainDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { configDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { testDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { docsDir }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Search for exact term
+        var suggestions = engine.GetSuggestions("myapp", _testRootDir, 20);
+
+        // Assert - Exact match should rank first
+        var topResult = suggestions.First();
+        Assert.Contains("myapp", topResult.DisplayPath.ToLowerInvariant());
+        Assert.DoesNotContain("config", topResult.DisplayPath.ToLowerInvariant());
+        Assert.DoesNotContain("tests", topResult.DisplayPath.ToLowerInvariant());
+        Assert.DoesNotContain("docs", topResult.DisplayPath.ToLowerInvariant());
+    }
+
+    #endregion
 }

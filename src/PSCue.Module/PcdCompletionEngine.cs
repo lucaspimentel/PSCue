@@ -19,6 +19,7 @@ public class PcdCompletionEngine
     private readonly int _maxRecursiveDepth;
     private readonly bool _enableRecursiveSearch;
     private readonly double _exactMatchBoost;
+    private readonly double _fuzzyMinMatchPct;
 
     /// <summary>
     /// Well-known directory shortcuts that should be handled quickly.
@@ -41,6 +42,7 @@ public class PcdCompletionEngine
     /// <param name="maxRecursiveDepth">Maximum depth for recursive search (default: 3).</param>
     /// <param name="enableRecursiveSearch">Enable recursive filesystem search (default: true).</param>
     /// <param name="exactMatchBoost">Multiplier for exact match scores (default: 100.0).</param>
+    /// <param name="fuzzyMinMatchPct">Minimum match percentage for fuzzy matching (default: 0.7).</param>
     public PcdCompletionEngine(
         ArgumentGraph graph,
         int scoreDecayDays = 30,
@@ -49,7 +51,8 @@ public class PcdCompletionEngine
         double distanceWeight = 0.2,
         int maxRecursiveDepth = 3,
         bool enableRecursiveSearch = true,
-        double exactMatchBoost = 100.0)
+        double exactMatchBoost = 100.0,
+        double fuzzyMinMatchPct = 0.7)
     {
         _graph = graph ?? throw new ArgumentNullException(nameof(graph));
         _scoreDecayDays = scoreDecayDays;
@@ -59,6 +62,7 @@ public class PcdCompletionEngine
         _maxRecursiveDepth = maxRecursiveDepth;
         _enableRecursiveSearch = enableRecursiveSearch;
         _exactMatchBoost = exactMatchBoost;
+        _fuzzyMinMatchPct = fuzzyMinMatchPct;
     }
 
     /// <summary>
@@ -558,6 +562,7 @@ public class PcdCompletionEngine
     /// <summary>
     /// Calculates fuzzy match score using substring matching and Levenshtein distance.
     /// Returns 0.0-0.8 score (capped below exact/prefix matches).
+    /// Uses configurable minimum match percentage to prevent unrelated matches.
     /// </summary>
     private double CalculateFuzzyMatchScore(string target, string query)
     {
@@ -567,19 +572,65 @@ public class PcdCompletionEngine
         // Substring match (case-insensitive)
         if (target.Contains(query, StringComparison.OrdinalIgnoreCase))
         {
+            // For substring matches, 100% of the query is in the target
+            // This always passes the minimum match percentage requirement
             // Score based on position (earlier is better)
             var index = target.IndexOf(query, StringComparison.OrdinalIgnoreCase);
             var positionScore = 1.0 - ((double)index / target.Length);
             return 0.7 * positionScore;
         }
 
-        // Levenshtein distance
+        // Levenshtein distance - only for typo tolerance
         var distance = CalculateLevenshteinDistance(target, query);
         var maxLength = Math.Max(target.Length, query.Length);
         var similarity = 1.0 - ((double)distance / maxLength);
 
+        // Check minimum match percentage requirement (based on similarity)
+        if (similarity < _fuzzyMinMatchPct)
+            return 0.0;
+
+        // Additional check: for long queries (>10 chars), require tighter matching
+        // to prevent matches that only share a prefix
+        if (query.Length > 10)
+        {
+            // Calculate longest common substring to ensure substantial overlap
+            var lcs = CalculateLongestCommonSubstring(target.ToLowerInvariant(), query.ToLowerInvariant());
+            var lcsPercentage = (double)lcs / query.Length;
+
+            // Require at least 60% of the query to appear as a continuous substring
+            if (lcsPercentage < 0.6)
+                return 0.0;
+        }
+
         // Threshold: only return score if similarity is reasonable
         return similarity > 0.5 ? similarity * 0.6 : 0.0;
+    }
+
+    /// <summary>
+    /// Calculates the length of the longest common substring between two strings.
+    /// Used to ensure substantial overlap for long query terms.
+    /// </summary>
+    private int CalculateLongestCommonSubstring(string str1, string str2)
+    {
+        if (string.IsNullOrEmpty(str1) || string.IsNullOrEmpty(str2))
+            return 0;
+
+        var maxLength = 0;
+        var table = new int[str1.Length + 1, str2.Length + 1];
+
+        for (int i = 1; i <= str1.Length; i++)
+        {
+            for (int j = 1; j <= str2.Length; j++)
+            {
+                if (str1[i - 1] == str2[j - 1])
+                {
+                    table[i, j] = table[i - 1, j - 1] + 1;
+                    maxLength = Math.Max(maxLength, table[i, j]);
+                }
+            }
+        }
+
+        return maxLength;
     }
 
     /// <summary>

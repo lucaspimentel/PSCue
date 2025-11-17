@@ -90,7 +90,8 @@ function Invoke-PCD {
             [PSCue.Module.PcdConfiguration]::DistanceWeight,
             [PSCue.Module.PcdConfiguration]::TabCompletionMaxDepth,  # Use tab-specific depth (deeper for thoroughness)
             [PSCue.Module.PcdConfiguration]::EnableRecursiveSearch,
-            [PSCue.Module.PcdConfiguration]::ExactMatchBoost
+            [PSCue.Module.PcdConfiguration]::ExactMatchBoost,
+            [PSCue.Module.PcdConfiguration]::FuzzyMinMatchPercentage
         )
 
         # Get best match - request more suggestions for better fuzzy matching
@@ -144,7 +145,8 @@ Register-ArgumentCompleter -CommandName 'Invoke-PCD', 'pcd' -ParameterName 'Path
             [PSCue.Module.PcdConfiguration]::DistanceWeight,
             [PSCue.Module.PcdConfiguration]::TabCompletionMaxDepth,  # Use tab-specific depth (deeper for thoroughness)
             [PSCue.Module.PcdConfiguration]::EnableRecursiveSearch,
-            [PSCue.Module.PcdConfiguration]::ExactMatchBoost
+            [PSCue.Module.PcdConfiguration]::ExactMatchBoost,
+            [PSCue.Module.PcdConfiguration]::FuzzyMinMatchPercentage
         )
 
         # Get suggestions using enhanced algorithm

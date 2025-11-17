@@ -32,12 +32,13 @@ This document tracks active and planned work for PSCue. For architectural detail
 - ✅ Phase 21.1: Symlink resolution & deduplication - COMPLETE
 - ✅ Phase 21.2: Cache/metadata directory filtering - COMPLETE
 - ✅ Phase 21.3: Exact match scoring boost - COMPLETE
+- ✅ Phase 21.4: Improved fuzzy matching quality - COMPLETE
 - **Bug Fixes**:
   - PCD exact match priority: Exact path matches now always appear first (100× score boost)
   - PCD trailing separators: Directory paths consistently end with `\` in both tab completion and inline predictions
+  - PCD fuzzy matching: Unrelated directories no longer match (e.g., "dd-trace-js" won't match "dd-trace-dotnet")
 
 **Next Up**:
-- Phase 21.4: Improved fuzzy matching quality
 - Phase 21.5: Integration testing
 - Phase 21.6: Documentation updates
 
@@ -51,9 +52,9 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-r
 ## Planned Work
 
 ### Phase 21: PCD Quality Improvements (Symlinks, Filtering, Match Quality)
-**Status**: In Progress (3 of 6 sub-phases complete)
+**Status**: In Progress (4 of 6 sub-phases complete)
 **Priority**: High
-**Estimated Effort**: 15-20 hours (13 hours actual so far)
+**Estimated Effort**: 15-20 hours (16 hours actual so far)
 
 **Goal**: Fix PCD suggestion quality issues: symlink deduplication, cache/metadata directory filtering, exact match prioritization, and improved fuzzy matching.
 
@@ -109,15 +110,20 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-r
      - Case-insensitive exact match still boosted
    - [x] All 407 tests passing (including 5 new exact match tests)
 
-4. **Phase 21.4: Improve Fuzzy Matching Quality** (~3 hours)
-   - [ ] Tighten fuzzy matching criteria in `PcdCompletionEngine.cs`:
-     - Option A: Reduce acceptable Levenshtein distance threshold
-     - Option B: Require minimum substring match percentage (e.g., 70% of search term must match)
-     - Option C: Reject matches that only share a prefix if search term is long (e.g., >10 chars)
-   - [ ] Add configuration: `$env:PSCUE_PCD_FUZZY_MIN_MATCH_PCT` (default: 0.7 = 70%)
-   - [ ] Test that `dd-trace-js` no longer matches "dd-trace-dotnet"
-   - [ ] Test that legitimate typos still match (e.g., "dd-trac-dotnet" matches "dd-trace-dotnet")
-   - [ ] Balance precision vs recall (don't break valid fuzzy matches)
+4. **Phase 21.4: Improve Fuzzy Matching Quality** ✅ **COMPLETE** (~3 hours actual)
+   - [x] Tighten fuzzy matching criteria in `PcdCompletionEngine.cs`:
+     - Implemented minimum match percentage (configurable via env var)
+     - Added longest common substring (LCS) check for long queries (>10 chars)
+     - LCS requires 60% of query to appear as continuous substring
+   - [x] Add configuration: `$env:PSCUE_PCD_FUZZY_MIN_MATCH_PCT` (default: 0.7 = 70%)
+   - [x] Added `PcdConfiguration.FuzzyMinMatchPercentage` property
+   - [x] Updated `CalculateFuzzyMatchScore()` to apply stricter criteria
+   - [x] Added `CalculateLongestCommonSubstring()` helper method
+   - [x] Updated all PcdCompletionEngine instantiation sites
+   - [x] Added comprehensive regression tests (6 test cases)
+   - [x] Test that `dd-trace-js` no longer matches "dd-trace-dotnet" ✓
+   - [x] Test that legitimate typos still match (transposed letters) ✓
+   - [x] Balance precision vs recall - all previous tests still passing ✓
 
 5. **Phase 21.5: Integration Testing** (~2 hours)
    - [ ] Create comprehensive test suite for user's scenario:
@@ -152,10 +158,10 @@ $env:PSCUE_PCD_FUZZY_MIN_MATCH_PCT = "0.7"         # Default: 0.7 (70% of search
 - ✅ No duplicate suggestions for symlinked paths (Phase 21.1 - COMPLETE)
 - ✅ Exact matches rank higher than fuzzy matches (Phase 21.3 - COMPLETE)
 - ✅ Cache/metadata directories filtered by default (Phase 21.2 - COMPLETE)
-- ⏳ Fuzzy matching rejects unrelated directories (Phase 21.4 - Planned)
+- ✅ Fuzzy matching rejects unrelated directories (Phase 21.4 - COMPLETE)
 - ✅ Explicit typing overrides blocklist filtering (Phase 21.2 - COMPLETE)
-- ✅ Performance targets maintained (<50ms tab, <10ms predictor) (Phases 21.1, 21.2, 21.3 - COMPLETE)
-- ✅ All tests passing (Phases 21.1, 21.2, 21.3 - COMPLETE: 407 tests)
+- ✅ Performance targets maintained (<50ms tab, <10ms predictor) (Phases 21.1-21.4 - COMPLETE)
+- ✅ All tests passing (Phases 21.1-21.4 - COMPLETE: 413 tests)
 - ✅ Cross-platform support (Windows + Linux symlinks) (Phase 21.1 - COMPLETE)
 
 **Dependencies**: Phase 19.0 (PCD shared configuration infrastructure)

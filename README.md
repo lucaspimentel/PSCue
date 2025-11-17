@@ -167,7 +167,7 @@ The `pcd` (PowerShell Change Directory) command provides:
 - **Smart filtering**: Excludes non-existent directories (both tab and predictor), current directory, and parent when typing absolute paths
 - **Symlink deduplication**: Automatically resolves symlinks to prevent duplicate suggestions
 - **Well-known shortcuts**: Instant access to `~` (home), `..` (parent) - only suggested for relative paths
-- **Fuzzy matching**: Find directories even with typos or partial matches
+- **Smart fuzzy matching**: Find directories with typos while filtering unrelated matches (configurable strictness)
 - **Frecency scoring**: Balances frequency + recency for better suggestions
 - **Distance scoring**: Prefers directories near your current location
 - **Best-match navigation**: `pcd datadog` automatically finds best match if exact path doesn't exist
@@ -188,6 +188,9 @@ $env:PSCUE_PCD_DISTANCE_WEIGHT = "0.2"   # Default: 20% weight
 
 # Exact match boost (ensures exact matches rank first)
 $env:PSCUE_PCD_EXACT_MATCH_BOOST = "100.0"       # Default: 100× multiplier for exact matches
+
+# Fuzzy matching quality (prevents unrelated matches like dd-trace-js matching dd-trace-dotnet)
+$env:PSCUE_PCD_FUZZY_MIN_MATCH_PCT = "0.7"       # Default: 70% similarity required (0.5-0.9 range)
 
 # Recursive filesystem search (always enabled when true, depth-controlled)
 $env:PSCUE_PCD_RECURSIVE_SEARCH = "true"         # Default: true (set to false to disable)

@@ -161,7 +161,10 @@ Invoke-PCD [path]                                  # Long-form function name
 #   - Default blocklist: .codeium, .claude, .dotnet, .nuget, .git, .vs, .vscode, .idea, node_modules, bin, obj, target, __pycache__, .pytest_cache
 #   - Explicit typing overrides: typing ".claude" will show .claude directories
 #   - Configurable via PSCUE_PCD_ENABLE_DOT_DIR_FILTER and PSCUE_PCD_CUSTOM_BLOCKLIST
-# - Fuzzy matching: Substring + Levenshtein distance for typo tolerance
+# - Fuzzy matching (Phase 21.4): Substring + Levenshtein with quality controls
+#   - Minimum similarity threshold: 70% (configurable via PSCUE_PCD_FUZZY_MIN_MATCH_PCT)
+#   - Long query protection (>10 chars): Requires 60% continuous substring overlap (LCS algorithm)
+#   - Prevents unrelated matches (e.g., "dd-trace-js" won't match "dd-trace-dotnet")
 # - Frecency scoring: Configurable blend (default: 50% frequency, 30% recency, 20% distance)
 # - Distance scoring: Parent (0.9), Child (0.85-0.5), Sibling (0.7), Ancestor (0.6-0.1)
 # - Path display: Relative paths WITHOUT redundant .\ prefix (e.g., "childdir" not ".\childdir")
@@ -269,7 +272,7 @@ $env:PSCUE_WORKFLOW_MIN_CONFIDENCE = "0.6"       # Min confidence threshold (def
 # Partial command predictions (Phase 17.8: Frequency-based command suggestions)
 $env:PSCUE_PARTIAL_COMMAND_PREDICTIONS = "true"  # Enable partial command predictions (default: true)
 
-# PCD (Smart Directory Navigation) configuration (Phases 17.5-17.9 + 19.0 + 21.2 + 21.3)
+# PCD (Smart Directory Navigation) configuration (Phases 17.5-17.9 + 19.0 + 21.2 + 21.3 + 21.4)
 $env:PSCUE_PCD_FREQUENCY_WEIGHT = "0.5"          # Frecency scoring: frequency weight (default: 0.5)
 $env:PSCUE_PCD_RECENCY_WEIGHT = "0.3"            # Frecency scoring: recency weight (default: 0.3)
 $env:PSCUE_PCD_DISTANCE_WEIGHT = "0.2"           # Frecency scoring: distance weight (default: 0.2)
@@ -279,6 +282,7 @@ $env:PSCUE_PCD_RECURSIVE_SEARCH = "true"         # Enable recursive filesystem s
 $env:PSCUE_PCD_ENABLE_DOT_DIR_FILTER = "true"    # Filter cache/metadata directories (default: true)
 $env:PSCUE_PCD_CUSTOM_BLOCKLIST = ".myapp,temp"  # Additional patterns to filter (comma-separated)
 $env:PSCUE_PCD_EXACT_MATCH_BOOST = "100.0"       # Score multiplier for exact matches (default: 100.0)
+$env:PSCUE_PCD_FUZZY_MIN_MATCH_PCT = "0.7"       # Minimum similarity for fuzzy matching (default: 0.7 = 70%)
 
 # Privacy & Security: Command filtering
 # BUILT-IN patterns (always active, cannot be disabled):
