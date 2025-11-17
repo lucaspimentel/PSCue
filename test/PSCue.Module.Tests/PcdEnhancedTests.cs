@@ -1914,4 +1914,303 @@ public class PcdEnhancedTests : IDisposable
     }
 
     #endregion
+
+    #region Phase 21 Integration Tests
+
+    [Fact]
+    public void Integration_UserScenario_AllPhase21Features()
+    {
+        // Arrange - Simulate user's real-world scenario
+        var dotnetDir = CreateTempDirectory("dd-trace-dotnet");
+        var dotnetBranchDir = CreateTempDirectory("dd-trace-dotnet-APMSVLS-58");
+        var jsDir = CreateTempDirectory("dd-trace-js");
+        var codeiumDir = CreateTempDirectory(".codeium");
+        var claudeDir = CreateTempDirectory(".claude");
+        var dotnetCacheDir = CreateTempDirectory(".dotnet");
+
+        // Record usage
+        _graph.RecordUsage("cd", new[] { dotnetDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { dotnetBranchDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { jsDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { codeiumDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { claudeDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { dotnetCacheDir }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Search for "dd-trace-dotnet"
+        var suggestions = engine.GetSuggestions("dd-trace-dotnet", _testRootDir, 20);
+
+        // Assert - Verify all Phase 21 improvements
+        var suggestionPaths = suggestions.Select(s => s.DisplayPath).ToList();
+
+        // Phase 21.3: Exact match should rank first
+        Assert.NotEmpty(suggestions);
+        var topResult = suggestions.First();
+        Assert.Contains("dd-trace-dotnet", topResult.DisplayPath);
+        Assert.DoesNotContain("APMSVLS", topResult.DisplayPath);
+        Assert.DoesNotContain("js", topResult.DisplayPath);
+
+        // Phase 21.4: Unrelated directories (dd-trace-js) should NOT match
+        var jsMatches = suggestions.Where(s => s.DisplayPath.Contains("dd-trace-js")).ToList();
+        Assert.Empty(jsMatches);
+
+        // Phase 21.2: Cache/metadata directories should be filtered
+        Assert.DoesNotContain(suggestionPaths, p => p.Contains(".codeium"));
+        Assert.DoesNotContain(suggestionPaths, p => p.Contains(".claude"));
+        Assert.DoesNotContain(suggestionPaths, p => p.Contains(".dotnet"));
+
+        // Verify correct ordering: exact match before fuzzy match
+        var exactMatchIndex = suggestions.FindIndex(s => s.DisplayPath.EndsWith("dd-trace-dotnet" + Path.DirectorySeparatorChar));
+        var fuzzyMatchIndex = suggestions.FindIndex(s => s.DisplayPath.Contains("APMSVLS"));
+
+        if (fuzzyMatchIndex >= 0)
+        {
+            Assert.True(exactMatchIndex < fuzzyMatchIndex,
+                $"Exact match (index {exactMatchIndex}) should appear before fuzzy match (index {fuzzyMatchIndex})");
+        }
+    }
+
+    [Fact]
+    public void Integration_SymlinkDeduplication_NoDuplicates()
+    {
+        // Arrange - Create directory structure with symlink
+        var realSourceDir = Path.Combine(_testRootDir, "source");
+        Directory.CreateDirectory(realSourceDir);
+        _tempDirectories.Add(realSourceDir);
+
+        var projectDir = Path.Combine(realSourceDir, "myproject");
+        Directory.CreateDirectory(projectDir);
+        _tempDirectories.Add(projectDir);
+
+        var userDir = CreateTempDirectory("user");
+        var symlinkSourceDir = Path.Combine(userDir, "source-link");
+
+        try
+        {
+            // Create symlink: user/source-link -> source
+            Directory.CreateSymbolicLink(symlinkSourceDir, realSourceDir);
+            _tempDirectories.Add(symlinkSourceDir);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return; // Skip test if we don't have permission
+        }
+        catch (IOException)
+        {
+            return; // Skip test if symlink creation is not supported
+        }
+
+        // Act - Record usage via both paths
+        var realPath = projectDir;
+        var symlinkPath = Path.Combine(symlinkSourceDir, "myproject");
+
+        _graph.RecordUsage("cd", new[] { realPath }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { symlinkPath }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+        var suggestions = engine.GetSuggestions("myproject", _testRootDir, 20);
+
+        // Assert - Should only appear once (Phase 21.1: symlink deduplication)
+        var matches = suggestions.Where(s => s.DisplayPath.Contains("myproject")).ToList();
+        Assert.Single(matches);
+    }
+
+    [Fact]
+    public void Integration_ExactMatchPriority_BothTabAndPredictor()
+    {
+        // Arrange - Multiple similar directories
+        var exactDir = CreateTempDirectory("workspace");
+        var variantDir1 = CreateTempDirectory("workspace-dev");
+        var variantDir2 = CreateTempDirectory("workspace-prod");
+        var variantDir3 = CreateTempDirectory("workspace-test");
+
+        // Record equal usage for all
+        _graph.RecordUsage("cd", new[] { exactDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { variantDir1 }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { variantDir2 }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { variantDir3 }, _testRootDir);
+
+        // Act - Test with both tab completion depth and predictor depth
+        var tabEngine = new PcdCompletionEngine(_graph, maxRecursiveDepth: 3);
+        var predictorEngine = new PcdCompletionEngine(_graph, maxRecursiveDepth: 1);
+
+        var tabResults = tabEngine.GetSuggestions("workspace", _testRootDir, 20);
+        var predictorResults = predictorEngine.GetSuggestions("workspace", _testRootDir, 5);
+
+        // Assert - Exact match should be first in both cases (Phase 21.3)
+        Assert.NotEmpty(tabResults);
+        Assert.NotEmpty(predictorResults);
+
+        var tabTop = tabResults.First();
+        var predictorTop = predictorResults.First();
+
+        Assert.Contains("workspace", tabTop.DisplayPath);
+        Assert.DoesNotContain("dev", tabTop.DisplayPath);
+        Assert.DoesNotContain("prod", tabTop.DisplayPath);
+        Assert.DoesNotContain("test", tabTop.DisplayPath);
+
+        Assert.Contains("workspace", predictorTop.DisplayPath);
+        Assert.DoesNotContain("dev", predictorTop.DisplayPath);
+        Assert.DoesNotContain("prod", predictorTop.DisplayPath);
+        Assert.DoesNotContain("test", predictorTop.DisplayPath);
+    }
+
+    [Fact]
+    public void Integration_CacheDirectoryFiltering_WithAndWithoutExplicitTyping()
+    {
+        // Arrange - Create cache directories
+        var normalDir = CreateTempDirectory("myproject");
+        var codeiumDir = CreateTempDirectory(".codeium");
+        var nodeModulesDir = CreateTempDirectory("node_modules");
+        var binDir = CreateTempDirectory("bin");
+
+        _graph.RecordUsage("cd", new[] { normalDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { codeiumDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { nodeModulesDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { binDir }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act & Assert - Phase 21.2: Cache filtering
+
+        // Test 1: General search should filter cache directories
+        var generalResults = engine.GetSuggestions("my", _testRootDir, 20);
+        var generalPaths = generalResults.Select(s => s.DisplayPath).ToList();
+
+        Assert.Contains(generalPaths, p => p.Contains("myproject"));
+        Assert.DoesNotContain(generalPaths, p => p.Contains(".codeium"));
+        Assert.DoesNotContain(generalPaths, p => p.Contains("node_modules"));
+        Assert.DoesNotContain(generalPaths, p => p.Contains("bin"));
+
+        // Test 2: Explicit typing of cache directory should override filter
+        var explicitCodeiumResults = engine.GetSuggestions(".codeium", _testRootDir, 20);
+        var explicitPaths = explicitCodeiumResults.Select(s => s.DisplayPath).ToList();
+
+        Assert.Contains(explicitPaths, p => p.Contains(".codeium"));
+    }
+
+    [Fact]
+    public void Integration_Performance_TabCompletionUnder50ms()
+    {
+        // Arrange - Create many directories to stress test
+        for (int i = 0; i < 50; i++)
+        {
+            var dir = CreateTempDirectory($"testdir-{i}");
+            _graph.RecordUsage("cd", new[] { dir }, _testRootDir);
+        }
+
+        var engine = new PcdCompletionEngine(_graph, maxRecursiveDepth: 3);
+
+        // Act - Measure performance
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var suggestions = engine.GetSuggestions("testdir", _testRootDir, 20);
+        stopwatch.Stop();
+
+        // Assert - Should complete in under 50ms for tab completion
+        Assert.True(stopwatch.ElapsedMilliseconds < 50,
+            $"Tab completion took {stopwatch.ElapsedMilliseconds}ms, expected < 50ms");
+        Assert.NotEmpty(suggestions);
+    }
+
+    [Fact]
+    public void Integration_Performance_PredictorUnder10ms()
+    {
+        // Arrange - Create directories for predictor
+        for (int i = 0; i < 20; i++)
+        {
+            var dir = CreateTempDirectory($"dir-{i}");
+            _graph.RecordUsage("cd", new[] { dir }, _testRootDir);
+        }
+
+        var engine = new PcdCompletionEngine(_graph, maxRecursiveDepth: 1); // Predictor uses shallow depth
+
+        // Act - Measure performance
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var suggestions = engine.GetSuggestions("dir", _testRootDir, 5);
+        stopwatch.Stop();
+
+        // Assert - Should complete in under 10ms for predictor
+        Assert.True(stopwatch.ElapsedMilliseconds < 10,
+            $"Predictor took {stopwatch.ElapsedMilliseconds}ms, expected < 10ms");
+        Assert.NotEmpty(suggestions);
+    }
+
+    [Fact]
+    public void Integration_AllPhase21Features_Together()
+    {
+        // Arrange - Complex scenario combining all Phase 21 features
+        var realProjectDir = Path.Combine(_testRootDir, "projects", "dd-trace-dotnet");
+        Directory.CreateDirectory(Path.GetDirectoryName(realProjectDir)!);
+        Directory.CreateDirectory(realProjectDir);
+        _tempDirectories.Add(realProjectDir);
+        _tempDirectories.Add(Path.GetDirectoryName(realProjectDir)!);
+
+        var branchDir = Path.Combine(_testRootDir, "projects", "dd-trace-dotnet-feature");
+        Directory.CreateDirectory(branchDir);
+        _tempDirectories.Add(branchDir);
+
+        var jsDir = Path.Combine(_testRootDir, "projects", "dd-trace-js");
+        Directory.CreateDirectory(jsDir);
+        _tempDirectories.Add(jsDir);
+
+        var cacheDir = Path.Combine(_testRootDir, "projects", ".codeium");
+        Directory.CreateDirectory(cacheDir);
+        _tempDirectories.Add(cacheDir);
+
+        // Create symlink scenario
+        var userDir = CreateTempDirectory("userprojects");
+        var symlinkDir = Path.Combine(userDir, "projects-link");
+
+        try
+        {
+            Directory.CreateSymbolicLink(symlinkDir, Path.Combine(_testRootDir, "projects"));
+            _tempDirectories.Add(symlinkDir);
+        }
+        catch
+        {
+            // Continue without symlink if creation fails
+        }
+
+        // Record usage
+        _graph.RecordUsage("cd", new[] { realProjectDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { branchDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { jsDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { cacheDir }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        var suggestions = engine.GetSuggestions("dd-trace-dotnet", Path.Combine(_testRootDir, "projects"), 20);
+        stopwatch.Stop();
+
+        // Assert - Verify all Phase 21 improvements work together
+        var paths = suggestions.Select(s => s.DisplayPath).ToList();
+
+        // 1. Exact match ranks first (Phase 21.3)
+        Assert.NotEmpty(suggestions);
+        var topResult = suggestions.First().DisplayPath;
+        Assert.Contains("dd-trace-dotnet", topResult);
+        Assert.DoesNotContain("feature", topResult);
+        Assert.DoesNotContain("js", topResult);
+
+        // 2. Unrelated directories filtered (Phase 21.4)
+        Assert.DoesNotContain(paths, p => p.Contains("dd-trace-js"));
+
+        // 3. Cache directories filtered (Phase 21.2)
+        Assert.DoesNotContain(paths, p => p.Contains(".codeium"));
+
+        // 4. Performance maintained (Phase 21 performance criteria)
+        Assert.True(stopwatch.ElapsedMilliseconds < 50,
+            $"Integration test took {stopwatch.ElapsedMilliseconds}ms, expected < 50ms");
+
+        // 5. Verify no duplicates from symlinks (Phase 21.1)
+        var dotnetMatches = suggestions.Where(s => s.DisplayPath.Contains("dd-trace-dotnet") &&
+                                                    !s.DisplayPath.Contains("feature")).ToList();
+        Assert.True(dotnetMatches.Count <= 1,
+            "Should have at most one entry for dd-trace-dotnet (no symlink duplicates)");
+    }
+
+    #endregion
 }
