@@ -797,9 +797,17 @@ public class PcdCompletionEngine
 
             // If it's the parent directory, use ".."
             var parent = Directory.GetParent(normCurrent)?.FullName;
-            if (parent != null && normAbsolute.Equals(parent, StringComparison.OrdinalIgnoreCase))
+            if (parent != null)
             {
-                return "..";
+                // Normalize both paths by trimming trailing separators before comparing
+                // This handles cases where absolutePath has a trailing separator from learned data
+                var normAbsoluteTrimmed = normAbsolute.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var parentTrimmed = parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                if (normAbsoluteTrimmed.Equals(parentTrimmed, StringComparison.OrdinalIgnoreCase))
+                {
+                    return "..";
+                }
             }
 
             // If it's a child directory, use relative path (without redundant .\ prefix)

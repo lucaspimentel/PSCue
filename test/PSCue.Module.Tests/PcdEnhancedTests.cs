@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using PSCue.Module;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace PSCue.Module.Tests;
 
@@ -18,9 +19,11 @@ public class PcdEnhancedTests : IDisposable
     private readonly string _testHomeDir;
     private readonly string _testRootDir;
     private readonly List<string> _tempDirectories;
+    private readonly ITestOutputHelper _output;
 
-    public PcdEnhancedTests()
+    public PcdEnhancedTests(ITestOutputHelper output)
     {
+        _output = output;
         _graph = new ArgumentGraph();
         _tempDirectories = new List<string>();
 
@@ -897,6 +900,39 @@ public class PcdEnhancedTests : IDisposable
 
         // Assert - Parent should be suggested as ".." (this is useful shortcut, keep it)
         Assert.Contains(suggestions, s => s.Path == "..");
+    }
+
+    [Fact]
+    public void GetSuggestions_ParentDirectoryMatchedByName_ShowsAsDoubleDot()
+    {
+        // Arrange - Simulate the real scenario:
+        // Current: D:\source\datadog\dd-trace-dotnet
+        // Typing: "datadog"
+        // Expected: Parent directory D:\source\datadog\ shown as ".." not "..\datadog"
+        var grandparent = CreateTempDirectory("source");
+        var parent = Path.Combine(grandparent, "datadog");
+        var child = Path.Combine(parent, "dd-trace-dotnet");
+        Directory.CreateDirectory(parent);
+        Directory.CreateDirectory(child);
+        _tempDirectories.Add(parent);
+        _tempDirectories.Add(child);
+
+        // Learn the parent directory WITH trailing separator (simulates real-world learned data)
+        var parentWithTrailingSep = parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        _graph.RecordUsage("cd", new[] { parentWithTrailingSep }, child);
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Get suggestions when typing "datadog" from child directory
+        var suggestions = engine.GetSuggestions("datadog", child, maxResults: 20);
+
+        // Assert - Parent should be suggested as ".." not "..\datadog"
+        var parentSuggestion = suggestions.FirstOrDefault(s =>
+            s.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Equals(parent, StringComparison.OrdinalIgnoreCase));
+
+        Assert.NotNull(parentSuggestion);
+        Assert.Equal("..", parentSuggestion.Path); // Should be just ".." not "..\datadog"
+        Assert.Contains(parent, parentSuggestion.DisplayPath, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
