@@ -708,8 +708,15 @@ public class PcdCompletionEngine
 
             // Parent directory
             var parent = Directory.GetParent(normalizedCurrent)?.FullName;
-            if (parent != null && normalizedPath.Equals(parent, StringComparison.OrdinalIgnoreCase))
-                return 0.9;
+            if (parent != null)
+            {
+                // Normalize both paths by trimming trailing separators before comparing
+                var normalizedPathTrimmed = normalizedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var parentTrimmed = parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                if (normalizedPathTrimmed.Equals(parentTrimmed, StringComparison.OrdinalIgnoreCase))
+                    return 0.9;
+            }
 
             // Child directory
             if (normalizedPath.StartsWith(normalizedCurrent + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
@@ -720,8 +727,15 @@ public class PcdCompletionEngine
 
             // Sibling directory (same parent)
             var pathParent = Directory.GetParent(normalizedPath)?.FullName;
-            if (pathParent != null && parent != null && pathParent.Equals(parent, StringComparison.OrdinalIgnoreCase))
-                return 0.7;
+            if (pathParent != null && parent != null)
+            {
+                // Normalize both paths by trimming trailing separators before comparing
+                var pathParentTrimmed = pathParent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var parentTrimmed = parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                if (pathParentTrimmed.Equals(parentTrimmed, StringComparison.OrdinalIgnoreCase))
+                    return 0.7;
+            }
 
             // Common ancestor (calculate depth difference)
             var commonAncestorDepth = GetCommonAncestorDepth(normalizedPath, normalizedCurrent);

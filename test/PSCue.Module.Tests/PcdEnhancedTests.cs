@@ -936,6 +936,51 @@ public class PcdEnhancedTests : IDisposable
     }
 
     [Fact]
+    public void GetSuggestions_ParentExactMatchName_PrioritizedOverSibling()
+    {
+        // Arrange - Simulate real scenario:
+        // Current: D:\source\datadog\dd-trace-dotnet
+        // Parent: D:\source\datadog (exact match for "datadog")
+        // Sibling: D:\source\datadog\dd-trace-dotnet-APMSVLS-58 (contains "datadog" but not exact)
+        // Typing: "datadog"
+        // Expected: Parent should rank first due to exact name match
+        var grandparent = CreateTempDirectory("source");
+        var parent = Path.Combine(grandparent, "datadog");
+        var child = Path.Combine(parent, "dd-trace-dotnet");
+        var sibling = Path.Combine(parent, "dd-trace-dotnet-APMSVLS-58");
+        Directory.CreateDirectory(parent);
+        Directory.CreateDirectory(child);
+        Directory.CreateDirectory(sibling);
+        _tempDirectories.Add(parent);
+        _tempDirectories.Add(child);
+        _tempDirectories.Add(sibling);
+
+        // Learn both parent and sibling with trailing separators
+        var parentWithTrailingSep = parent.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var siblingWithTrailingSep = sibling.TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+
+        // Record sibling with high frequency/recency to test that exact match still wins
+        _graph.RecordUsage("cd", new[] { siblingWithTrailingSep }, child);
+        _graph.RecordUsage("cd", new[] { siblingWithTrailingSep }, child);
+        _graph.RecordUsage("cd", new[] { siblingWithTrailingSep }, child);
+        _graph.RecordUsage("cd", new[] { parentWithTrailingSep }, child);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Get suggestions when typing "datadog" from child directory
+        var suggestions = engine.GetSuggestions("datadog", child, maxResults: 20);
+
+        // Assert - Parent with exact name match should rank first
+        Assert.NotEmpty(suggestions);
+        var topSuggestion = suggestions.First();
+
+        var parentNormalized = parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var topPathNormalized = topSuggestion.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        Assert.Equal(parentNormalized, topPathNormalized, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void GetSuggestions_SiblingPath_KeepsDoubleDotPrefix()
     {
         // Arrange - Create parent with two children
