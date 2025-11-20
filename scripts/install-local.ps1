@@ -77,7 +77,7 @@ try {
     $dotnetVersion = & dotnet --version 2>&1
     Write-Info ".NET SDK version: $dotnetVersion"
 } catch {
-    Write-Error ".NET SDK not found. Please install .NET 9.0 SDK or later."
+    Write-Error ".NET SDK not found. Please install .NET SDK 10 or later."
     Write-Info "Download from: https://dotnet.microsoft.com/download"
     exit 1
 }
@@ -112,9 +112,9 @@ $CompleterProject = Join-Path $RepoRoot "src/PSCue.ArgumentCompleter/PSCue.Argum
 
 Push-Location $RepoRoot
 try {
-    & dotnet publish $CompleterProject -c Release -r $RID --self-contained
+    & dotnet publish $CompleterProject -c Release -o publish -r $RID
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to build ArgumentCompleter"
+        Write-Error "Failed to build PSCue.ArgumentCompleter"
         exit 1
     }
 } finally {
@@ -127,9 +127,9 @@ $PredictorProject = Join-Path $RepoRoot "src/PSCue.Module/PSCue.Module.csproj"
 
 Push-Location $RepoRoot
 try {
-    & dotnet publish $PredictorProject -c Release
+    & dotnet publish $PredictorProject -c Release -o publish
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to build Module"
+        Write-Error "Failed to build PSCue.Module"
         exit 1
     }
 } finally {
@@ -141,7 +141,7 @@ Write-Status "Installing files..."
 
 # Copy ArgumentCompleter executable
 $CompleterExe = if ($IsWindowsPlatform) { "pscue-completer.exe" } else { "pscue-completer" }
-$CompleterSource = Join-Path $RepoRoot "src/PSCue.ArgumentCompleter/bin/Release/net9.0/$RID/publish/$CompleterExe"
+$CompleterSource = Join-Path $RepoRoot "publish/$CompleterExe"
 $CompleterDest = Join-Path $InstallDir $CompleterExe
 
 if (Test-Path $CompleterSource) {
@@ -158,7 +158,7 @@ if (Test-Path $CompleterSource) {
 }
 
 # Copy Module DLL and dependencies
-$PredictorSource = Join-Path $RepoRoot "src/PSCue.Module/bin/Release/net9.0/publish"
+$PredictorSource = Join-Path $RepoRoot "publish"
 $PredictorDll = "PSCue.Module.dll"
 $PredictorDllSource = Join-Path $PredictorSource $PredictorDll
 $PredictorDllDest = Join-Path $InstallDir $PredictorDll
