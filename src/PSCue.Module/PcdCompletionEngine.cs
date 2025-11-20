@@ -203,7 +203,9 @@ public class PcdCompletionEngine
     /// </summary>
     private List<PcdSuggestion> GetLearnedDirectories(string wordToComplete, string currentDirectory, int maxResults)
     {
-        var learnedStats = _graph.GetSuggestions("cd", Array.Empty<string>(), maxResults * 2);
+        // Get a large pool of learned paths to search through
+        // We need many more than maxResults because we filter and match them
+        var learnedStats = _graph.GetSuggestions("cd", Array.Empty<string>(), 200);
         var suggestions = new List<PcdSuggestion>();
 
         foreach (var stats in learnedStats)
@@ -541,21 +543,54 @@ public class PcdCompletionEngine
     /// <summary>
     /// Calculates match score based on how well the path matches the input.
     /// Returns 0.0-1.0 score (higher is better).
+    /// Checks both full path and directory name matching.
     /// </summary>
     private double CalculateMatchScore(string path, string wordToComplete)
     {
         if (string.IsNullOrWhiteSpace(wordToComplete))
             return 1.0; // Empty input matches everything
 
-        // Exact match
+        // Exact match (full path)
         if (path.Equals(wordToComplete, StringComparison.OrdinalIgnoreCase))
             return 1.0;
 
-        // Starts with (prefix match)
+        // Starts with (prefix match on full path)
         if (path.StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase))
             return 0.9;
 
-        // Fuzzy match (substring or Levenshtein distance)
+        // Check directory name match (e.g., "dd-trace-dotnet" matches "D:\source\datadog\dd-trace-dotnet")
+        var pathDirName = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        var searchDirName = Path.GetFileName(wordToComplete.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+
+        // Exact directory name match
+        if (!string.IsNullOrEmpty(pathDirName) &&
+            !string.IsNullOrEmpty(searchDirName) &&
+            pathDirName.Equals(searchDirName, StringComparison.OrdinalIgnoreCase))
+        {
+            return 1.0; // Treat as exact match
+        }
+
+        // Directory name prefix match
+        if (!string.IsNullOrEmpty(pathDirName) &&
+            !string.IsNullOrEmpty(searchDirName) &&
+            pathDirName.StartsWith(searchDirName, StringComparison.OrdinalIgnoreCase))
+        {
+            return 0.9; // Treat as prefix match
+        }
+
+        // Fuzzy match on directory name (if user typed just a name, not a path)
+        if (!string.IsNullOrEmpty(pathDirName) &&
+            !string.IsNullOrEmpty(searchDirName) &&
+            !Path.IsPathRooted(wordToComplete) &&
+            !wordToComplete.Contains(Path.DirectorySeparatorChar) &&
+            !wordToComplete.Contains(Path.AltDirectorySeparatorChar))
+        {
+            var dirNameScore = CalculateFuzzyMatchScore(pathDirName, searchDirName);
+            if (dirNameScore > 0.0)
+                return dirNameScore;
+        }
+
+        // Fuzzy match on full path (substring or Levenshtein distance)
         return CalculateFuzzyMatchScore(path, wordToComplete);
     }
 

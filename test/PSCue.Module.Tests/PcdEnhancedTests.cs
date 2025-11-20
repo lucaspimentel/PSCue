@@ -1742,6 +1742,37 @@ public class PcdEnhancedTests : IDisposable
     }
 
     [Fact]
+    public void GetSuggestions_DirectoryNameMatch_FromDifferentLocation_RanksFirst()
+    {
+        // Arrange - Simulate user scenario: typing "dd-trace-dotnet" from C:\Users\Lucas.Pimentel
+        // The learned directory is D:\source\datadog\dd-trace-dotnet
+        var userHomeDir = "C:\\Users\\Lucas.Pimentel";
+        var targetDir = "D:\\source\\datadog\\dd-trace-dotnet";
+        var similarDir = "D:\\source\\datadog\\dd-trace-dotnet-APMSVLS-58";
+
+        // Record usage for both directories
+        _graph.RecordUsage("cd", new[] { targetDir }, null);
+        _graph.RecordUsage("cd", new[] { similarDir }, null);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Search for "dd-trace-dotnet" from a completely different location
+        var suggestions = engine.GetSuggestions("dd-trace-dotnet", userHomeDir, 10);
+
+        // Assert - Exact directory name match should be first
+        Assert.NotEmpty(suggestions);
+        var topResult = suggestions.First();
+        Assert.Contains("dd-trace-dotnet", topResult.DisplayPath);
+        Assert.DoesNotContain("APMSVLS", topResult.DisplayPath); // Should be exact match, not similar one
+
+        // Verify the exact match has higher score
+        var exactMatch = suggestions.First(s => s.DisplayPath.Contains(targetDir));
+        var fuzzyMatch = suggestions.First(s => s.DisplayPath.Contains("APMSVLS"));
+        Assert.True(exactMatch.Score > fuzzyMatch.Score,
+            $"Exact dir name match score ({exactMatch.Score}) should be higher than similar match ({fuzzyMatch.Score})");
+    }
+
+    [Fact]
     public void GetSuggestions_ExactMatchBoostConfiguration_AppliesCorrectMultiplier()
     {
         // Arrange
