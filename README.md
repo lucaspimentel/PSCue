@@ -162,6 +162,7 @@ The `pcd` (PowerShell Change Directory) command provides:
 
 **Core Features**:
 - **Inline predictions**: See directory suggestions as you type (like other commands)
+- **Directory name matching**: Type just the directory name to navigate from anywhere (e.g., `pcd dd-trace-dotnet` finds `D:\source\datadog\dd-trace-dotnet` from any location)
 - **Exact match prioritization**: Exact directory name matches always rank first (100× boost by default)
 - **Smart fuzzy matching**: Find directories with typos while rejecting unrelated matches (70% minimum similarity, LCS check for long queries)
 - **Clean path display**: Shows relative paths without redundant `.\` prefix (e.g., `childdir` not `.\childdir`)
@@ -175,6 +176,9 @@ The `pcd` (PowerShell Change Directory) command provides:
 - **Frecency scoring**: Balances frequency + recency + distance for better suggestions
 - **Distance scoring**: Prefers directories near your current location
 - **Best-match navigation**: `pcd datadog` automatically finds best match if exact path doesn't exist
+  - Searches top 200 learned paths for comprehensive coverage
+  - Tries all suggestions in order until finding one that exists (handles stale data)
+  - Shows helpful error messages instead of PowerShell errors for non-existent paths
 - **Path normalization**: All paths include trailing `\` to match PowerShell's native behavior
 
 **Advanced Scoring Algorithm**:
@@ -232,6 +236,15 @@ pcd D:\source\datadog\t<Tab>  # Shows: D:\source\datadog\toaster\ (even if never
 # Best-match navigation (no Tab needed!)
 pcd datadog             # Navigates to "D:\source\datadog" automatically
                         # Shows: "No exact match, navigating to: D:\source\datadog"
+
+# Directory name matching - navigate from anywhere!
+cd C:\Users\Lucas.Pimentel
+pcd dd-trace-dotnet     # Finds "D:\source\datadog\dd-trace-dotnet" even from different drive/location
+                        # Matches directory name regardless of full path
+
+# Robustness - helpful errors instead of crashes
+pcd nonexistent-project # Shows: "No learned directory matches 'nonexistent-project'."
+                        #         "Tip: Navigate to directories to teach PSCue, or use tab completion."
 
 # Well-known shortcuts (highest priority)
 pcd ~                   # Home directory

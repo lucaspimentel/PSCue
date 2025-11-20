@@ -84,6 +84,8 @@ src/
 - `test/PSCue.Module.Tests/WorkflowLearnerTests.cs`: Workflow learning tests (Phase 18.1)
 - `test/PSCue.Module.Tests/PCDTests.cs`: Smart directory navigation tests (Phase 17.5)
 - `test/PSCue.Module.Tests/PcdEnhancedTests.cs`: Enhanced PCD algorithm tests with symlink resolution (Phases 17.6 + 17.9 + 21.1 + 21.2)
+- `test/PSCue.Module.Tests/PcdMatchScoreTests.cs`: Unit tests for CalculateMatchScore directory name matching
+- `test/PSCue.Module.Tests/PcdRobustnessTests.cs`: Tests for handling stale/non-existent paths gracefully
 - `test/PSCue.Module.Tests/PersistenceManagerTests.cs`: Persistence unit tests
 - `test/PSCue.Module.Tests/PersistenceConcurrencyTests.cs`: Multi-session concurrency tests
 - `test/PSCue.Module.Tests/PersistenceIntegrationTests.cs`: End-to-end integration tests
@@ -127,7 +129,7 @@ Clear-PSCueWorkflows [-WhatIf] [-Confirm]          # Clear workflows (memory + D
 Export-PSCueWorkflows -Path <path>                 # Export workflows to JSON
 Import-PSCueWorkflows -Path <path> [-Merge]        # Import workflows from JSON
 
-# Smart Directory Navigation (Phases 17.5 + 17.6 + 17.7 + 17.9 + 19.0)
+# Smart Directory Navigation (Phases 17.5 + 17.6 + 17.7 + 17.9 + 19.0 + Bug Fixes)
 pcd [path]                                         # PowerShell Change Directory with inline predictions + tab completion
 Invoke-PCD [path]                                  # Long-form function name
 
@@ -138,6 +140,10 @@ Invoke-PCD [path]                                  # Long-form function name
 #   - Tooltip: Full absolute path with match type indicator
 #   - Filesystem search: Shows unlearned directories via child + recursive search
 # - Best-match navigation: `pcd <partial>` finds closest fuzzy match without tab
+#   - Directory name matching: "dd-trace-dotnet" matches "D:\source\datadog\dd-trace-dotnet" from any location
+#   - Searches top 200 learned paths (not just top 20) for better match coverage
+#   - Loops through all suggestions until finding one that exists (robustness)
+#   - Shows helpful errors instead of attempting Set-Location on non-existent paths
 #   - Requests top 10 suggestions for better match reliability
 #   - Uses deeper recursive search for thorough discovery
 # - Filtering: Excludes non-existent directories (both tab and predictor), current directory, and parent when typing absolute paths
@@ -145,12 +151,15 @@ Invoke-PCD [path]                                  # Long-form function name
 # - Well-known shortcuts: ~, .. (only suggested for relative paths, not absolute)
 # - Performance: <50ms tab completion, <10ms predictor
 # - Code sharing: Unified configuration via PcdConfiguration class (Phase 19.0)
+# - Robustness: Handles stale database entries, race conditions, and permission issues gracefully
 
 # Algorithm (Phase 17.6 + 17.9 + 19.0 + 21.2 + Bug Fixes - PcdCompletionEngine):
 # - Stage 1: Well-known shortcuts (~, ..) - skipped for absolute paths
-# - Stage 2: Learned directories - parent directory filtered for absolute paths
-#   - Exact match boost: 100× multiplier ensures exact matches always appear first (PcdCompletionEngine.cs:246)
+# - Stage 2: Learned directories (searches top 200 paths for better coverage)
+#   - Directory name matching: Checks both full path AND directory name for matches (PcdCompletionEngine.cs:559-589)
+#   - Exact match boost: 100× multiplier ensures exact matches always appear first
 #   - Cache filtering: Filters .codeium, .claude, .dotnet, node_modules, bin, obj, etc. (Phase 21.2)
+#   - Parent directory filtered for absolute paths
 # - Stage 3a: Direct filesystem search (non-recursive) - always enabled
 #   - Cache filtering: Applied to discovered directories
 # - Stage 3b: Recursive filesystem search - ALWAYS enabled when configured (depth-controlled)
@@ -237,6 +246,8 @@ public void TestLearningAccess()
 7. **PCD exact match not first**: When frecency scoring dominates match quality, use a boost multiplier for exact matches. Small match score components (0.1) can be overwhelmed by frequency/recency scores. Solution: Apply 100× boost for exact matches (matchScore >= 1.0) to ensure they always rank first.
 8. **Inconsistent trailing separators**: Directory completions must have trailing separators in BOTH tab completion (ArgumentCompleter) and inline predictions (ICommandPredictor). Check both code paths when modifying directory suggestion logic.
 9. **Path normalization requires workingDirectory**: When calling `ArgumentGraph.RecordUsage()` for navigation commands (cd, sl, chdir), MUST provide the `workingDirectory` parameter. If null/empty, path normalization (including symlink resolution) is skipped. This causes duplicate entries for symlinked paths. Always pass a valid working directory for proper deduplication.
+10. **PCD best-match returns 0 suggestions**: If `GetSuggestions()` returns no matches, check that `GetLearnedDirectories()` is requesting enough paths from ArgumentGraph. The default pool size should be 200+ to ensure less-frequently-used directories are searchable. Also verify `CalculateMatchScore()` checks BOTH full paths and directory names.
+11. **PCD attempts Set-Location on non-existent path**: Always loop through ALL suggestions and verify existence before navigation. Never call `Set-Location` on paths that don't exist - show helpful error messages instead. This handles race conditions and stale database entries gracefully.
 
 ## Documentation
 - **Implementation status**:
