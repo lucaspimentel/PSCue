@@ -2,19 +2,10 @@
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
-    <AssemblyName>PSCue.Shared</AssemblyName>
-    <RootNamespace>PSCue.Shared</RootNamespace>
+    <OutputType>Library</OutputType>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-
-    <!-- This is a library -->
-    <OutputType>Library</OutputType>
   </PropertyGroup>
-
-  <ItemGroup>
-    <!-- System.Text.Json for IPC serialization -->
-    <PackageReference Include="System.Text.Json" Version="9.0.0" />
-  </ItemGroup>
 
 </Project>

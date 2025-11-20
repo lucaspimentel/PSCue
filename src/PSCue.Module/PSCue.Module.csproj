@@ -2,14 +2,10 @@
 
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
-    <AssemblyName>PSCue.Module</AssemblyName>
-    <RootNamespace>PSCue.Module</RootNamespace>
+    <OutputType>Library</OutputType>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-
-    <!-- This is a library, not an executable -->
-    <OutputType>Library</OutputType>
 
     <!-- Enable module initializer for auto-registration -->
     <EnablePreviewFeatures>true</EnablePreviewFeatures>
