@@ -98,21 +98,30 @@ function Invoke-PCD {
         $suggestions = $engine.GetSuggestions($Path, $currentDir, 10)
 
         if ($suggestions -and $suggestions.Count -gt 0) {
-            $bestMatch = $suggestions[0]
+            # Try suggestions in order until we find one that exists
+            foreach ($suggestion in $suggestions) {
+                $absolutePath = $suggestion.DisplayPath
 
-            # Use the absolute path (DisplayPath) for navigation
-            $absolutePath = $bestMatch.DisplayPath
-
-            # Verify the matched path exists
-            if (Test-Path -LiteralPath $absolutePath -PathType Container) {
-                Write-Host "No exact match, navigating to: $absolutePath" -ForegroundColor Yellow
-                Set-Location -LiteralPath $absolutePath
-                return
+                # Verify the matched path exists before navigating
+                if (Test-Path -LiteralPath $absolutePath -PathType Container) {
+                    Write-Host "No exact match, navigating to: $absolutePath" -ForegroundColor Yellow
+                    Set-Location -LiteralPath $absolutePath
+                    return
+                }
             }
+
+            # All suggestions exist in database but not on filesystem (stale data or race condition)
+            Write-Host "Found $($suggestions.Count) potential match(es) for '$Path', but none exist on the filesystem." -ForegroundColor Red
+            Write-Host "Suggestions were:" -ForegroundColor Yellow
+            foreach ($suggestion in $suggestions) {
+                Write-Host "  - $($suggestion.DisplayPath)" -ForegroundColor Gray
+            }
+            return
         }
 
-        # No matches found - fall back to Set-Location error
-        Set-Location $Path
+        # No matches found in learned data
+        Write-Host "No learned directory matches '$Path'." -ForegroundColor Red
+        Write-Host "Tip: Navigate to directories to teach PSCue, or use tab completion to see suggestions." -ForegroundColor Yellow
     }
     catch {
         # If anything goes wrong, fall back to Set-Location
