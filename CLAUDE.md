@@ -129,15 +129,17 @@ Clear-PSCueWorkflows [-WhatIf] [-Confirm]          # Clear workflows (memory + D
 Export-PSCueWorkflows -Path <path>                 # Export workflows to JSON
 Import-PSCueWorkflows -Path <path> [-Merge]        # Import workflows from JSON
 
-# Smart Directory Navigation (Phases 17.5 + 17.6 + 17.7 + 17.9 + 19.0 + Bug Fixes)
+# Smart Directory Navigation (Phases 17.5 + 17.6 + 17.7 + 17.9 + 19.0 + Bug Fixes + Native cd Behavior)
 pcd [path]                                         # PowerShell Change Directory with inline predictions + tab completion
 Invoke-PCD [path]                                  # Long-form function name
 
 # Features:
 # - Inline predictions: Shows directory suggestions as you type (integrated with CommandPredictor)
-# - Tab completion: Shows fuzzy-matched directories with frecency scoring + filesystem search
-#   - Display: Relative paths (no redundant .\ prefix for children)
-#   - Tooltip: Full absolute path with match type indicator
+# - Tab completion: Matches native cd behavior exactly
+#   - CompletionText (inserted): .\ChildDir\ or '.\Dir With Spaces\' (relative with .\ prefix, trailing separator, single quotes)
+#   - ListItemText (displayed): Clean directory names without prefixes/separators/quotes
+#   - Tooltip: Full absolute path with match type indicator ([found], [learned], [fuzzy])
+#   - Uses platform-appropriate separators (\ on Windows, / on Unix)
 #   - Filesystem search: Shows unlearned directories via child + recursive search
 # - Best-match navigation: `pcd <partial>` finds closest fuzzy match without tab
 #   - Directory name matching: "dd-trace-dotnet" matches "D:\source\datadog\dd-trace-dotnet" from any location
@@ -176,11 +178,13 @@ Invoke-PCD [path]                                  # Long-form function name
 #   - Prevents unrelated matches (e.g., "dd-trace-js" won't match "dd-trace-dotnet")
 # - Frecency scoring: Configurable blend (default: 50% frequency, 30% recency, 20% distance)
 # - Distance scoring: Parent (0.9), Child (0.85-0.5), Sibling (0.7), Ancestor (0.6-0.1)
-# - Path display: Relative paths WITHOUT redundant .\ prefix (e.g., "childdir" not ".\childdir")
-#   - Keep ".." for parent and "..\sibling" format (these are useful shortcuts)
+# - Tab completion display (module/Functions/PCD.ps1:183-228):
+#   - CompletionText: Relative paths with .\ prefix for child dirs, ..\ for siblings, absolute for others
+#   - ListItemText: Clean names (e.g., "Screenshots" not ".\Screenshots\")
+#   - Single quotes for paths with spaces, platform-appropriate separators
 # - Path deduplication: Uses normalized absolute paths (with trailing \)
 # - Existence checking: Filters out learned paths that no longer exist (both tab and predictor)
-# - Trailing separator: All directory paths end with \ (both tab completion and predictor) (CommandPredictor.cs:175-181)
+# - Trailing separator: All directory paths end with \ (both tab completion and predictor)
 
 # Debugging & Testing
 Test-PSCueCompletion -InputString <string>         # Test completions
@@ -248,6 +252,8 @@ public void TestLearningAccess()
 9. **Path normalization requires workingDirectory**: When calling `ArgumentGraph.RecordUsage()` for navigation commands (cd, sl, chdir), MUST provide the `workingDirectory` parameter. If null/empty, path normalization (including symlink resolution) is skipped. This causes duplicate entries for symlinked paths. Always pass a valid working directory for proper deduplication.
 10. **PCD best-match returns 0 suggestions**: If `GetSuggestions()` returns no matches, check that `GetLearnedDirectories()` is requesting enough paths from ArgumentGraph. The default pool size should be 200+ to ensure less-frequently-used directories are searchable. Also verify `CalculateMatchScore()` checks BOTH full paths and directory names.
 11. **PCD attempts Set-Location on non-existent path**: Always loop through ALL suggestions and verify existence before navigation. Never call `Set-Location` on paths that don't exist - show helpful error messages instead. This handles race conditions and stale database entries gracefully.
+12. **PCD tab completion behavior**: CompletionText must match native cd exactly - use .\ prefix for child directories, ..\ for siblings, and single quotes for spaces. ListItemText should be clean (no prefixes/separators/quotes). See module/Functions/PCD.ps1:183-228 for implementation.
+13. **Testing with non-existent paths**: Use `skipExistenceCheck: true` parameter in `PcdCompletionEngine.GetSuggestions()` when testing with mock/non-existent paths. Production code filters non-existent paths by default.
 
 ## Documentation
 - **Implementation status**:

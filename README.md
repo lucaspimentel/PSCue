@@ -161,11 +161,14 @@ pcd ..                  # Parent directory (well-known shortcut)
 The `pcd` (PowerShell Change Directory) command provides:
 
 **Core Features**:
+- **Native cd behavior**: Tab completion matches PowerShell's native `cd` exactly
+  - Inserts: `.\childdir\` or `'.\dir with spaces\'` (with `.\ ` prefix, trailing separator, single quotes)
+  - Displays: Clean directory names without prefixes/separators/quotes
+  - Uses platform-appropriate separators (`\` on Windows, `/` on Unix)
 - **Inline predictions**: See directory suggestions as you type (like other commands)
 - **Directory name matching**: Type just the directory name to navigate from anywhere (e.g., `pcd dd-trace-dotnet` finds `D:\source\datadog\dd-trace-dotnet` from any location)
 - **Exact match prioritization**: Exact directory name matches always rank first (100× boost by default)
 - **Smart fuzzy matching**: Find directories with typos while rejecting unrelated matches (70% minimum similarity, LCS check for long queries)
-- **Clean path display**: Shows relative paths without redundant `.\` prefix (e.g., `childdir` not `.\childdir`)
 - **Recursive filesystem search**: Always enabled for thorough discovery (depth-controlled for performance)
 - **Smart filtering**:
   - Excludes non-existent directories (both tab and predictor)
@@ -220,9 +223,10 @@ cd D:\source\lucaspimentel\PSCue
 pcd                     # Shows inline suggestions: ../datadog, ./src, etc.
 pcd d                   # Filters suggestions as you type
 
-# Smart tab completion with fuzzy matching
-pcd dat<Tab>            # Suggests: ../datadog (prefix match, parent directory)
-pcd src<Tab>            # Suggests: src (child, no .\ prefix - clean!)
+# Smart tab completion with fuzzy matching (matches native cd behavior)
+pcd dat<Tab>            # Completes: pcd ..\datadog\     (shown in list: "datadog")
+pcd src<Tab>            # Completes: pcd .\src\          (shown in list: "src")
+pcd 'dir with spaces'<Tab> # Completes: pcd '.\dir with spaces\' (single quotes, shown: "dir with spaces")
 pcd trace<Tab>          # Suggests: dd-trace-dotnet (substring match)
 pcd datdog<Tab>         # Suggests: ../datadog (fuzzy match, typo tolerant)
 
