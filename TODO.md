@@ -1,49 +1,6 @@
 # PSCue - Task List
 
-**Last Updated**: 2025-11-17 (Phase 21 completed and archived)
-
-This document tracks active and planned work for PSCue. For architectural details, see [TECHNICAL_DETAILS.md](docs/TECHNICAL_DETAILS.md). For completed work, see [COMPLETED.md](docs/COMPLETED.md).
-
----
-
-## Current Status
-
-**Latest Release**: v0.3.0 (2025-11-09)
-- ✅ Multi-word prediction suggestions (Phase 17.4) - archived to docs/COMPLETED.md
-- ✅ Dynamic workflow learning (Phase 18.1) - archived to docs/COMPLETED.md
-- ✅ Smart directory navigation with `pcd` command (Phases 17.5-17.8) - archived to docs/COMPLETED.md
-  - Phase 17.5: Basic `pcd` command with tab completion
-  - Phase 17.6: Enhanced algorithm (fuzzy matching, frecency, distance scoring)
-  - Phase 17.7: Inline predictions and relative paths
-  - Phase 17.8: Partial command predictions (typing "g" suggests "git")
-- ✅ Comprehensive test coverage (300+ tests)
-- 🎉 Available for installation via one-line command
-
-**Previous Release**: v0.2.0 (2025-11-05)
-- ML-based N-gram sequence prediction (Phase 17.1) - archived
-- Privacy & security - sensitive data protection (Phase 17.2) - archived
-- Partial word completion filtering (Phase 17.3) - archived
-- Automated CI/CD with GitHub Actions
-
-**Recent Improvements** (not yet released):
-- ✅ Phase 17.9: PCD completion improvements - archived to docs/COMPLETED.md
-- ✅ Phase 19.0: PCD precedence review and optimization - archived to docs/COMPLETED.md
-- ✅ Phase 20: Parameter-value binding - archived to docs/COMPLETED.md
-- ✅ Phase 21: PCD quality improvements - archived to docs/COMPLETED.md (2025-11-17)
-  - Symlink resolution & deduplication
-  - Cache/metadata directory filtering
-  - Exact match scoring boost
-  - Improved fuzzy matching quality
-  - Comprehensive integration testing
-  - Documentation updates (including new TROUBLESHOOTING.md)
-
-**Next Up**:
-- TBD (see Planned Work below for options)
-
-**Installation**:
-```powershell
-irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-remote.ps1 | iex
-```
+This document tracks planned work for PSCue. For architectural details, see [TECHNICAL_DETAILS.md](docs/TECHNICAL_DETAILS.md). For completed work, see [COMPLETED.md](docs/COMPLETED.md).
 
 ---
 
@@ -507,21 +464,16 @@ PS> git a█
 **Total Estimated Effort (Phases 18.3-18.7)**: 170-210 hours
 
 **Implementation Priority**:
-1. ✅ **Phase 18.1**: Dynamic Workflow Learning (COMPLETE)
-2. ✅ **Phase 18.2**: Time-Based Detection (COMPLETE - integrated with 18.1)
-3. **Phase 18.3**: Workflow Chains (3+ commands) - **NEXT** (medium priority)
-4. **Phase 18.4**: Project-Type Detection (medium-low priority, high user value)
-5. **Phase 18.5**: Interruption Recovery (low priority, nice-to-have)
-6. **Phase 18.6**: Error-Driven Adjustment (low priority, research needed)
-7. **Phase 18.7**: Multi-Tool Workflows (low priority, polish)
+1. **Phase 18.3**: Workflow Chains (3+ commands) - medium priority
+2. **Phase 18.4**: Project-Type Detection - medium-low priority, high user value
+3. **Phase 18.5**: Interruption Recovery - low priority
+4. **Phase 18.6**: Error-Driven Adjustment - low priority, research needed
+5. **Phase 18.7**: Multi-Tool Workflows - low priority
+6. **Phase 18.8**: Suggestion Source Telemetry - high priority (informs development)
 
 **Configuration Summary** (All Phases):
 ```powershell
-# Dynamic workflow learning (18.1, 18.2, 18.3)
-$env:PSCUE_WORKFLOW_LEARNING = "true"
-$env:PSCUE_WORKFLOW_MIN_FREQUENCY = "5"
-$env:PSCUE_WORKFLOW_MAX_TIME_DELTA = "15"         # minutes
-$env:PSCUE_WORKFLOW_MIN_CONFIDENCE = "0.6"
+# Workflow chains (18.3)
 $env:PSCUE_WORKFLOW_NGRAM_ORDER = "3"             # 18.3: bigrams(2) or trigrams(3)
 
 # Project-type detection (18.4)
@@ -541,16 +493,15 @@ $env:PSCUE_ERROR_CACHE_TTL = "300"                # seconds
 $env:PSCUE_MULTITOOL_WORKFLOWS = "true"
 ```
 
-**PowerShell Functions** (Phase 18.1 complete, others TBD):
+**PowerShell Functions** (for future phases):
 ```powershell
-Get-PSCueWorkflows [-Command <string>] [-AsJson]
-Get-PSCueWorkflowStats [-Detailed] [-AsJson]
-Clear-PSCueWorkflows [-WhatIf] [-Confirm]
-Export-PSCueWorkflows -Path <path>
-Import-PSCueWorkflows -Path <path> [-Merge]
-```
+# Existing (from Phase 18.1 - see COMPLETED.md):
+Get-PSCueWorkflows, Get-PSCueWorkflowStats, Clear-PSCueWorkflows
+Export-PSCueWorkflows, Import-PSCueWorkflows
 
-**Note**: Phase 18.2 (Time-Based Detection) was completed as part of Phase 18.1.
+# Planned (Phase 18.8):
+Get-PSCueSuggestionStats, Export-PSCueSuggestionMetrics, Clear-PSCueSuggestionMetrics
+```
 
 ---
 
@@ -759,7 +710,7 @@ dotnet test test/PSCue.Module.Tests/
 dotnet test --filter "FullyQualifiedName~ModuleFunctions"
 
 # Install locally
-./scripts/install-local.ps1 -Force
+./install-local.ps1 -Force
 ```
 
 ### Module Functions (Phase 16 + Phase 18.1)
