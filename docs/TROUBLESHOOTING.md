@@ -35,7 +35,7 @@ This document covers common issues and their solutions when using PSCue.
 
 2. Reinstall PSCue to get the latest version:
    ```powershell
-   irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-remote.ps1 | iex
+   irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps1 | iex
    ```
 
 3. Restart PowerShell and rebuild your learned paths by navigating to your frequently-used directories.
@@ -188,7 +188,7 @@ Import-Module PSCue
 **Solution**:
 ```powershell
 # Reinstall PSCue
-irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-remote.ps1 | iex
+irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps1 | iex
 ```
 
 **Verify installation**:

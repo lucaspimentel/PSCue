@@ -104,7 +104,7 @@ For current and future work, see [TODO.md](TODO.md).
 
 ### Phase 5: Create Installation Scripts ✅
 - [x] Create `scripts/` directory
-- [x] Create `scripts/install-local.ps1` (build from source)
+- [x] Create `install-local.ps1` (build from source)
   - [x] Detect platform (Windows/macOS/Linux, x64/arm64)
   - [x] Build ArgumentCompleter with NativeAOT
   - [x] Build CommandPredictor
@@ -112,7 +112,7 @@ For current and future work, see [TODO.md](TODO.md).
   - [x] Copy all necessary files
   - [x] Display instructions
   - [x] Fixed `$IsWindows` variable conflict (used `$IsWindowsPlatform` instead)
-- [x] Create `scripts/install-remote.ps1` (download from GitHub)
+- [x] Create `install-remote.ps1` (download from GitHub)
   - [x] Accept optional $version variable from caller
   - [x] Detect platform and map to release asset name
   - [x] Query GitHub API for latest release or use specific version
@@ -1391,7 +1391,7 @@ Automated build, test, and release pipeline for PSCue.
   - Creates GitHub release with all artifacts
   - **Fixed**: Includes Functions/ directory in archives
 
-- **Installation Script** (`scripts/install-remote.ps1`):
+- **Installation Script** (`install-remote.ps1`):
   - Downloads from GitHub releases (latest or specific version)
   - Platform detection and validation
   - Extracts and installs to `~/.local/pwsh-modules/PSCue/`

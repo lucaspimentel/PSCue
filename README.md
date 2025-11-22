@@ -87,13 +87,13 @@ PSCue provides detailed completions for these commands:
 One-line installation from the latest release:
 
 ```powershell
-irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-remote.ps1 | iex
+irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps1 | iex
 ```
 
 Install a specific version:
 
 ```powershell
-$version = "1.0.0"; irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-remote.ps1 | iex
+$version = "1.0.0"; irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps1 | iex
 ```
 
 ### From Source
@@ -103,12 +103,7 @@ Build and install from source (requires .NET 9.0 SDK):
 ```powershell
 git clone https://github.com/lucaspimentel/PSCue.git
 cd PSCue
-
-# PowerShell
-./scripts/install-local.ps1
-
-# Or from Windows Command Prompt
-scripts\install-local.cmd
+./install-local.ps1
 ```
 
 Both methods install to `~/.local/pwsh-modules/PSCue/`
@@ -445,7 +440,7 @@ Remove-Module PowerShellArgumentCompleter -ErrorAction SilentlyContinue
 Remove-Module PowerShellPredictor -ErrorAction SilentlyContinue
 
 # Install PSCue
-irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-remote.ps1 | iex
+irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps1 | iex
 
 # Update your $PROFILE to use PSCue instead
 ```
@@ -800,7 +795,7 @@ The `-Force` parameter bypasses initialization checks and directly deletes the S
 
 - **Linux**: May need to set executable permissions: `chmod +x ~/.local/pwsh-modules/PSCue/pscue-completer`
 - **Windows**: If execution policy blocks the module, run: `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`
-- **macOS**: Not currently supported (Windows x64 and Linux x64 only). You can build from source using `./scripts/install-local.ps1`
+- **macOS**: Not currently supported (Windows x64 and Linux x64 only). You can build from source using `./install-local.ps1`
 
 ## License
 

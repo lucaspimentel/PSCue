@@ -108,7 +108,7 @@ dotnet test --filter "FullyQualifiedName~SequencePredictor"
 dotnet test --filter "FullyQualifiedName~WorkflowLearner"
 
 # Install locally
-./scripts/install-local.ps1
+./install-local.ps1
 
 # PowerShell Module Functions (Phase 16 - replaces PSCue.Debug)
 # Learning Management (in-memory + database)
@@ -322,11 +322,11 @@ $env:PSCUE_IGNORE_PATTERNS = "aws *,terraform *,*custom-secret*"
 
 **CI/CD**: Automated builds and releases via GitHub Actions for win-x64 and linux-x64
 - **Latest Release**: v0.3.0 (2025-11-09)
-- **Installation**: `irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-remote.ps1 | iex`
+- **Installation**: `irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps1 | iex`
 - **Release Assets**: PSCue-win-x64.zip, PSCue-linux-x64.tar.gz, checksums.txt
 - **Key Features**: Multi-word predictions, dynamic workflow learning, smart directory navigation (pcd)
 
 # Misc
 - When adding support for new commands, add the completer registration in module/PSCue.psm1 as well
-- when running ./scripts/install-local.ps1, always use -Force
+- when running ./install-local.ps1, always use -Force
 - don't reference phases in code, e.g. "// Phase 20: Parse command to understand parameter-value context" or "// Add multi-word suggestions (Phase 17.4)"

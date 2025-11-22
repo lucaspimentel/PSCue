@@ -942,7 +942,7 @@ PSCue supports two installation methods: local (build from source) and remote (d
 
 ### 1. Local Installation (Development/Source)
 
-**Script**: `scripts/install-local.ps1`
+**Script**: `install-local.ps1`
 
 **Purpose**: For developers or users who want to build from source
 
@@ -953,7 +953,7 @@ git clone https://github.com/lucaspimentel/PSCue.git
 cd PSCue
 
 # Run the local installation script
-./scripts/install-local.ps1
+./install-local.ps1
 ```
 
 **Workflow**:
@@ -970,17 +970,17 @@ cd PSCue
 
 ### 2. Remote Installation (End Users)
 
-**Script**: `scripts/install-remote.ps1`
+**Script**: `install-remote.ps1`
 
 **Purpose**: One-liner installation for end users from GitHub releases
 
 **Usage**:
 ```powershell
 # One-line remote installation (latest version)
-irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-remote.ps1 | iex
+irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps1 | iex
 
 # Install specific version
-$version = "1.0.0"; irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-remote.ps1 | iex
+$version = "1.0.0"; irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps1 | iex
 ```
 
 **Workflow**:
