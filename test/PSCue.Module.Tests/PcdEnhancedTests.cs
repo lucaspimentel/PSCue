@@ -1757,7 +1757,8 @@ public class PcdEnhancedTests : IDisposable
         var engine = new PcdCompletionEngine(_graph);
 
         // Act - Search for "dd-trace-dotnet" from a completely different location
-        var suggestions = engine.GetSuggestions("dd-trace-dotnet", userHomeDir, 10);
+        // Skip existence check since these are test paths that don't exist on filesystem
+        var suggestions = engine.GetSuggestions("dd-trace-dotnet", userHomeDir, maxResults: 10, skipExistenceCheck: true);
 
         // Assert - Exact directory name match should be first
         Assert.NotEmpty(suggestions);

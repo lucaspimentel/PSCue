@@ -71,8 +71,9 @@ public class PcdCompletionEngine
     /// <param name="wordToComplete">The partial directory path typed by the user.</param>
     /// <param name="currentDirectory">The current working directory.</param>
     /// <param name="maxResults">Maximum number of results to return (default: 20).</param>
+    /// <param name="skipExistenceCheck">If true, skip filesystem existence check (used for testing with mock paths).</param>
     /// <returns>List of directory suggestions sorted by score (highest first).</returns>
-    public List<PcdSuggestion> GetSuggestions(string? wordToComplete, string currentDirectory, int maxResults = 20)
+    public List<PcdSuggestion> GetSuggestions(string? wordToComplete, string currentDirectory, int maxResults = 20, bool skipExistenceCheck = false)
     {
         wordToComplete ??= string.Empty;
         var suggestions = new List<PcdSuggestion>();
@@ -82,7 +83,7 @@ public class PcdCompletionEngine
         suggestions.AddRange(shortcutSuggestions);
 
         // Stage 2: Get learned directories with enhanced scoring
-        var learnedSuggestions = GetLearnedDirectories(wordToComplete, currentDirectory, maxResults);
+        var learnedSuggestions = GetLearnedDirectories(wordToComplete, currentDirectory, maxResults, skipExistenceCheck);
         suggestions.AddRange(learnedSuggestions);
 
         // Stage 3a: Direct filesystem search for matching child directories (non-recursive, always enabled)
@@ -201,7 +202,7 @@ public class PcdCompletionEngine
     /// Stage 2: Gets learned directories from ArgumentGraph with enhanced scoring.
     /// Combines frequency, recency, distance, and fuzzy matching.
     /// </summary>
-    private List<PcdSuggestion> GetLearnedDirectories(string wordToComplete, string currentDirectory, int maxResults)
+    private List<PcdSuggestion> GetLearnedDirectories(string wordToComplete, string currentDirectory, int maxResults, bool skipExistenceCheck)
     {
         // Get a large pool of learned paths to search through
         // We need many more than maxResults because we filter and match them
@@ -221,8 +222,8 @@ public class PcdCompletionEngine
             if (path.Equals(currentDirectory, StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            // Skip paths that don't exist on the filesystem
-            if (!Directory.Exists(path))
+            // Skip paths that don't exist on the filesystem (unless testing with mock paths)
+            if (!skipExistenceCheck && !Directory.Exists(path))
                 continue;
 
             // Filter out cache/metadata directories unless explicitly typed

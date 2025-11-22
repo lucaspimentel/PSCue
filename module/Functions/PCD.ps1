@@ -180,30 +180,55 @@ Register-ArgumentCompleter -CommandName 'Invoke-PCD', 'pcd' -ParameterName 'Path
             }
             $fullTooltip = "$matchIndicator $tooltip"
 
-            # Determine what to show in the completion list
-            # If user typed an absolute path, show absolute paths in list
-            # If user typed a relative path, show relative paths in list
-            $isAbsolutePath = [System.IO.Path]::IsPathRooted($wordToComplete)
-            $listItemText = if ($isAbsolutePath) {
-                # User typed absolute path -> show absolute path in list
-                $fullPath
+            # Prepare paths for display and completion
+            # ListItemText: Clean display without prefixes/separators/quotes (e.g., "Screenshots")
+            # CompletionText: What gets inserted, matching native cd behavior (e.g., '.\Screenshots\')
+
+            # For list display: Use directory name only for child/sibling, full path otherwise
+            $sep = [System.IO.Path]::DirectorySeparatorChar
+            $listItemText = if ([System.IO.Path]::IsPathRooted($relativePath)) {
+                # Absolute path - show full path in list (without trailing separator for cleaner display)
+                $fullPath.TrimEnd($sep)
             } else {
-                # User typed relative path -> show relative path in list
-                $relativePath
+                # Relative path - show clean name without .\ prefix or trailing separator
+                $relativePath.TrimStart('.', $sep).TrimEnd($sep)
             }
 
-            # Create CompletionResult with proper quoting if path contains spaces
-            # Always use absolute path for completion (what gets inserted) so navigation works
-            # The fullPath already has trailing \ from PcdCompletionEngine normalization
-            $completionText = if ($fullPath -match '\s') {
-                # Quote paths with spaces
-                "`"$fullPath`""
+            # For completion text: Match native cd behavior exactly
+            # - Relative paths: Add .\ prefix and trailing separator (e.g., .\Screenshots\)
+            # - Absolute paths: Use as-is with trailing separator
+            # - Add single quotes if path contains spaces
+            $pathForCompletion = if ([System.IO.Path]::IsPathRooted($relativePath)) {
+                # Absolute path - use as-is
+                $relativePath
             } else {
-                $fullPath
+                # Relative path - add .\ prefix (PowerShell style on Windows, ./ on Unix)
+                if ($relativePath -eq '..') {
+                    # Special case: parent directory doesn't need .\ prefix
+                    '..'
+                } elseif ($relativePath.StartsWith('..' + $sep)) {
+                    # Sibling directory (e.g., ..\sibling) - already has proper prefix
+                    $relativePath
+                } else {
+                    # Child directory - add .\ prefix
+                    '.' + $sep + $relativePath
+                }
+            }
+
+            # Ensure trailing separator for directory completion (like native cd)
+            if (-not $pathForCompletion.EndsWith($sep)) {
+                $pathForCompletion += $sep
+            }
+
+            # Add single quotes if path contains spaces (PowerShell style)
+            $completionText = if ($pathForCompletion -match '\s') {
+                "'$pathForCompletion'"
+            } else {
+                $pathForCompletion
             }
 
             [System.Management.Automation.CompletionResult]::new(
-                $completionText,    # completionText (what gets inserted - absolute path)
+                $completionText,    # completionText (what gets inserted - relative path when possible)
                 $listItemText,      # listItemText (what's shown in list - context-appropriate)
                 'ParameterValue',   # resultType
                 $fullTooltip        # toolTip (shows full path)
