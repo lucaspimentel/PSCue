@@ -79,7 +79,7 @@ The following scripts work with the current PSCue architecture:
   - Bug #2: `scoop <tab>` after `scoop h<tab>` returning only "h" completions
   - Bug #3: `scoop update <tab>` returning all scoop subcommands instead of update arguments
 - Returns exit code 0 if all tests pass, 1 if any fail
-- **Run**: `pwsh -NoProfile -File test-scripts/test-completion-filtering.ps1 all`
+- **Run**: `pwsh -NoProfile -File test/test-scripts/test-completion-filtering.ps1 all`
 
 **test-scoop-update.ps1**
 - Tests the `scoop update <tab>` bug fix
@@ -197,7 +197,7 @@ The following scripts work with the current PSCue architecture:
 ### Quick IPC Test
 ```powershell
 # Run the simple IPC test
-pwsh -NoProfile -File test-scripts/test-ipc-simple.ps1
+pwsh -NoProfile -File test/test-scripts/test-ipc-simple.ps1
 ```
 
 ### Comprehensive IPC Test

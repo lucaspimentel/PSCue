@@ -482,7 +482,7 @@ dotnet test --filter "FullyQualifiedName~SequencePredictor"
 dotnet test --logger "console;verbosity=detailed"
 
 # Run integration tests for filtering scenarios
-pwsh -NoProfile -File test-scripts/test-completion-filtering.ps1 all
+pwsh -NoProfile -File test/test-scripts/test-completion-filtering.ps1 all
 ```
 
 ### Testing Completions Manually
