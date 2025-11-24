@@ -207,11 +207,12 @@ try {
         }
     }
 
-    # Copy Functions directory if it exists
-    $FunctionsDir = Join-Path $ExtractDir "Functions"
-    if (Test-Path $FunctionsDir) {
-        Copy-Item -Path $FunctionsDir -Destination $InstallDir -Recurse -Force
-        Write-Info "  Installed: Functions/"
+    # Copy all directories from extracted archive (Functions, runtimes, etc.)
+    $DirectoriesToCopy = Get-ChildItem -Path $ExtractDir -Directory
+
+    foreach ($dir in $DirectoriesToCopy) {
+        Copy-Item -Path $dir.FullName -Destination $InstallDir -Recurse -Force
+        Write-Info "  Installed: $($dir.Name)/"
     }
 
     # Success!

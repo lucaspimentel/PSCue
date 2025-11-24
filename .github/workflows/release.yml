@@ -41,7 +41,7 @@ jobs:
         run: dotnet publish src/PSCue.ArgumentCompleter/PSCue.ArgumentCompleter.csproj -c Release -r ${{ matrix.rid }} --self-contained -o dist/${{ matrix.rid }}/
 
       - name: Build Module
-        run: dotnet build src/PSCue.Module/PSCue.Module.csproj -c Release -o dist/${{ matrix.rid }}/
+        run: dotnet publish src/PSCue.Module/PSCue.Module.csproj -c Release -o dist/${{ matrix.rid }}/
 
       - name: Copy module files
         shell: pwsh
