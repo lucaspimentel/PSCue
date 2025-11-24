@@ -17,15 +17,15 @@
     Overwrite existing installation without prompting.
 
 .EXAMPLE
-    irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-remote.ps1 | iex
+    irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps1 | iex
     Download and install the latest version of PSCue.
 
 .EXAMPLE
-    $version = "1.0.0"; irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/scripts/install-remote.ps1 | iex
+    $version = "1.0.0"; irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps1 | iex
     Download and install a specific version of PSCue.
 
 .EXAMPLE
-    ./scripts/install-remote.ps1 -Version "1.0.0" -Force
+    ./install-remote.ps1 -Version "1.0.0" -Force
     Install a specific version, overwriting any existing installation.
 #>
 
@@ -82,7 +82,7 @@ if ($RID -notin $SupportedPlatforms) {
     Write-Error "Platform '$RID' is not currently supported."
     Write-Info "Supported platforms: $($SupportedPlatforms -join ', ')"
     Write-Info ""
-    Write-Info "To build from source, use: ./scripts/install-local.ps1"
+    Write-Info "To build from source, use: ./install-local.ps1"
     exit 1
 }
 

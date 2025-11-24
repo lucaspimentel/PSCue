@@ -13,11 +13,11 @@
     Overwrite existing installation without prompting.
 
 .EXAMPLE
-    ./scripts/install-local.ps1
+    ./install-local.ps1
     Build and install PSCue from source.
 
 .EXAMPLE
-    ./scripts/install-local.ps1 -Force
+    ./install-local.ps1 -Force
     Build and install, overwriting any existing installation.
 #>
 
@@ -59,7 +59,7 @@ function Write-Error {
 }
 
 # Get the repository root directory
-$RepoRoot = Split-Path $PSScriptRoot -Parent
+$RepoRoot = $PSScriptRoot
 Write-Info "Repository: $RepoRoot"
 
 # Detect platform and architecture
