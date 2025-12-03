@@ -21,15 +21,31 @@ public class PcdEnhancedTests : IDisposable
     private readonly List<string> _tempDirectories;
     private readonly ITestOutputHelper _output;
 
+    // Platform-agnostic test paths
+    private readonly string _testSourceDir;
+    private readonly string _testDatadogDir;
+    private readonly string _testDdTraceDir;
+    private readonly string _testDatadogBackupDir;
+    private readonly string _testBackupDir;
+    private readonly string _testOldDatadogDir;
+
     public PcdEnhancedTests(ITestOutputHelper output)
     {
         _output = output;
         _graph = new ArgumentGraph();
         _tempDirectories = new List<string>();
 
-        // Use realistic test paths (Windows-style for testing)
-        _testCurrentDir = "D:\\source\\lucaspimentel\\PSCue";
+        // Use platform-agnostic test paths
+        _testCurrentDir = Path.Combine("D:", "source", "lucaspimentel", "PSCue");
         _testHomeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+        // Create commonly used test paths
+        _testSourceDir = Path.Combine("D:", "source");
+        _testDatadogDir = Path.Combine("D:", "source", "datadog");
+        _testDdTraceDir = Path.Combine("D:", "source", "datadog", "dd-trace-dotnet");
+        _testDatadogBackupDir = Path.Combine("D:", "source", "datadog-backup");
+        _testBackupDir = Path.Combine("D:", "backup");
+        _testOldDatadogDir = Path.Combine("D:", "backup", "old-datadog");
 
         // Create a temporary test directory structure
         _testRootDir = Path.Combine(Path.GetTempPath(), $"PSCue_Test_{Guid.NewGuid():N}");
@@ -238,15 +254,15 @@ public class PcdEnhancedTests : IDisposable
     public void GetSuggestions_PrefixMatch_HigherScoreThanSubstring()
     {
         // Arrange
-        _graph.RecordUsage("cd", new[] { "D:\\source\\datadog" }, null);
-        _graph.RecordUsage("cd", new[] { "D:\\backup\\old-datadog" }, null);
+        _graph.RecordUsage("cd", new[] { _testDatadogDir }, null);
+        _graph.RecordUsage("cd", new[] { _testOldDatadogDir }, null);
         var engine = new PcdCompletionEngine(_graph);
 
         // Act - Search for prefix
-        var suggestions = engine.GetSuggestions("D:\\source", _testCurrentDir, 20);
+        var suggestions = engine.GetSuggestions(_testSourceDir, _testCurrentDir, 20);
 
         // Assert
-        var prefixMatch = suggestions.FirstOrDefault(s => s.Path == "D:\\source\\datadog");
+        var prefixMatch = suggestions.FirstOrDefault(s => s.Path == _testDatadogDir);
         Assert.NotNull(prefixMatch);
     }
 

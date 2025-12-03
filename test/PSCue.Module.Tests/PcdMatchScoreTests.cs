@@ -20,8 +20,11 @@ public class PcdMatchScoreTests
         var method = typeof(PcdCompletionEngine).GetMethod("CalculateMatchScore",
             BindingFlags.NonPublic | BindingFlags.Instance);
 
+        // Use platform-agnostic paths
+        var testPath = Path.Combine("D:", "source", "datadog", "dd-trace-dotnet");
+
         // Act
-        var score = (double)method!.Invoke(engine, new object[] { "D:\\source\\datadog\\dd-trace-dotnet", "dd-trace-dotnet" })!;
+        var score = (double)method!.Invoke(engine, new object[] { testPath, "dd-trace-dotnet" })!;
 
         // Assert
         Assert.Equal(1.0, score);
@@ -36,8 +39,11 @@ public class PcdMatchScoreTests
         var method = typeof(PcdCompletionEngine).GetMethod("CalculateMatchScore",
             BindingFlags.NonPublic | BindingFlags.Instance);
 
+        // Use platform-agnostic paths with trailing separator
+        var testPath = Path.Combine("D:", "source", "datadog", "dd-trace-dotnet") + Path.DirectorySeparatorChar;
+
         // Act
-        var score = (double)method!.Invoke(engine, new object[] { "D:\\source\\datadog\\dd-trace-dotnet\\", "dd-trace-dotnet" })!;
+        var score = (double)method!.Invoke(engine, new object[] { testPath, "dd-trace-dotnet" })!;
 
         // Assert
         Assert.Equal(1.0, score);
@@ -52,8 +58,11 @@ public class PcdMatchScoreTests
         var method = typeof(PcdCompletionEngine).GetMethod("CalculateMatchScore",
             BindingFlags.NonPublic | BindingFlags.Instance);
 
+        // Use platform-agnostic paths
+        var testPath = Path.Combine("D:", "source", "datadog", "dd-trace-dotnet");
+
         // Act
-        var score = (double)method!.Invoke(engine, new object[] { "D:\\source\\datadog\\dd-trace-dotnet", "dd-trace" })!;
+        var score = (double)method!.Invoke(engine, new object[] { testPath, "dd-trace" })!;
 
         // Assert
         Assert.True(score > 0.0, $"Expected score > 0 for partial match, got {score}");
@@ -68,8 +77,11 @@ public class PcdMatchScoreTests
         var method = typeof(PcdCompletionEngine).GetMethod("CalculateMatchScore",
             BindingFlags.NonPublic | BindingFlags.Instance);
 
+        // Use platform-agnostic paths
+        var testPath = Path.Combine("D:", "source", "datadog", "some-other-project");
+
         // Act
-        var score = (double)method!.Invoke(engine, new object[] { "D:\\source\\datadog\\some-other-project", "dd-trace-dotnet" })!;
+        var score = (double)method!.Invoke(engine, new object[] { testPath, "dd-trace-dotnet" })!;
 
         // Assert
         Assert.Equal(0.0, score);
