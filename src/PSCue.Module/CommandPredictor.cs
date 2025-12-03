@@ -58,7 +58,16 @@ public class CommandPredictor : ICommandPredictor
         if (command.Equals("pcd", StringComparison.OrdinalIgnoreCase) ||
             command.Equals("Invoke-PCD", StringComparison.OrdinalIgnoreCase))
         {
-            return GetPcdSuggestions(inputString);
+            return GetPcdSuggestions(inputString, "pcd");
+        }
+
+        // Special handling for 'cd' and aliases - use PcdCompletionEngine
+        if (command.Equals("cd", StringComparison.OrdinalIgnoreCase) ||
+            command.Equals("Set-Location", StringComparison.OrdinalIgnoreCase) ||
+            command.Equals("sl", StringComparison.OrdinalIgnoreCase) ||
+            command.Equals("chdir", StringComparison.OrdinalIgnoreCase))
+        {
+            return GetPcdSuggestions(inputString, command);
         }
 
         // Check if user is starting to type a new command (no arguments yet)
@@ -122,9 +131,9 @@ public class CommandPredictor : ICommandPredictor
     }
 
     /// <summary>
-    /// Gets directory suggestions for the pcd command using PcdCompletionEngine.
+    /// Gets directory suggestions for the pcd/cd commands using PcdCompletionEngine.
     /// </summary>
-    private SuggestionPackage GetPcdSuggestions(string inputString)
+    private SuggestionPackage GetPcdSuggestions(string inputString, string command)
     {
         try
         {
@@ -134,14 +143,32 @@ public class CommandPredictor : ICommandPredictor
                 return default;
             }
 
-            // Extract the partial path after "pcd "
-            var pcdPrefix = inputString.StartsWith("Invoke-PCD", StringComparison.OrdinalIgnoreCase) ? "Invoke-PCD" : "pcd";
+            // Extract the partial path after the command
             var wordToComplete = string.Empty;
 
-            if (inputString.Length > pcdPrefix.Length)
+            if (inputString.Length > command.Length)
             {
-                // Get everything after "pcd " or "Invoke-PCD "
-                wordToComplete = inputString.Substring(pcdPrefix.Length).TrimStart();
+                // Get everything after the command
+                wordToComplete = inputString.Substring(command.Length).TrimStart();
+            }
+
+            // Expand ~ to home directory for the search
+            if (wordToComplete.StartsWith("~"))
+            {
+                var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+                if (!string.IsNullOrEmpty(homeDir))
+                {
+                    if (wordToComplete.Length == 1)
+                    {
+                        // Just "~" - replace with home directory
+                        wordToComplete = homeDir;
+                    }
+                    else if (wordToComplete[1] == Path.DirectorySeparatorChar || wordToComplete[1] == Path.AltDirectorySeparatorChar)
+                    {
+                        // "~/path" or "~\path" - replace ~ with home directory
+                        wordToComplete = homeDir + wordToComplete.Substring(1);
+                    }
+                }
             }
 
             // Get current directory
@@ -174,15 +201,18 @@ public class CommandPredictor : ICommandPredictor
             // Convert to PredictiveSuggestion objects
             var predictiveSuggestions = suggestions.Select(s =>
             {
-                // Ensure Path has trailing separator (same as tab completion)
+                // For absolute paths or paths that don't need .\ prefix, use them directly
+                // For relative child paths (like "src"), the completion should show with .\ prefix
                 var path = s.Path;
+
+                // Add trailing separator if not present
                 if (!path.EndsWith(Path.DirectorySeparatorChar) &&
                     !path.EndsWith(Path.AltDirectorySeparatorChar))
                 {
                     path += Path.DirectorySeparatorChar;
                 }
 
-                var fullText = pcdPrefix + " " + path;
+                var fullText = command + " " + path;
                 return new PredictiveSuggestion(fullText, s.Tooltip);
             }).ToList();
 

@@ -250,6 +250,59 @@ public class PcdEnhancedTests : IDisposable
         Assert.NotNull(prefixMatch);
     }
 
+    [Fact]
+    public void GetSuggestions_DotPrefixedDirectories_PreservesLeadingDot()
+    {
+        // Arrange - Create dot-prefixed directories like .config, .cache
+        var dotConfigDir = CreateTempDirectory(".config");
+        var dotCacheDir = CreateTempDirectory(".cache");
+        var normalDir = CreateTempDirectory("config"); // Non-dot version for comparison
+
+        _graph.RecordUsage("cd", new[] { dotConfigDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { dotCacheDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { normalDir }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Search for ".conf" which should match ".config"
+        var suggestions = engine.GetSuggestions(".conf", _testRootDir, 20);
+
+        // Assert
+        Assert.NotEmpty(suggestions);
+        var dotConfigMatch = suggestions.FirstOrDefault(s =>
+            s.DisplayPath.TrimEnd(Path.DirectorySeparatorChar) == dotConfigDir.TrimEnd(Path.DirectorySeparatorChar));
+
+        Assert.NotNull(dotConfigMatch);
+
+        // Verify the Path property preserves the dot for relative paths
+        // When from child directory, it should be just the directory name (e.g., ".config")
+        Assert.Contains(".config", dotConfigMatch.Path);
+        Assert.DoesNotContain("config" + Path.DirectorySeparatorChar, dotConfigMatch.Path.Replace(".config", "")); // Ensure it's not "config" without dot
+    }
+
+    [Fact]
+    public void GetSuggestions_DotPrefixedDirectories_DistinguishesFromNonDotVersion()
+    {
+        // Arrange - Both .config and config directories exist
+        var dotConfigDir = CreateTempDirectory(".config");
+        var configDir = CreateTempDirectory("config");
+
+        _graph.RecordUsage("cd", new[] { dotConfigDir }, _testRootDir);
+        _graph.RecordUsage("cd", new[] { configDir }, _testRootDir);
+
+        var engine = new PcdCompletionEngine(_graph);
+
+        // Act - Search for ".config" explicitly
+        var suggestions = engine.GetSuggestions(".config", _testRootDir, 20);
+
+        // Assert - Should find .config, not just config
+        var dotConfigMatch = suggestions.FirstOrDefault(s =>
+            s.DisplayPath.TrimEnd(Path.DirectorySeparatorChar).EndsWith(".config"));
+
+        Assert.NotNull(dotConfigMatch);
+        Assert.Contains(".config", dotConfigMatch.Path);
+    }
+
     #endregion
 
     #region Frecency Scoring Tests

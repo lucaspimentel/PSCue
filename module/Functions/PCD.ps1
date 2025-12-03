@@ -191,7 +191,12 @@ Register-ArgumentCompleter -CommandName 'Invoke-PCD', 'pcd' -ParameterName 'Path
                 $fullPath.TrimEnd($sep)
             } else {
                 # Relative path - show clean name without .\ prefix or trailing separator
-                $relativePath.TrimStart('.', $sep).TrimEnd($sep)
+                # Remove .\ or ./ prefix if present, but preserve dot-prefixed names like .config
+                $cleanPath = $relativePath
+                if ($cleanPath.StartsWith(".$sep")) {
+                    $cleanPath = $cleanPath.Substring(2)
+                }
+                $cleanPath.TrimEnd($sep)
             }
 
             # For completion text: Match native cd behavior exactly

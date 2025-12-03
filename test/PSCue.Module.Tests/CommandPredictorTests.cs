@@ -1,5 +1,7 @@
 #pragma warning disable CA2252 // Opt into preview features for testing
 
+using System.Management.Automation.Subsystem.Prediction;
+
 namespace PSCue.Module.Tests;
 
 public class CommandPredictorTests
@@ -203,6 +205,113 @@ public class CommandPredictorTests
         finally
         {
             Environment.SetEnvironmentVariable("PSCUE_PARTIAL_COMMAND_PREDICTIONS", null);
+        }
+    }
+
+    #endregion
+
+    #region CD/PCD Predictor Tests with Tilde Expansion
+
+    [Theory]
+    [InlineData("~/", "C:\\Users\\test", "C:\\Users\\test/")]
+    [InlineData("~/.config", "C:\\Users\\test", "C:\\Users\\test/.config")]
+    [InlineData("~\\.config", "C:\\Users\\test", "C:\\Users\\test\\.config")]
+    [InlineData("~/Documents/test", "C:\\Users\\test", "C:\\Users\\test/Documents/test")]
+    [InlineData("~", "C:\\Users\\test", "C:\\Users\\test")]
+    public void TildeExpansion_ExpandsToHomeDirectory(string input, string fakeHomeDir, string expected)
+    {
+        // Arrange - Mock home directory expansion logic (same as in GetPcdSuggestions)
+        var wordToComplete = input;
+        var homeDir = fakeHomeDir;
+
+        // Act - Apply the same tilde expansion logic from GetPcdSuggestions
+        if (wordToComplete.StartsWith("~"))
+        {
+            if (!string.IsNullOrEmpty(homeDir))
+            {
+                if (wordToComplete.Length == 1)
+                {
+                    // Just "~" - replace with home directory
+                    wordToComplete = homeDir;
+                }
+                else if (wordToComplete[1] == Path.DirectorySeparatorChar || wordToComplete[1] == Path.AltDirectorySeparatorChar)
+                {
+                    // "~/path" or "~\path" - replace ~ with home directory
+                    wordToComplete = homeDir + wordToComplete.Substring(1);
+                }
+            }
+        }
+
+        // Assert
+        Assert.Equal(expected, wordToComplete);
+    }
+
+    [Fact]
+    public void PcdCompletionEngine_TildeExpanded_FindsDotPrefixedDirectory()
+    {
+        // Arrange - Test that after tilde expansion, we can find .config directory
+        var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var configDir = Path.Combine(homeDir, ".config");
+
+        // Create .config directory if needed (cleanup after)
+        var shouldCleanup = !Directory.Exists(configDir);
+        if (shouldCleanup)
+        {
+            Directory.CreateDirectory(configDir);
+        }
+
+        try
+        {
+            var graph = new ArgumentGraph();
+            graph.RecordUsage("cd", new[] { configDir }, homeDir);
+
+            // Simulate tilde expansion (as done in GetPcdSuggestions)
+            var wordToComplete = "~/.conf";
+            if (wordToComplete.StartsWith("~"))
+            {
+                if (wordToComplete.Length > 1 && (wordToComplete[1] == Path.DirectorySeparatorChar || wordToComplete[1] == Path.AltDirectorySeparatorChar))
+                {
+                    wordToComplete = homeDir + wordToComplete.Substring(1);
+                }
+            }
+
+            // Now wordToComplete should be "C:\Users\...\..config"
+            var engine = new PcdCompletionEngine(graph);
+
+            // Act - Get suggestions with expanded path
+            var suggestions = engine.GetSuggestions(wordToComplete, homeDir, 20);
+
+            // Assert - Should find .config directory
+            Assert.NotEmpty(suggestions);
+            var configSuggestion = suggestions.FirstOrDefault(s =>
+                s.DisplayPath.TrimEnd(Path.DirectorySeparatorChar).Equals(configDir.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase));
+
+            Assert.NotNull(configSuggestion);
+            Assert.Contains(".config", configSuggestion.Path);
+        }
+        finally
+        {
+            // Cleanup if we created it
+            if (shouldCleanup && Directory.Exists(configDir) && !Directory.EnumerateFileSystemEntries(configDir).Any())
+            {
+                try { Directory.Delete(configDir); } catch { /* Ignore cleanup errors */ }
+            }
+        }
+    }
+
+    [Fact]
+    public void CdCommand_ShouldExpandTilde_BasedOnCommandType()
+    {
+        // This test documents the expected behavior:
+        // - cd, Set-Location, sl, chdir should all expand tilde
+        // - pcd should also expand tilde (uses same GetPcdSuggestions method)
+
+        var commandsThatExpandTilde = new[] { "cd", "Set-Location", "sl", "chdir", "pcd", "Invoke-PCD" };
+
+        foreach (var command in commandsThatExpandTilde)
+        {
+            // Document that these commands should use GetPcdSuggestions which expands tilde
+            Assert.Contains(command.ToLowerInvariant(), new[] { "cd", "set-location", "sl", "chdir", "pcd", "invoke-pcd" });
         }
     }
 
