@@ -35,22 +35,23 @@ public class PcdEnhancedTests : IDisposable
         _graph = new ArgumentGraph();
         _tempDirectories = new List<string>();
 
-        // Use platform-agnostic test paths
-        _testCurrentDir = Path.Combine("D:", "source", "lucaspimentel", "PSCue");
-        _testHomeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-
-        // Create commonly used test paths
-        _testSourceDir = Path.Combine("D:", "source");
-        _testDatadogDir = Path.Combine("D:", "source", "datadog");
-        _testDdTraceDir = Path.Combine("D:", "source", "datadog", "dd-trace-dotnet");
-        _testDatadogBackupDir = Path.Combine("D:", "source", "datadog-backup");
-        _testBackupDir = Path.Combine("D:", "backup");
-        _testOldDatadogDir = Path.Combine("D:", "backup", "old-datadog");
-
         // Create a temporary test directory structure
         _testRootDir = Path.Combine(Path.GetTempPath(), $"PSCue_Test_{Guid.NewGuid():N}");
         Directory.CreateDirectory(_testRootDir);
         _tempDirectories.Add(_testRootDir);
+
+        // Use platform-agnostic test paths based on temp directory
+        _testSourceDir = Path.Combine(_testRootDir, "source");
+        _testDatadogDir = Path.Combine(_testSourceDir, "datadog");
+        _testDdTraceDir = Path.Combine(_testDatadogDir, "dd-trace-dotnet");
+        _testCurrentDir = Path.Combine(_testSourceDir, "lucaspimentel", "PSCue");
+        _testDatadogBackupDir = Path.Combine(_testSourceDir, "datadog-backup");
+        _testBackupDir = Path.Combine(_testRootDir, "backup");
+        _testOldDatadogDir = Path.Combine(_testBackupDir, "old-datadog");
+        _testHomeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+        // Don't create directories here to avoid conflicts with tests.
+        // Tests that need directories will create them explicitly.
     }
 
     public void Dispose()
@@ -101,11 +102,16 @@ public class PcdEnhancedTests : IDisposable
     [Fact]
     public void GetSuggestions_WellKnownShortcut_DoubleDot_ReturnsParentDirectory()
     {
-        // Arrange
+        // Arrange - Create a directory structure so Directory.GetParent() works
+        var testDir = CreateTempDirectory("test-wellknown");
+        var subDir = Path.Combine(testDir, "subdir");
+        Directory.CreateDirectory(subDir);
+        _tempDirectories.Add(subDir);
+
         var engine = new PcdCompletionEngine(_graph);
 
         // Act
-        var suggestions = engine.GetSuggestions("..", _testCurrentDir, 20);
+        var suggestions = engine.GetSuggestions("..", subDir, 20);
 
         // Assert
         Assert.NotEmpty(suggestions);
@@ -150,12 +156,18 @@ public class PcdEnhancedTests : IDisposable
     [Fact]
     public void GetSuggestions_WellKnownShortcuts_HaveHighestPriority()
     {
-        // Arrange - Add learned directories
-        _graph.RecordUsage("cd", new[] { "D:\\source\\datadog" }, null);
+        // Arrange - Create a directory structure and add learned directories
+        var testDir = CreateTempDirectory("test-priority");
+        var subDir = Path.Combine(testDir, "subdir");
+        Directory.CreateDirectory(subDir);
+        _tempDirectories.Add(subDir);
+
+        var learnedDir = CreateTempDirectory("datadog");
+        _graph.RecordUsage("cd", new[] { learnedDir }, null);
         var engine = new PcdCompletionEngine(_graph);
 
         // Act - Search with empty string to get all suggestions
-        var suggestions = engine.GetSuggestions("", _testCurrentDir, 20);
+        var suggestions = engine.GetSuggestions("", subDir, 20);
 
         // Assert - Well-known shortcuts should come first (only ~ and .. are suggested, not .)
         Assert.NotEmpty(suggestions);
@@ -253,16 +265,26 @@ public class PcdEnhancedTests : IDisposable
     [Fact]
     public void GetSuggestions_PrefixMatch_HigherScoreThanSubstring()
     {
-        // Arrange
-        _graph.RecordUsage("cd", new[] { _testDatadogDir }, null);
-        _graph.RecordUsage("cd", new[] { _testOldDatadogDir }, null);
+        // Arrange - Create actual directories
+        var sourceDir = CreateTempDirectory("source");
+        var datadogDir = Path.Combine(sourceDir, "datadog");
+        Directory.CreateDirectory(datadogDir);
+        _tempDirectories.Add(datadogDir);
+
+        var backupDir = CreateTempDirectory("backup");
+        var oldDatadogDir = Path.Combine(backupDir, "old-datadog");
+        Directory.CreateDirectory(oldDatadogDir);
+        _tempDirectories.Add(oldDatadogDir);
+
+        _graph.RecordUsage("cd", new[] { datadogDir }, null);
+        _graph.RecordUsage("cd", new[] { oldDatadogDir }, null);
         var engine = new PcdCompletionEngine(_graph);
 
         // Act - Search for prefix
-        var suggestions = engine.GetSuggestions(_testSourceDir, _testCurrentDir, 20);
+        var suggestions = engine.GetSuggestions(sourceDir, _testRootDir, 20);
 
-        // Assert
-        var prefixMatch = suggestions.FirstOrDefault(s => s.Path == _testDatadogDir);
+        // Assert - The path starting with sourceDir should match
+        var prefixMatch = suggestions.FirstOrDefault(s => s.DisplayPath.StartsWith(sourceDir, StringComparison.OrdinalIgnoreCase));
         Assert.NotNull(prefixMatch);
     }
 
@@ -604,12 +626,14 @@ public class PcdEnhancedTests : IDisposable
     public void GetSuggestions_EmptyInput_ReturnsAllSuggestions()
     {
         // Arrange
-        _graph.RecordUsage("cd", new[] { "D:\\source\\project1" }, null);
-        _graph.RecordUsage("cd", new[] { "D:\\source\\project2" }, null);
+        var project1 = CreateTempDirectory("project1");
+        var project2 = CreateTempDirectory("project2");
+        _graph.RecordUsage("cd", new[] { project1 }, null);
+        _graph.RecordUsage("cd", new[] { project2 }, null);
         var engine = new PcdCompletionEngine(_graph);
 
         // Act
-        var suggestions = engine.GetSuggestions("", _testCurrentDir, 20);
+        var suggestions = engine.GetSuggestions("", _testRootDir, 20);
 
         // Assert - Should return learned directories + well-known shortcuts
         Assert.True(suggestions.Count >= 2); // At least the learned directories
@@ -792,15 +816,20 @@ public class PcdEnhancedTests : IDisposable
     [Fact]
     public void GetSuggestions_RelativePath_SuggestsWellKnownShortcuts()
     {
-        // Arrange
+        // Arrange - Create a directory structure
+        var testDir = CreateTempDirectory("test-shortcuts");
+        var subDir = Path.Combine(testDir, "subdir");
+        Directory.CreateDirectory(subDir);
+        _tempDirectories.Add(subDir);
+
         var engine = new PcdCompletionEngine(_graph);
 
         // Act - Type relative path (not absolute)
-        var suggestions = engine.GetSuggestions("doc", _testCurrentDir, 20);
+        var suggestions = engine.GetSuggestions("doc", subDir, 20);
 
         // Assert - Should suggest ".." and "~" when typing relative path (if they match)
         // Note: These won't match "doc" prefix, so just verify they're available for empty input
-        var allSuggestions = engine.GetSuggestions("", _testCurrentDir, 20);
+        var allSuggestions = engine.GetSuggestions("", subDir, 20);
         Assert.Contains(allSuggestions, s => s.Path == "..");
         Assert.Contains(allSuggestions, s => s.Path == "~");
     }
@@ -1813,11 +1842,9 @@ public class PcdEnhancedTests : IDisposable
     [Fact]
     public void GetSuggestions_DirectoryNameMatch_FromDifferentLocation_RanksFirst()
     {
-        // Arrange - Simulate user scenario: typing "dd-trace-dotnet" from C:\Users\Lucas.Pimentel
-        // The learned directory is D:\source\datadog\dd-trace-dotnet
-        var userHomeDir = "C:\\Users\\Lucas.Pimentel";
-        var targetDir = "D:\\source\\datadog\\dd-trace-dotnet";
-        var similarDir = "D:\\source\\datadog\\dd-trace-dotnet-APMSVLS-58";
+        // Arrange - Simulate user scenario: typing "dd-trace-dotnet" from a different location
+        var targetDir = _testDdTraceDir;
+        var similarDir = Path.Combine(_testDatadogDir, "dd-trace-dotnet-APMSVLS-58");
 
         // Record usage for both directories
         _graph.RecordUsage("cd", new[] { targetDir }, null);
@@ -1825,9 +1852,9 @@ public class PcdEnhancedTests : IDisposable
 
         var engine = new PcdCompletionEngine(_graph);
 
-        // Act - Search for "dd-trace-dotnet" from a completely different location
+        // Act - Search for "dd-trace-dotnet" from a completely different location (home dir)
         // Skip existence check since these are test paths that don't exist on filesystem
-        var suggestions = engine.GetSuggestions("dd-trace-dotnet", userHomeDir, maxResults: 10, skipExistenceCheck: true);
+        var suggestions = engine.GetSuggestions("dd-trace-dotnet", _testHomeDir, maxResults: 10, skipExistenceCheck: true);
 
         // Assert - Exact directory name match should be first
         Assert.NotEmpty(suggestions);
@@ -1836,7 +1863,7 @@ public class PcdEnhancedTests : IDisposable
         Assert.DoesNotContain("APMSVLS", topResult.DisplayPath); // Should be exact match, not similar one
 
         // Verify the exact match has higher score
-        var exactMatch = suggestions.First(s => s.DisplayPath.Contains(targetDir));
+        var exactMatch = suggestions.First(s => s.DisplayPath.Contains("dd-trace-dotnet") && !s.DisplayPath.Contains("APMSVLS"));
         var fuzzyMatch = suggestions.First(s => s.DisplayPath.Contains("APMSVLS"));
         Assert.True(exactMatch.Score > fuzzyMatch.Score,
             $"Exact dir name match score ({exactMatch.Score}) should be higher than similar match ({fuzzyMatch.Score})");

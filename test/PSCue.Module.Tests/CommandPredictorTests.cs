@@ -215,7 +215,6 @@ public class CommandPredictorTests
     [Theory]
     [InlineData("~/", "C:\\Users\\test", "C:\\Users\\test/")]
     [InlineData("~/.config", "C:\\Users\\test", "C:\\Users\\test/.config")]
-    [InlineData("~\\.config", "C:\\Users\\test", "C:\\Users\\test\\.config")]
     [InlineData("~/Documents/test", "C:\\Users\\test", "C:\\Users\\test/Documents/test")]
     [InlineData("~", "C:\\Users\\test", "C:\\Users\\test")]
     public void TildeExpansion_ExpandsToHomeDirectory(string input, string fakeHomeDir, string expected)
@@ -237,6 +236,42 @@ public class CommandPredictorTests
                 else if (wordToComplete[1] == Path.DirectorySeparatorChar || wordToComplete[1] == Path.AltDirectorySeparatorChar)
                 {
                     // "~/path" or "~\path" - replace ~ with home directory
+                    wordToComplete = homeDir + wordToComplete.Substring(1);
+                }
+            }
+        }
+
+        // Assert
+        Assert.Equal(expected, wordToComplete);
+    }
+
+    [Fact]
+    public void TildeExpansion_ExpandsToHomeDirectory_WindowsBackslash()
+    {
+        // Skip on non-Windows platforms since backslash is Windows-specific
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        // Arrange
+        var input = "~\\.config";
+        var fakeHomeDir = "C:\\Users\\test";
+        var expected = "C:\\Users\\test\\.config";
+        var wordToComplete = input;
+        var homeDir = fakeHomeDir;
+
+        // Act - Apply the same tilde expansion logic from GetPcdSuggestions
+        if (wordToComplete.StartsWith("~"))
+        {
+            if (!string.IsNullOrEmpty(homeDir))
+            {
+                if (wordToComplete.Length == 1)
+                {
+                    wordToComplete = homeDir;
+                }
+                else if (wordToComplete[1] == Path.DirectorySeparatorChar || wordToComplete[1] == Path.AltDirectorySeparatorChar)
+                {
                     wordToComplete = homeDir + wordToComplete.Substring(1);
                 }
             }
