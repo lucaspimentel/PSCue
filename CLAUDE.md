@@ -212,6 +212,12 @@ Get-PSCueModuleInfo [-AsJson]                      # Module diagnostics
 ## Supported Commands
 git, gh, gt, az, azd, func, code, scoop, winget, wt, chezmoi, tre, lsd, dust, cd (Set-Location/sl/chdir)
 
+**Git Completion Features**:
+- Hardcoded subcommands with detailed tooltips (add, commit, branch, etc.)
+- Dynamic git aliases loaded via `git --list-cmds=alias` (tooltips show "Git alias")
+- All git main commands via `git --list-cmds=main,nohelpers` (tooltips show "Git command")
+- Git extensions from PATH via `git --list-cmds=others` (tooltips show "Git extension")
+
 **Plus**: Generic learning works for ANY command (kubectl, docker, cargo, npm, etc.)
 
 ## When Adding Features

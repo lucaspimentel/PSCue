@@ -77,9 +77,26 @@ public sealed class Command(string completionText, string? tooltip = null)
         }
 
         // Only include dynamic arguments (git branches, scoop packages, etc.) if requested
+        // Exclude dynamic arguments that match existing SubCommands or Parameters to avoid duplicates
+        // (SubCommands/Parameters have better tooltips, so they should take precedence)
         if (includeDynamicArguments && DynamicArguments?.Invoke() is { } arguments)
         {
-            Helpers.AddWhereStartsWith(arguments, results, wordToComplete);
+            // Create a HashSet of existing completion texts for fast lookup
+            var existingCompletions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in results)
+            {
+                existingCompletions.Add(item.CompletionText);
+            }
+
+            // Add dynamic arguments that don't duplicate existing completions
+            foreach (var arg in arguments)
+            {
+                if (Helpers.StartsWith(arg.CompletionText, wordToComplete) &&
+                    !existingCompletions.Contains(arg.CompletionText))
+                {
+                    results.Add(arg);
+                }
+            }
         }
 
         return results;

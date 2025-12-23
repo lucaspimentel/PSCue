@@ -344,8 +344,43 @@ public static class GitCommand
                 new("--help", "Show help"),
                 new("-C", "Run as if git was started in path"),
                 new("-c", "Set config variable"),
-            ]
+            ],
+            DynamicArguments = GetAllGitCommands
         };
+    }
+
+    private static IEnumerable<DynamicArgument> GetAllGitCommands()
+    {
+        // Get main git commands (excluding helper commands)
+        // These already have hardcoded entries with detailed tooltips, but this catches any new ones
+        foreach (var line in Helpers.ExecuteCommand("git", "--list-cmds=main,nohelpers"))
+        {
+            var command = line.Trim();
+            if (!string.IsNullOrWhiteSpace(command))
+            {
+                yield return new DynamicArgument(command, "Git command");
+            }
+        }
+
+        // Get user-defined aliases from git config
+        foreach (var line in Helpers.ExecuteCommand("git", "--list-cmds=alias"))
+        {
+            var alias = line.Trim();
+            if (!string.IsNullOrWhiteSpace(alias))
+            {
+                yield return new DynamicArgument(alias, "Git alias");
+            }
+        }
+
+        // Get other git commands (git-* executables in PATH)
+        foreach (var line in Helpers.ExecuteCommand("git", "--list-cmds=others"))
+        {
+            var command = line.Trim();
+            if (!string.IsNullOrWhiteSpace(command))
+            {
+                yield return new DynamicArgument(command, "Git extension");
+            }
+        }
     }
 
     private static IEnumerable<DynamicArgument> GetBranches()

@@ -46,7 +46,7 @@ This architecture enables:
 
 PSCue provides detailed completions for these commands:
 
-- **Git**: `git` - branches, tags, remotes, files, subcommands
+- **Git**: `git` - branches, tags, remotes, files, subcommands, aliases (dynamically loaded from git config)
 - **GitHub CLI**: `gh` - repos, PRs, issues, workflows
 - **Graphite CLI**: `gt` - stacked PRs, branch navigation, workflows
 - **Azure CLI**: `az` - resource groups, subscriptions, commands
