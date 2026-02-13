@@ -71,6 +71,7 @@ src/
 - `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence with 10 tables
 - `src/PSCue.Module/PcdCompletionEngine.cs`: Enhanced PCD algorithm with fuzzy matching, frecency scoring, filesystem search, symlink resolution (Phases 17.6 + 17.9 + 19.0 + 21.1)
 - `src/PSCue.Module/PcdConfiguration.cs`: Shared configuration for PCD (tab completion + predictor) (Phase 19.0 + 21.2)
+- `src/PSCue.Module/PcdInteractiveSelector.cs`: Interactive directory selection using Spectre.Console
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
 - `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system
 - `module/Functions/DatabaseManagement.ps1`: PowerShell functions for database queries
@@ -86,6 +87,7 @@ src/
 - `test/PSCue.Module.Tests/PcdEnhancedTests.cs`: Enhanced PCD algorithm tests with symlink resolution (Phases 17.6 + 17.9 + 21.1 + 21.2)
 - `test/PSCue.Module.Tests/PcdMatchScoreTests.cs`: Unit tests for CalculateMatchScore directory name matching
 - `test/PSCue.Module.Tests/PcdRobustnessTests.cs`: Tests for handling stale/non-existent paths gracefully
+- `test/PSCue.Module.Tests/PcdInteractiveSelectorTests.cs`: Unit tests for interactive directory selection
 - `test/PSCue.Module.Tests/PersistenceManagerTests.cs`: Persistence unit tests
 - `test/PSCue.Module.Tests/PersistenceConcurrencyTests.cs`: Multi-session concurrency tests
 - `test/PSCue.Module.Tests/PersistenceIntegrationTests.cs`: End-to-end integration tests
@@ -129,8 +131,9 @@ Clear-PSCueWorkflows [-WhatIf] [-Confirm]          # Clear workflows (memory + D
 Export-PSCueWorkflows -Path <path>                 # Export workflows to JSON
 Import-PSCueWorkflows -Path <path> [-Merge]        # Import workflows from JSON
 
-# Smart Directory Navigation (Phases 17.5 + 17.6 + 17.7 + 17.9 + 19.0 + Bug Fixes + Native cd Behavior)
+# Smart Directory Navigation (Phases 17.5 + 17.6 + 17.7 + 17.9 + 19.0 + Bug Fixes + Native cd Behavior + Interactive Mode)
 pcd [path]                                         # PowerShell Change Directory with inline predictions + tab completion
+pcd -Interactive [-Top <int>]                      # Interactive selection menu (alias: -i)
 Invoke-PCD [path]                                  # Long-form function name
 
 # Features:
@@ -141,6 +144,13 @@ Invoke-PCD [path]                                  # Long-form function name
 #   - Tooltip: Full absolute path with match type indicator ([found], [learned], [fuzzy])
 #   - Uses platform-appropriate separators (\ on Windows, / on Unix)
 #   - Filesystem search: Shows unlearned directories via child + recursive search
+# - Interactive selection: `pcd -i` shows visual menu to browse and select from learned directories
+#   - Uses Spectre.Console for cross-platform interactive UI
+#   - Display format: path + usage stats (visits, last used time)
+#   - Keyboard navigation: Arrow keys, type to search, Enter to select, Esc to cancel
+#   - Same frecency scoring as tab completion for consistency
+#   - Filters out non-existent directories automatically
+#   - Default shows top 20, configurable via -Top parameter (range: 5-100)
 # - Best-match navigation: `pcd <partial>` finds closest fuzzy match without tab
 #   - Directory name matching: "dd-trace-dotnet" matches "D:\source\datadog\dd-trace-dotnet" from any location
 #   - Searches top 200 learned paths (not just top 20) for better match coverage
@@ -267,6 +277,7 @@ public void TestLearningAccess()
   - Active work: See `TODO.md` (includes detailed Phase 18 workflow improvements roadmap)
   - Completed phases: See `docs/COMPLETED.md` (Phases 1-21 archived, includes all PCD quality improvements)
 - **Database functions**: See `docs/DATABASE-FUNCTIONS.md` for detailed SQLite query examples and schema
+- **Interactive PCD**: See `docs/INTERACTIVE-PCD.md` for interactive directory selection usage and features
 - **Troubleshooting**: See `docs/TROUBLESHOOTING.md` for common issues and solutions
 - Bug fix history: See git log and commit messages
 - API docs: [ICommandPredictor](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-cmdlet-predictor), [IFeedbackProvider](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider)

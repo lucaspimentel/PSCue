@@ -20,6 +20,9 @@
 
     <!-- SQLite for cross-session persistence -->
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.10" />
+
+    <!-- Spectre.Console for interactive directory selection -->
+    <PackageReference Include="Spectre.Console" Version="0.54.0" />
   </ItemGroup>
 
   <ItemGroup>

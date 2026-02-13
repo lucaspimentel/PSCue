@@ -8,8 +8,8 @@ function Invoke-PCD {
 
     .DESCRIPTION
     PowerShell Change Directory (pcd) provides intelligent directory navigation
-    with fuzzy matching, frecency scoring (frequency + recency), and optional
-    recursive filesystem search.
+    with fuzzy matching, frecency scoring (frequency + recency), optional
+    recursive filesystem search, and interactive selection mode.
 
     Features:
     - Well-known shortcuts: ~, .., .
@@ -18,11 +18,20 @@ function Invoke-PCD {
     - Distance scoring: Prefers nearby directories
     - Best-match navigation: Automatically finds closest match if exact path doesn't exist
     - Optional recursive search: Finds directories by name in subdirectories
+    - Interactive selection: Browse and select from frequently visited directories
 
     .PARAMETER Path
     The directory path to change to. Supports tab completion with learned suggestions.
     If the path doesn't exist exactly, pcd will find the best fuzzy match.
-    If not specified, changes to the user's home directory.
+    If not specified and -Interactive is not used, changes to the user's home directory.
+
+    .PARAMETER Interactive
+    Show an interactive selection menu to browse and select from learned directories.
+    Alias: -i
+
+    .PARAMETER Top
+    Number of directories to show in interactive mode. Default is 20.
+    Valid range: 5-100.
 
     .EXAMPLE
     pcd D:\source\datadog
@@ -35,6 +44,14 @@ function Invoke-PCD {
     .EXAMPLE
     pcd
     Changes to the user's home directory.
+
+    .EXAMPLE
+    pcd -i
+    Shows an interactive menu to browse and select from your 20 most frequently visited directories.
+
+    .EXAMPLE
+    pcd -Interactive -Top 50
+    Shows an interactive menu with up to 50 learned directories.
 
     .EXAMPLE
     pcd dat<TAB>
@@ -54,9 +71,43 @@ function Invoke-PCD {
     [CmdletBinding()]
     [Alias('pcd')]
     param(
-        [Parameter(Position = 0)]
-        [string]$Path
+        [Parameter(Mandatory = $false, Position = 0)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $false)]
+        [Alias('i')]
+        [switch]$Interactive,
+
+        [Parameter(Mandatory = $false)]
+        [ValidateRange(5, 100)]
+        [int]$Top = 20
     )
+
+    # Interactive mode: show selection prompt
+    if ($Interactive) {
+        if ($null -eq [PSCue.Module.PSCueModule]::KnowledgeGraph) {
+            Write-Error "PSCue module not initialized. Cannot show interactive selection."
+            return
+        }
+
+        try {
+            $selector = [PSCue.Module.PcdInteractiveSelector]::new(
+                [PSCue.Module.PSCueModule]::KnowledgeGraph
+            )
+
+            $selectedPath = $selector.ShowSelectionPrompt($PWD.Path, $Top)
+
+            if ($null -ne $selectedPath) {
+                Set-Location -LiteralPath $selectedPath
+            }
+            # User cancelled (Esc) - do nothing
+        }
+        catch {
+            Write-Error "Failed to show interactive selection: $_"
+        }
+
+        return
+    }
 
     # If no path specified, go to home directory (like native cd)
     if ([string]::IsNullOrWhiteSpace($Path)) {
