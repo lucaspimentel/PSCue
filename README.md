@@ -149,6 +149,8 @@ cd ~/<Tab>              # Shows home directory subdirectories
 ```powershell
 pcd datadog<Tab>        # Shows learned directories with fuzzy matching
 pcd datadog             # Best-match navigation: finds "D:\source\datadog" even without Tab
+pcd -i                  # Interactive mode: browse and select from frequently visited directories
+pcd -i -Top 50          # Interactive mode with more entries
 pcd ~                   # Home directory (well-known shortcut)
 pcd ..                  # Parent directory (well-known shortcut)
 ```
@@ -248,7 +250,33 @@ pcd nonexistent-project # Shows: "No learned directory matches 'nonexistent-proj
 # Well-known shortcuts (highest priority)
 pcd ~                   # Home directory
 pcd ..                  # Parent directory
+
+# Interactive mode - browse and select visually
+pcd -i                  # Show top 20 directories in interactive menu
+pcd -i -Top 50          # Show top 50 directories
 ```
+
+**Interactive Selection** (`pcd -i`):
+
+Browse and select from your most frequently visited directories using an interactive menu:
+
+```powershell
+# Show interactive menu with your top 20 directories
+pcd -i
+
+# Show more directories
+pcd -i -Top 50
+pcd --interactive -Top 30
+```
+
+Features:
+- **Visual menu**: Arrow keys to navigate, type to search/filter, Enter to select, Esc to cancel
+- **Usage statistics**: Shows visit count and last used time for each directory
+- **Smart filtering**: Only shows directories that still exist on disk
+- **Frecency sorting**: Same scoring as tab completion (frequency + recency + distance)
+- **Configurable**: Show 5-100 entries with `-Top` parameter
+
+Requires a TTY-capable terminal (Windows Terminal recommended). See [INTERACTIVE-PCD.md](docs/INTERACTIVE-PCD.md) for full details.
 
 **Note**: Full paths are still shown in tooltips for reference.
 
@@ -822,6 +850,7 @@ Special thanks to the PowerShell team for the `ICommandPredictor` and `IFeedback
   - [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) - Common issues and solutions
   - [CLAUDE.md](CLAUDE.md) - Quick reference for AI agents
   - [DATABASE-FUNCTIONS.md](docs/DATABASE-FUNCTIONS.md) - Database query functions and schema
+  - [INTERACTIVE-PCD.md](docs/INTERACTIVE-PCD.md) - Interactive directory selection
 - **PowerShell API Documentation**:
   - [ICommandPredictor API](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-cmdlet-predictor)
   - [IFeedbackProvider API](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider)

@@ -271,6 +271,7 @@ public void TestLearningAccess()
 12. **PCD tab completion behavior**: CompletionText must match native cd exactly - use .\ prefix for child directories, ..\ for siblings, and single quotes for spaces. ListItemText should be clean (no prefixes/separators/quotes). See module/Functions/PCD.ps1:183-228 for implementation.
 13. **Testing with non-existent paths**: Use `skipExistenceCheck: true` parameter in `PcdCompletionEngine.GetSuggestions()` when testing with mock/non-existent paths. Production code filters non-existent paths by default.
 14. **Release builds missing dependencies**: The release workflow (.github/workflows/release.yml) MUST use `dotnet publish` (not `dotnet build`) for PSCue.Module to include all dependencies, especially the `runtimes/` directory with native SQLite libraries. `dotnet build` only outputs primary assemblies, while `dotnet publish` creates a complete deployable package. The remote install script (install-remote.ps1) recursively copies all directories from the release archive to handle `runtimes/`, `Functions/`, and any future subdirectories.
+15. **install-local.ps1 dependency list**: The local install script has a hardcoded `$Dependencies` array listing DLLs to copy from the `publish/` directory. When adding new NuGet packages (e.g., Spectre.Console), you MUST add the DLL to this list or the module will fail at runtime with assembly-not-found errors. Consider replacing this with a bulk copy approach (like `install-remote.ps1` does) to avoid this pitfall.
 
 ## Documentation
 - **Implementation status**:

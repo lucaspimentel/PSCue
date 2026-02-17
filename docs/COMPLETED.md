@@ -42,6 +42,8 @@ For current and future work, see [TODO.md](TODO.md).
 - **Phase 20**: Parameter-Value Binding (Smart Argument Tracking) ✅
 - **Phase 21**: PCD Quality Improvements (Symlinks, Filtering, Match Quality) ✅
 - **CI/CD & Distribution**: GitHub Actions Automated Releases ✅
+- **Phase 22**: Dynamic Git Alias & Command Completion ✅
+- **Phase 23**: Interactive Directory Selection (`pcd -i`) ✅
 
 ---
 
@@ -2114,6 +2116,81 @@ $env:PSCUE_PCD_FUZZY_MIN_MATCH_PCT = "0.7"         # Default: 0.7 (70%)
 **Dependencies**: Phase 19.0 (PCD shared configuration infrastructure)
 
 **Result**: PCD now provides high-quality directory suggestions with proper deduplication, intelligent filtering, exact match prioritization, and improved fuzzy matching accuracy.
+
+---
+
+### Phase 22: Dynamic Git Alias & Command Completion ✅
+**Effort**: ~4 hours
+
+**Features Implemented**:
+- Dynamic git alias loading via `git --list-cmds=alias` with "Git alias" tooltips
+- All git main commands via `git --list-cmds=main,nohelpers` with "Git command" tooltips
+- Git extensions from PATH via `git --list-cmds=others` with "Git extension" tooltips
+- Deduplication: hardcoded subcommands take precedence over dynamic results (better tooltips)
+
+**Key Implementation**:
+- Added `DynamicArguments` factory to git's root `Command` node
+- Factory runs `git --list-cmds=alias`, `git --list-cmds=main,nohelpers`, `git --list-cmds=others`
+- Results merged with existing hardcoded subcommands; duplicates filtered
+
+**Key Files Modified**:
+- `src/PSCue.Shared/KnownCompletions/GitCommand.cs`: DynamicArguments factory
+- `src/PSCue.Shared/Completions/Command.cs`: Alias matching in FindNode/GetCompletions
+- `test/PSCue.Module.Tests/CommandPredictorTests.cs`: Updated tests
+
+**Result**: Git tab completion now includes user-defined aliases, all git commands, and git extensions automatically without hardcoding.
+
+---
+
+### Phase 23: Interactive Directory Selection (`pcd -i`) ✅
+**Effort**: ~6 hours
+
+**Features Implemented**:
+- Interactive selection mode via `-Interactive` (alias `-i`) switch parameter
+- Configurable entry count via `-Top <int>` parameter (default: 20, range: 5-100)
+- Visual selection menu using Spectre.Console 0.54.0 `SelectionPrompt<T>`
+- Rich display format: directory path + usage count + last used time
+- Human-readable time formatting (just now, minutes, hours, days, weeks, months, years)
+- Search/filter support (type to narrow results)
+- Keyboard navigation: Arrow keys, Enter to select, Esc to cancel, WrapAround mode
+- Smart filtering: only shows directories that currently exist on disk
+- Same frecency scoring as tab completion for consistent results
+- Edge case handling: empty history, all stale paths, non-interactive terminals, uninitialized module
+
+**Dependencies Added**:
+- `Spectre.Console` 0.54.0 NuGet package to `PSCue.Module.csproj`
+- `Spectre.Console.dll` added to `install-local.ps1` dependency list
+
+**Key Files**:
+- `src/PSCue.Module/PcdInteractiveSelector.cs`: Interactive selector class (NEW)
+- `module/Functions/PCD.ps1`: Added `-Interactive` and `-Top` parameters, interactive mode handler
+- `test/PSCue.Module.Tests/PcdInteractiveSelectorTests.cs`: Unit tests (NEW)
+- `docs/INTERACTIVE-PCD.md`: Full feature documentation (NEW)
+- `src/PSCue.Module/PSCue.Module.csproj`: Spectre.Console dependency
+- `install-local.ps1`: Added Spectre.Console.dll to dependency list
+
+**Key Implementation**:
+```csharp
+// PcdInteractiveSelector.ShowSelectionPrompt()
+var selection = AnsiConsole.Prompt(
+    new SelectionPrompt<PcdSuggestion>()
+        .Title("[green]Select a directory:[/]")
+        .PageSize(15)
+        .AddChoices(validSuggestions)
+        .UseConverter(FormatDirectoryEntry)
+        .EnableSearch()
+        .WrapAround()
+        .HighlightStyle(new Style(foreground: Color.Green))
+);
+```
+
+**Success Criteria Achieved**:
+- ✅ Interactive selection shows learned directories sorted by frecency
+- ✅ Usage statistics displayed (visit count + last used time)
+- ✅ Navigation with arrow keys, search filtering, Enter/Esc
+- ✅ Non-existent directories filtered out
+- ✅ Graceful error handling for all edge cases
+- ✅ All tests passing
 
 ---
 
