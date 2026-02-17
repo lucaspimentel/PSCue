@@ -64,21 +64,41 @@ public class PcdInteractiveSelector
             return null;
         }
 
+        // Create cancel sentinel as the first choice
+        var cancelSentinel = new PcdSuggestion
+        {
+            Path = string.Empty,
+            DisplayPath = string.Empty,
+            Score = 0,
+            UsageCount = 0,
+            LastUsed = DateTime.MinValue,
+            MatchType = MatchType.WellKnown,
+            Tooltip = "Cancel selection"
+        };
+
+        // Add cancel sentinel as first choice, followed by valid directories
+        var choices = new List<PcdSuggestion> { cancelSentinel };
+        choices.AddRange(validSuggestions);
+
         try
         {
             // Create selection prompt
             var selection = AnsiConsole.Prompt(
                 new SelectionPrompt<PcdSuggestion>()
-                    .Title("[green]Select a directory:[/]")
+                    .Title("[green]Select a directory[/] [dim](choose Cancel to go back)[/]:")
                     .PageSize(15)
                     .MoreChoicesText("[grey](Move up and down to reveal more directories)[/]")
-                    .AddChoices(validSuggestions)
-                    .UseConverter(FormatDirectoryEntry)
+                    .AddChoices(choices)
+                    .UseConverter(s => s == cancelSentinel ? "[dim]< Cancel >[/]" : FormatDirectoryEntry(s))
                     .EnableSearch()
                     .SearchPlaceholderText("Type to search...")
                     .WrapAround()
                     .HighlightStyle(new Style(foreground: Color.Green))
             );
+
+            // Check if user selected cancel
+            if (selection == cancelSentinel)
+                return null;
 
             return selection.DisplayPath;
         }

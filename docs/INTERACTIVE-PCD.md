@@ -55,7 +55,7 @@ Time deltas are formatted as:
 - **Arrow keys (Up/Down)**: Navigate through the list
 - **Type**: Search/filter directories by name
 - **Enter**: Select the highlighted directory and navigate to it
-- **Esc**: Cancel selection without navigating
+- **Select "< Cancel >"**: Cancel selection without navigating (appears as first option in the list)
 
 ### Smart Filtering
 
