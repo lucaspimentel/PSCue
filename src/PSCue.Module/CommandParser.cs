@@ -212,7 +212,20 @@ public class CommandParser
 
             if (c == '\\')
             {
-                escapeNext = true;
+                // Only treat backslash as escape if followed by special character
+                // This preserves Windows paths like C:\Users\... while still allowing \"
+                if (i + 1 < commandLine.Length)
+                {
+                    var next = commandLine[i + 1];
+                    if (next == '\\' || next == '"' || next == '\'')
+                    {
+                        // Escape sequence - consume the backslash
+                        escapeNext = true;
+                        continue;
+                    }
+                }
+                // Not an escape sequence - treat backslash as literal
+                current.Append(c);
                 continue;
             }
 

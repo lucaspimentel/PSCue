@@ -225,7 +225,59 @@ public class CommandParserTests
         var result = parser.Parse("git commit -m \"test\\nmessage\"");
 
         Assert.Equal(3, result.Arguments.Count);
-        // The parser treats \n as literal characters (not newline)
-        Assert.Equal("testnmessage", result.Arguments[2].Text);
+        // Backslash followed by 'n' is not a recognized escape - both are preserved
+        Assert.Equal("test\\nmessage", result.Arguments[2].Text);
+    }
+
+    [Fact]
+    public void Parse_WindowsPath_PreservesBackslashes()
+    {
+        var parser = new CommandParser();
+
+        var result = parser.Parse("cd D:\\source\\datadog\\dd-trace-dotnet");
+
+        Assert.Equal("cd", result.Command);
+        Assert.Single(result.Arguments);
+        // Windows path backslashes should be preserved
+        Assert.Equal("D:\\source\\datadog\\dd-trace-dotnet", result.Arguments[0].Text);
+    }
+
+    [Fact]
+    public void Parse_QuotedWindowsPath_PreservesBackslashes()
+    {
+        var parser = new CommandParser();
+
+        var result = parser.Parse("cd \"D:\\source\\my folder\\project\"");
+
+        Assert.Equal("cd", result.Command);
+        Assert.Single(result.Arguments);
+        // Windows path backslashes should be preserved even in quotes
+        Assert.Equal("D:\\source\\my folder\\project", result.Arguments[0].Text);
+    }
+
+    [Fact]
+    public void Parse_EscapedQuote_HandlesEscapeCorrectly()
+    {
+        var parser = new CommandParser();
+        parser.RegisterParameterRequiringValue("-m");
+
+        var result = parser.Parse("git commit -m \"test \\\"quoted\\\" message\"");
+
+        Assert.Equal(3, result.Arguments.Count);
+        // Escaped quotes should be preserved
+        Assert.Equal("test \"quoted\" message", result.Arguments[2].Text);
+    }
+
+    [Fact]
+    public void Parse_EscapedBackslash_HandlesDoubleBackslash()
+    {
+        var parser = new CommandParser();
+        parser.RegisterParameterRequiringValue("-m");
+
+        var result = parser.Parse("git commit -m \"test \\\\ message\"");
+
+        Assert.Equal(3, result.Arguments.Count);
+        // Escaped backslash (\\) should become single backslash
+        Assert.Equal("test \\ message", result.Arguments[2].Text);
     }
 }
