@@ -298,5 +298,5 @@ Register-ArgumentCompleter -CommandName 'Invoke-PCD', 'pcd' -ParameterName 'Path
     }
 }
 
-# Export the function (module manifest will handle this via FunctionsToExport)
-Export-ModuleMember -Function Invoke-PCD -Alias pcd
+# Note: Function and alias are exported via FunctionsToExport/AliasesToExport in PSCue.psd1 manifest
+# Export-ModuleMember is not needed when using dot-sourcing in PSCue.psm1

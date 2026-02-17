@@ -457,5 +457,5 @@ function Import-PSCueWorkflows {
     }
 }
 
-# Export module members
-Export-ModuleMember -Function Get-PSCueWorkflows, Get-PSCueWorkflowStats, Clear-PSCueWorkflows, Export-PSCueWorkflows, Import-PSCueWorkflows
+# Note: Functions are exported via FunctionsToExport in PSCue.psd1 manifest
+# Export-ModuleMember is not needed when using dot-sourcing in PSCue.psm1
