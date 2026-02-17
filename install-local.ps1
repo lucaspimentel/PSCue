@@ -178,7 +178,8 @@ $Dependencies = @(
     "Microsoft.Data.Sqlite.dll",
     "SQLitePCLRaw.batteries_v2.dll",
     "SQLitePCLRaw.core.dll",
-    "SQLitePCLRaw.provider.e_sqlite3.dll"
+    "SQLitePCLRaw.provider.e_sqlite3.dll",
+    "Spectre.Console.dll"
 )
 
 foreach ($dep in $Dependencies) {
