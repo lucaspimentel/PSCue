@@ -521,6 +521,14 @@ public class ArgumentGraph
             // Resolve symlinks to real paths for deduplication
             // Always try to resolve, even if the path itself isn't a symlink (parent directories might be)
             var realPath = ResolveSymlinkFullPath(fullPath);
+
+            // Ensure trailing separator for consistency (prevents duplicates like "C:\Users" vs "C:\Users\")
+            // This is critical for deduplication across the learning system
+            if (!realPath.EndsWith(Path.DirectorySeparatorChar) && !realPath.EndsWith(Path.AltDirectorySeparatorChar))
+            {
+                realPath += Path.DirectorySeparatorChar;
+            }
+
             return realPath;
         }
         catch

@@ -385,7 +385,9 @@ public class ArgumentGraphTests
             Assert.Single(knowledge.Arguments);
 
             var storedPath = knowledge.Arguments.Keys.First();
-            Assert.Equal(targetDir, storedPath, ignoreCase: true);
+            // Paths should have trailing separator for deduplication
+            var expected = targetDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            Assert.Equal(expected, storedPath, ignoreCase: true);
         }
         finally
         {
@@ -405,13 +407,15 @@ public class ArgumentGraphTests
         // Act - record ~ path
         graph.RecordUsage("cd", new[] { "~" }, workingDir);
 
-        // Assert - should store home directory
+        // Assert - should store home directory with trailing separator
         var knowledge = graph.GetCommandKnowledge("cd");
         Assert.NotNull(knowledge);
         Assert.Single(knowledge.Arguments);
 
         var storedPath = knowledge.Arguments.Keys.First();
-        Assert.Equal(homeDir, storedPath, ignoreCase: true);
+        // Paths should have trailing separator for deduplication
+        var expected = homeDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        Assert.Equal(expected, storedPath, ignoreCase: true);
     }
 
     [Fact]
@@ -425,12 +429,13 @@ public class ArgumentGraphTests
         // Act - record ~/subdir path
         graph.RecordUsage("cd", new[] { "~/Documents" }, workingDir);
 
-        // Assert - should store expanded path
+        // Assert - should store expanded path with trailing separator
         var knowledge = graph.GetCommandKnowledge("cd");
         Assert.NotNull(knowledge);
         Assert.Single(knowledge.Arguments);
 
-        var expected = Path.Combine(homeDir, "Documents");
+        var expectedPath = Path.Combine(homeDir, "Documents");
+        var expected = expectedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
         var storedPath = knowledge.Arguments.Keys.First();
         Assert.Equal(expected, storedPath, ignoreCase: true);
     }
@@ -475,13 +480,14 @@ public class ArgumentGraphTests
         // Act - record absolute path
         graph.RecordUsage("cd", new[] { targetPath }, workingDir);
 
-        // Assert - should store normalized absolute path
+        // Assert - should store normalized absolute path with trailing separator
         var knowledge = graph.GetCommandKnowledge("cd");
         Assert.NotNull(knowledge);
         Assert.Single(knowledge.Arguments);
 
         var storedPath = knowledge.Arguments.Keys.First();
-        Assert.Equal(Path.GetFullPath(targetPath), storedPath, ignoreCase: true);
+        var expected = Path.GetFullPath(targetPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        Assert.Equal(expected, storedPath, ignoreCase: true);
     }
 
     [Fact]
@@ -500,7 +506,7 @@ public class ArgumentGraphTests
             graph.RecordUsage("cd", new[] { "test-target" }, tempDir); // Relative
             graph.RecordUsage("cd", new[] { "./test-target" }, tempDir); // Explicit relative
 
-            // Assert - should all merge to same normalized path
+            // Assert - should all merge to same normalized path with trailing separator
             var knowledge = graph.GetCommandKnowledge("cd");
             Assert.NotNull(knowledge);
             Assert.Single(knowledge.Arguments); // Only one entry despite 3 calls
@@ -508,7 +514,8 @@ public class ArgumentGraphTests
             var storedPath = knowledge.Arguments.Keys.First();
             var stats = knowledge.Arguments.Values.First();
             Assert.Equal(3, stats.UsageCount); // Merged usage count
-            Assert.Equal(targetDir, storedPath, ignoreCase: true);
+            var expected = targetDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            Assert.Equal(expected, storedPath, ignoreCase: true);
         }
         finally
         {
@@ -550,11 +557,12 @@ public class ArgumentGraphTests
             // Act - record Set-Location with relative path
             graph.RecordUsage("Set-Location", new[] { "subdir" }, workingDir);
 
-            // Assert - should normalize
+            // Assert - should normalize with trailing separator
             var knowledge = graph.GetCommandKnowledge("Set-Location");
             Assert.NotNull(knowledge);
             var storedPath = knowledge.Arguments.Keys.First();
-            Assert.Equal(targetDir, storedPath, ignoreCase: true);
+            var expected = targetDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+            Assert.Equal(expected, storedPath, ignoreCase: true);
         }
         finally
         {
@@ -574,11 +582,12 @@ public class ArgumentGraphTests
         // Act - record sl (alias) with ~ path
         graph.RecordUsage("sl", new[] { "~" }, workingDir);
 
-        // Assert - should normalize
+        // Assert - should normalize with trailing separator
         var knowledge = graph.GetCommandKnowledge("sl");
         Assert.NotNull(knowledge);
         var storedPath = knowledge.Arguments.Keys.First();
-        Assert.Equal(homeDir, storedPath, ignoreCase: true);
+        var expected = homeDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        Assert.Equal(expected, storedPath, ignoreCase: true);
     }
 
     [Fact]
@@ -688,6 +697,35 @@ public class ArgumentGraphTests
         var knowledge = graph.GetCommandKnowledge("cd");
         Assert.NotNull(knowledge);
         Assert.Empty(knowledge.ArgumentSequences); // No sequences for cd
+    }
+
+    [Fact]
+    public void RecordUsage_NavigationPaths_AddTrailingSeparator()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        var tempDir = Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        // Act - record the same path with and without trailing separator
+        graph.RecordUsage("cd", new[] { tempDir }, workingDirectory: tempDir);
+        graph.RecordUsage("cd", new[] { tempDir + Path.DirectorySeparatorChar }, workingDirectory: tempDir);
+
+        // Assert - should be deduplicated to a single entry with trailing separator
+        var knowledge = graph.GetCommandKnowledge("cd");
+        Assert.NotNull(knowledge);
+
+        // Should have exactly 1 argument (the normalized path with trailing separator)
+        Assert.Single(knowledge.Arguments);
+
+        // The stored path should have a trailing separator
+        var storedPath = knowledge.Arguments.Keys.First();
+        Assert.True(
+            storedPath.EndsWith(Path.DirectorySeparatorChar) || storedPath.EndsWith(Path.AltDirectorySeparatorChar),
+            $"Path '{storedPath}' should end with directory separator"
+        );
+
+        // Usage count should be 2 (both calls merged)
+        Assert.Equal(2, knowledge.Arguments.Values.First().UsageCount);
     }
 
     [Fact]
