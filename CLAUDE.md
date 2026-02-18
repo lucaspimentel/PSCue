@@ -147,9 +147,10 @@ Invoke-PCD [path]                                  # Long-form function name
 # - Interactive selection: `pcd -i` shows visual menu to browse and select from learned directories
 #   - Uses Spectre.Console for cross-platform interactive UI
 #   - Display format: path + usage stats (visits, last used time)
-#   - Keyboard navigation: Arrow keys, type to search, Enter to select, Esc to cancel
+#   - Keyboard navigation: Arrow keys, type to search, Enter to select; "< Cancel >" option or Esc to cancel
 #   - Same frecency scoring as tab completion for consistency
 #   - Filters out non-existent directories automatically
+#   - Excludes current directory and .. parent shortcut (neither is useful to navigate to interactively)
 #   - Default shows top 20, configurable via -Top parameter (range: 5-100)
 # - Best-match navigation: `pcd <partial>` finds closest fuzzy match without tab
 #   - Directory name matching: "dd-trace-dotnet" matches "D:\source\datadog\dd-trace-dotnet" from any location
@@ -272,13 +273,14 @@ public void TestLearningAccess()
 13. **Testing with non-existent paths**: Use `skipExistenceCheck: true` parameter in `PcdCompletionEngine.GetSuggestions()` when testing with mock/non-existent paths. Production code filters non-existent paths by default.
 14. **Release builds missing dependencies**: The release workflow (.github/workflows/release.yml) MUST use `dotnet publish` (not `dotnet build`) for PSCue.Module to include all dependencies, especially the `runtimes/` directory with native SQLite libraries. `dotnet build` only outputs primary assemblies, while `dotnet publish` creates a complete deployable package. The remote install script (install-remote.ps1) recursively copies all directories from the release archive to handle `runtimes/`, `Functions/`, and any future subdirectories.
 15. **install-local.ps1 dependency list**: The local install script has a hardcoded `$Dependencies` array listing DLLs to copy from the `publish/` directory. When adding new NuGet packages (e.g., Spectre.Console), you MUST add the DLL to this list or the module will fail at runtime with assembly-not-found errors. Consider replacing this with a bulk copy approach (like `install-remote.ps1` does) to avoid this pitfall.
+16. **PCD interactive selector excludes current dir and `..`**: `PcdInteractiveSelector` explicitly filters out the current directory and the `..` parent shortcut. This is intentional — navigating to where you already are is useless, and `..` is always available via `pcd ..` directly. When testing, ensure the learned paths are not just the current directory or its parent.
+17. **FeedbackProvider uses PowerShell `$PWD` for path normalization**: The `FeedbackProvider` uses the PowerShell `$PWD` variable (not `System.Environment.CurrentDirectory`) to get the current working directory for path normalization. This is important because `Set-Location` in PowerShell does not update the process CWD. Always use `PSCmdlet.SessionState.Path.CurrentLocation` or invoke `$PWD` via PowerShell when you need the true PowerShell working directory.
 
 ## Documentation
 - **Implementation status**:
   - Active work: See `TODO.md` (includes detailed Phase 18 workflow improvements roadmap)
   - Completed phases: See `docs/COMPLETED.md` (Phases 1-21 archived, includes all PCD quality improvements)
 - **Database functions**: See `docs/DATABASE-FUNCTIONS.md` for detailed SQLite query examples and schema
-- **Interactive PCD**: See `docs/INTERACTIVE-PCD.md` for interactive directory selection usage and features
 - **Troubleshooting**: See `docs/TROUBLESHOOTING.md` for common issues and solutions
 - Bug fix history: See git log and commit messages
 - API docs: [ICommandPredictor](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-cmdlet-predictor), [IFeedbackProvider](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider)

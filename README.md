@@ -270,13 +270,14 @@ pcd --interactive -Top 30
 ```
 
 Features:
-- **Visual menu**: Arrow keys to navigate, type to search/filter, Enter to select, Esc to cancel
+- **Visual menu**: Arrow keys to navigate, type to search/filter, Enter to select
+- **Cancel options**: Select "< Cancel >" (first item in list) or press Esc to exit without navigating
 - **Usage statistics**: Shows visit count and last used time for each directory
-- **Smart filtering**: Only shows directories that still exist on disk
+- **Smart filtering**: Only shows directories that still exist on disk; excludes current directory and `..` parent shortcut
 - **Frecency sorting**: Same scoring as tab completion (frequency + recency + distance)
 - **Configurable**: Show 5-100 entries with `-Top` parameter
 
-Requires a TTY-capable terminal (Windows Terminal recommended). See [INTERACTIVE-PCD.md](docs/INTERACTIVE-PCD.md) for full details.
+Requires a TTY-capable terminal (Windows Terminal recommended). See [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md#pcd-smart-directory-navigation) for edge cases and terminal compatibility details.
 
 **Note**: Full paths are still shown in tooltips for reference.
 
@@ -410,8 +411,8 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
   - **7.4+ recommended** for learning features (`IFeedbackProvider`)
 - **Operating System**:
   - Windows x64
-  - macOS arm64 (Apple Silicon)
   - Linux x64
+  - macOS: Build from source only (not distributed as binary)
 
 ### Learning Features (PowerShell 7.4+)
 
@@ -554,7 +555,7 @@ TabExpansion2 'git checkout ma' 15
   - Personalized completions based on command history
   - Error recovery suggestions for git commands
 - [x] **PowerShell Module Functions** (Phase 16)
-  - 12 native PowerShell functions for learning, database, and workflow management
+  - 14 native PowerShell functions for learning, database, and workflow management
   - Direct in-process access (no external tools needed)
   - Pipeline support, tab completion, comprehensive help
   - Functions: Get-PSCueLearning, Clear-PSCueLearning, Export-PSCueLearning, Import-PSCueLearning, Save-PSCueLearning, Get-PSCueDatabaseStats, Get-PSCueDatabaseHistory, Get-PSCueWorkflows, Get-PSCueWorkflowStats, Clear-PSCueWorkflows, Export-PSCueWorkflows, Import-PSCueWorkflows, Test-PSCueCompletion, Get-PSCueModuleInfo
@@ -850,7 +851,6 @@ Special thanks to the PowerShell team for the `ICommandPredictor` and `IFeedback
   - [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) - Common issues and solutions
   - [CLAUDE.md](CLAUDE.md) - Quick reference for AI agents
   - [DATABASE-FUNCTIONS.md](docs/DATABASE-FUNCTIONS.md) - Database query functions and schema
-  - [INTERACTIVE-PCD.md](docs/INTERACTIVE-PCD.md) - Interactive directory selection
 - **PowerShell API Documentation**:
   - [ICommandPredictor API](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-cmdlet-predictor)
   - [IFeedbackProvider API](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider)

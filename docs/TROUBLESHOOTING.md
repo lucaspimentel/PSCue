@@ -16,6 +16,51 @@ This document covers common issues and their solutions when using PSCue.
 
 ## PCD (Smart Directory Navigation)
 
+### Interactive Mode Edge Cases
+
+**No learned data yet**:
+```
+No learned directories yet.
+Use 'pcd <path>' to navigate and build history.
+```
+
+**All learned paths have been deleted or moved**:
+```
+No valid directories in history.
+All learned paths have been deleted or moved.
+```
+
+**Module not initialized**:
+```
+PSCue module not initialized. Cannot show interactive selection.
+```
+
+**Non-interactive terminal** (e.g. redirected/piped session):
+```
+Error: Cannot show interactive prompt in this terminal.
+Try running in Windows Terminal or use regular 'pcd' commands.
+```
+
+### Interactive Mode: Spectre.Console.dll Not Found
+
+**Problem**: Missing DLL error when running `pcd -i`.
+
+**Solution**: Reinstall using the install script, which includes all dependencies:
+```powershell
+./install-local.ps1 -Force
+# or
+irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps1 | iex
+```
+
+### Interactive Mode: Menu Not Showing
+
+Check that:
+1. You're running in an interactive terminal (not redirected or piped)
+2. PSCue module is fully initialized (`Get-Module PSCue`)
+3. You have some learned navigation history (`Get-PSCueLearning -Command cd`)
+
+---
+
 ### Duplicate Directory Suggestions
 
 **Problem**: The same directory appears twice in `pcd` suggestions with different paths (e.g., `C:\Users\lucas\source\...` and `D:\source\...`).
