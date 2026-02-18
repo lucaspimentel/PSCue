@@ -270,11 +270,9 @@ pcd --interactive -Top 30
 ```
 
 Features:
-- **Visual menu**: Arrow keys to navigate, type to search/filter, Enter to select
-- **Cancel options**: Select "< Cancel >" (first item in list) or press Esc to exit without navigating
-- **Usage statistics**: Shows visit count and last used time for each directory
-- **Smart filtering**: Only shows directories that still exist on disk; excludes current directory and `..` parent shortcut
-- **Frecency sorting**: Same scoring as tab completion (frequency + recency + distance)
+- **Interactive menu**: Arrow keys to navigate, type to search, Enter to select, Esc to cancel
+- **Visual polish**: Color-coded usage indicators and timestamps for easy scanning
+- **Smart filtering**: Only shows existing directories, same frecency scoring as tab completion
 - **Configurable**: Show 5-100 entries with `-Top` parameter
 
 Requires a TTY-capable terminal (Windows Terminal recommended). See [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md#pcd-smart-directory-navigation) for edge cases and terminal compatibility details.

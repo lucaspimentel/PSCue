@@ -71,7 +71,8 @@ src/
 - `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence with 10 tables
 - `src/PSCue.Module/PcdCompletionEngine.cs`: Enhanced PCD algorithm with fuzzy matching, frecency scoring, filesystem search, symlink resolution (Phases 17.6 + 17.9 + 19.0 + 21.1)
 - `src/PSCue.Module/PcdConfiguration.cs`: Shared configuration for PCD (tab completion + predictor) (Phase 19.0 + 21.2)
-- `src/PSCue.Module/PcdInteractiveSelector.cs`: Interactive directory selection using Spectre.Console
+- `src/PSCue.Module/PcdInteractiveSelector.cs`: Interactive directory selection with visual styling (color-coded indicators, decorative UI)
+- `src/PSCue.Module/FeedbackProvider.cs`: Learns from command execution, records navigation paths with trailing separators
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
 - `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system
 - `module/Functions/DatabaseManagement.ps1`: PowerShell functions for database queries
@@ -146,12 +147,15 @@ Invoke-PCD [path]                                  # Long-form function name
 #   - Filesystem search: Shows unlearned directories via child + recursive search
 # - Interactive selection: `pcd -i` shows visual menu to browse and select from learned directories
 #   - Uses Spectre.Console for cross-platform interactive UI
-#   - Display format: path + usage stats (visits, last used time)
-#   - Keyboard navigation: Arrow keys, type to search, Enter to select; "< Cancel >" option or Esc to cancel
+#   - Visual styling: Decorative header with folder icon, color-coded usage indicators (green/yellow/grey dots), time-based coloring
+#   - Display format: Bold paths with ~ shortening + usage stats (visits, last used time with recency colors)
+#   - Keyboard navigation: Arrow keys, type to search (with search icon), Enter to select; "< Cancel >" option or Esc to cancel
+#   - Highlight style: Cyan on grey background with bold for selected item
 #   - Same frecency scoring as tab completion for consistency
 #   - Filters out non-existent directories automatically
 #   - Excludes current directory and .. parent shortcut (neither is useful to navigate to interactively)
 #   - Default shows top 20, configurable via -Top parameter (range: 5-100)
+#   - Timestamp tracking: All pcd navigations manually record under 'cd' command for accurate stats
 # - Best-match navigation: `pcd <partial>` finds closest fuzzy match without tab
 #   - Directory name matching: "dd-trace-dotnet" matches "D:\source\datadog\dd-trace-dotnet" from any location
 #   - Searches top 200 learned paths (not just top 20) for better match coverage
@@ -275,6 +279,7 @@ public void TestLearningAccess()
 15. **install-local.ps1 dependency list**: The local install script has a hardcoded `$Dependencies` array listing DLLs to copy from the `publish/` directory. When adding new NuGet packages (e.g., Spectre.Console), you MUST add the DLL to this list or the module will fail at runtime with assembly-not-found errors. Consider replacing this with a bulk copy approach (like `install-remote.ps1` does) to avoid this pitfall.
 16. **PCD interactive selector excludes current dir and `..`**: `PcdInteractiveSelector` explicitly filters out the current directory and the `..` parent shortcut. This is intentional — navigating to where you already are is useless, and `..` is always available via `pcd ..` directly. When testing, ensure the learned paths are not just the current directory or its parent.
 17. **FeedbackProvider uses PowerShell `$PWD` for path normalization**: The `FeedbackProvider` uses the PowerShell `$PWD` variable (not `System.Environment.CurrentDirectory`) to get the current working directory for path normalization. This is important because `Set-Location` in PowerShell does not update the process CWD. Always use `PSCmdlet.SessionState.Path.CurrentLocation` or invoke `$PWD` via PowerShell when you need the true PowerShell working directory.
+18. **Navigation timestamp tracking**: For navigation commands (cd, Set-Location, sl, chdir), the FeedbackProvider records the absolute destination path (from context.CurrentLocation after navigation) with trailing separator, not the relative path typed. The `pcd` function manually records navigations under the 'cd' command since FeedbackProvider only sees the 'pcd' command, not the internal Set-Location calls. Without this, pcd navigations wouldn't update learned directory timestamps.
 
 ## Documentation
 - **Implementation status**:
