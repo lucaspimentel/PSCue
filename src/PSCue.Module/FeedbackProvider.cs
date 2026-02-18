@@ -89,17 +89,27 @@ public class FeedbackProvider : IFeedbackProvider
             }
 
             // Handle based on trigger type
+            string? currentLocation;
+            try
+            {
+                currentLocation = context.CurrentLocation?.Path;
+            }
+            catch
+            {
+                currentLocation = null;
+            }
+
             if (context.Trigger == FeedbackTrigger.Success)
             {
                 // Learn from ALL commands (generic learning)
-                LearnFromCommand(mainCommand, commandLine, commandElements, success: true);
+                LearnFromCommand(mainCommand, commandLine, commandElements, success: true, currentLocation);
 
                 return null; // Silent learning
             }
             else if (context.Trigger == FeedbackTrigger.Error)
             {
                 // Learn from failed commands too (marked as failed)
-                LearnFromCommand(mainCommand, commandLine, commandElements, success: false);
+                LearnFromCommand(mainCommand, commandLine, commandElements, success: false, currentLocation);
 
                 // Provide helpful suggestions for failed commands (only for supported commands)
                 if (IsSupportedCommand(mainCommand))
@@ -368,7 +378,7 @@ public class FeedbackProvider : IFeedbackProvider
     /// Learns from ANY command execution (generic learning).
     /// Updates CommandHistory, ArgumentGraph, and SequencePredictor.
     /// </summary>
-    private void LearnFromCommand(string command, string commandLine, List<string> commandElements, bool success)
+    private void LearnFromCommand(string command, string commandLine, List<string> commandElements, bool success, string? workingDirectory)
     {
         try
         {
@@ -381,17 +391,6 @@ public class FeedbackProvider : IFeedbackProvider
             var sequencePredictor = PSCueModule.SequencePredictor;
             var workflowLearner = PSCueModule.WorkflowLearner;
             var commandParser = PSCueModule.CommandParser;
-
-            // Get current working directory for path normalization
-            string? workingDirectory = null;
-            try
-            {
-                workingDirectory = Directory.GetCurrentDirectory();
-            }
-            catch
-            {
-                // Ignore errors getting working directory
-            }
 
             // Get previous command for workflow learning
             CommandHistoryEntry? previousCommand = null;
