@@ -98,7 +98,11 @@ function Invoke-PCD {
             $selectedPath = $selector.ShowSelectionPrompt($PWD.Path, $Top)
 
             if ($null -ne $selectedPath) {
+                $oldLocation = $PWD.Path
                 Set-Location -LiteralPath $selectedPath
+                # Manually record navigation under 'cd' command so stats are updated
+                # FeedbackProvider only sees 'pcd -i', not the internal Set-Location call
+                [PSCue.Module.PSCueModule]::KnowledgeGraph.RecordUsage('cd', @($selectedPath), $oldLocation)
             }
             # User cancelled (Esc) - do nothing
         }
@@ -111,13 +115,23 @@ function Invoke-PCD {
 
     # If no path specified, go to home directory (like native cd)
     if ([string]::IsNullOrWhiteSpace($Path)) {
+        $oldLocation = $PWD.Path
         Set-Location ~
+        # Record navigation
+        if ($null -ne [PSCue.Module.PSCueModule]::KnowledgeGraph) {
+            [PSCue.Module.PSCueModule]::KnowledgeGraph.RecordUsage('cd', @('~'), $oldLocation)
+        }
         return
     }
 
     # Try Set-Location first - if it works, we're done
     if (Test-Path -LiteralPath $Path -PathType Container) {
+        $oldLocation = $PWD.Path
         Set-Location -LiteralPath $Path
+        # Record navigation
+        if ($null -ne [PSCue.Module.PSCueModule]::KnowledgeGraph) {
+            [PSCue.Module.PSCueModule]::KnowledgeGraph.RecordUsage('cd', @($Path), $oldLocation)
+        }
         return
     }
 
@@ -156,7 +170,10 @@ function Invoke-PCD {
                 # Verify the matched path exists before navigating
                 if (Test-Path -LiteralPath $absolutePath -PathType Container) {
                     Write-Host "No exact match, navigating to: $absolutePath" -ForegroundColor Yellow
+                    $oldLocation = $currentDir
                     Set-Location -LiteralPath $absolutePath
+                    # Record navigation
+                    [PSCue.Module.PSCueModule]::KnowledgeGraph.RecordUsage('cd', @($absolutePath), $oldLocation)
                     return
                 }
             }

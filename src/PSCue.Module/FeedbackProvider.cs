@@ -433,16 +433,39 @@ public class FeedbackProvider : IFeedbackProvider
             // Update argument graph (only for successful commands to avoid learning bad patterns)
             if (success && argumentGraph != null && arguments.Length > 0)
             {
-                // Parse command and record with parameter-value binding
-                if (commandParser != null)
+                // Special handling for navigation commands:
+                // For cd/Set-Location, record the RESULT location (workingDirectory = where we ended up)
+                // not the typed argument (which might be relative like ".\Downloads")
+                var isNavigationCommand = command.Equals("cd", StringComparison.OrdinalIgnoreCase)
+                    || command.Equals("Set-Location", StringComparison.OrdinalIgnoreCase)
+                    || command.Equals("sl", StringComparison.OrdinalIgnoreCase)
+                    || command.Equals("chdir", StringComparison.OrdinalIgnoreCase);
+
+                if (isNavigationCommand && !string.IsNullOrEmpty(workingDirectory))
                 {
-                    var parsedCommand = commandParser.Parse(commandLine);
-                    argumentGraph.RecordParsedUsage(parsedCommand, workingDirectory);
+                    // For navigation, record the absolute path we navigated TO (not the relative path typed)
+                    // Ensure trailing separator for consistency with how paths are stored in database
+                    var normalizedPath = workingDirectory;
+                    if (!normalizedPath.EndsWith(Path.DirectorySeparatorChar) && !normalizedPath.EndsWith(Path.AltDirectorySeparatorChar))
+                    {
+                        normalizedPath += Path.DirectorySeparatorChar;
+                    }
+
+                    argumentGraph.RecordUsage(command, new[] { normalizedPath }, null);
                 }
                 else
                 {
-                    // Fallback to original method if parser not available
-                    argumentGraph.RecordUsage(command, arguments, workingDirectory);
+                    // Parse command and record with parameter-value binding
+                    if (commandParser != null)
+                    {
+                        var parsedCommand = commandParser.Parse(commandLine);
+                        argumentGraph.RecordParsedUsage(parsedCommand, workingDirectory);
+                    }
+                    else
+                    {
+                        // Fallback to original method if parser not available
+                        argumentGraph.RecordUsage(command, arguments, workingDirectory);
+                    }
                 }
             }
         }
