@@ -44,9 +44,14 @@ public class PcdInteractiveSelector
             return null;
         }
 
-        // Filter to only existing directories
+        // Filter to only existing directories, excluding the parent dir shortcut (..) and the current directory
+        // The ~ (home) shortcut is kept as it's a useful navigation target
+        var normalizedCurrentDir = currentDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         var validSuggestions = suggestions
-            .Where(s => Directory.Exists(s.DisplayPath))
+            .Where(s => s.Path != ".." &&
+                        Directory.Exists(s.DisplayPath) &&
+                        !s.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                            .Equals(normalizedCurrentDir, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         if (validSuggestions.Count == 0)
