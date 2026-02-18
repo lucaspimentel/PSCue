@@ -78,11 +78,11 @@ public class PersistenceConcurrencyTests : IDisposable
 
                 for (int j = 0; j < 5; j++)
                 {
-                    graph.RecordUsage("git", new[] { "push", "origin", "main" });
+                    graph.RecordUsage("git", ["push", "origin", "main"]);
                 }
 
                 persistence.SaveArgumentGraph(graph);
-            }));
+            }, TestContext.Current.CancellationToken));
         }
 
         await Task.WhenAll(tasks);
@@ -116,9 +116,9 @@ public class PersistenceConcurrencyTests : IDisposable
                 using var persistence = new PersistenceManager(_testDbPath);
                 var graph = new ArgumentGraph();
 
-                graph.RecordUsage(command, new[] { "subcommand", "--flag" });
+                graph.RecordUsage(command, ["subcommand", "--flag"]);
                 persistence.SaveArgumentGraph(graph);
-            }));
+            }, TestContext.Current.CancellationToken));
         }
 
         await Task.WhenAll(tasks);
@@ -156,11 +156,11 @@ public class PersistenceConcurrencyTests : IDisposable
 
                 for (int j = 0; j < commandsPerWriter; j++)
                 {
-                    graph.RecordUsage("stress-test", new[] { $"arg{writerId % 10}" });
+                    graph.RecordUsage("stress-test", [$"arg{writerId % 10}"]);
                 }
 
                 persistence.SaveArgumentGraph(graph);
-            }));
+            }, TestContext.Current.CancellationToken));
         }
 
         await Task.WhenAll(tasks.ToArray());
@@ -192,9 +192,9 @@ public class PersistenceConcurrencyTests : IDisposable
                 using var persistence = new PersistenceManager(_testDbPath);
                 var graph = new ArgumentGraph();
 
-                graph.RecordUsage("git", new[] { "commit", "-a", "-m", "message" });
+                graph.RecordUsage("git", ["commit", "-a", "-m", "message"]);
                 persistence.SaveArgumentGraph(graph);
-            }));
+            }, TestContext.Current.CancellationToken));
         }
 
         await Task.WhenAll(tasks);
@@ -234,9 +234,9 @@ public class PersistenceConcurrencyTests : IDisposable
                 using var persistence = new PersistenceManager(_testDbPath);
                 var graph = new ArgumentGraph();
 
-                graph.RecordUsage("git", new[] { "push" });
+                graph.RecordUsage("git", ["push"]);
                 persistence.SaveArgumentGraph(graph);
-            }));
+            }, TestContext.Current.CancellationToken));
         }
 
         await Task.WhenAll(tasks);

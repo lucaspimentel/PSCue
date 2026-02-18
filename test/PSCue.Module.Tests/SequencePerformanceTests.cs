@@ -1,18 +1,12 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using Xunit;
-using Xunit.Abstractions;
-using PSCue.Module;
 
 namespace PSCue.Module.Tests;
 
 /// <summary>
 /// Performance tests for SequencePredictor.
 /// Critical constraints:
-/// - Cache lookup: <1ms (to fit within 20ms inline prediction budget)
-/// - Total prediction flow with ML: <20ms (PowerShell enforced timeout)
+/// - Cache lookup: less than 1ms (to fit within 20ms inline prediction budget)
+/// - Total prediction flow with ML: less than 20ms (PowerShell enforced timeout)
 /// </summary>
 public class SequencePerformanceTests
 {
@@ -29,13 +23,13 @@ public class SequencePerformanceTests
         // Arrange - Populate with realistic data
         var predictor = new SequencePredictor(ngramOrder: 2, minFrequency: 1);
         var sequences = new Dictionary<string, Dictionary<string, (int frequency, DateTime lastSeen)>>
-        {
-            ["git"] = Enumerable.Range(1, 10)
-                .ToDictionary(
-                    i => $"subcommand{i}",
-                    i => (frequency: i * 10, lastSeen: DateTime.UtcNow)
-                )
-        };
+                        {
+                            ["git"] = Enumerable.Range(1, 10)
+                                                .ToDictionary(
+                                                     i => $"subcommand{i}",
+                                                     i => (frequency: i * 10, lastSeen: DateTime.UtcNow)
+                                                 )
+                        };
         predictor.Initialize(sequences);
 
         // Warm up (JIT compilation)
@@ -50,6 +44,7 @@ public class SequencePerformanceTests
         {
             predictor.GetPredictions(new[] { "git" });
         }
+
         sw.Stop();
 
         var avgMs = sw.Elapsed.TotalMilliseconds / 1000;
@@ -92,6 +87,7 @@ public class SequencePerformanceTests
         {
             predictor.GetPredictions(new[] { "command50" });
         }
+
         sw.Stop();
 
         var avgMs = sw.Elapsed.TotalMilliseconds / 1000;
@@ -120,6 +116,7 @@ public class SequencePerformanceTests
         {
             predictor.RecordSequence(new[] { "git", "add", "commit" });
         }
+
         sw.Stop();
 
         var avgMs = sw.Elapsed.TotalMilliseconds / 1000;
@@ -165,6 +162,7 @@ public class SequencePerformanceTests
         {
             genericPredictor.GetSuggestions("git ", maxResults: 10);
         }
+
         sw.Stop();
 
         var avgMs = sw.Elapsed.TotalMilliseconds / 100;
@@ -184,10 +182,10 @@ public class SequencePerformanceTests
         for (int cmd = 0; cmd < 500; cmd++)
         {
             sequences[$"command{cmd}"] = Enumerable.Range(0, 20)
-                .ToDictionary(
-                    i => $"next{i}",
-                    i => (frequency: i + 1, lastSeen: DateTime.UtcNow)
-                );
+                                                   .ToDictionary(
+                                                        i => $"next{i}",
+                                                        i => (frequency: i + 1, lastSeen: DateTime.UtcNow)
+                                                    );
         }
 
         var predictor = new SequencePredictor(ngramOrder: 2);
@@ -235,32 +233,34 @@ public class SequencePerformanceTests
         // Arrange
         var predictor = new SequencePredictor(ngramOrder: 2, minFrequency: 1);
         var sequences = new Dictionary<string, Dictionary<string, (int frequency, DateTime lastSeen)>>
-        {
-            ["git"] = new Dictionary<string, (int frequency, DateTime lastSeen)>
-            {
-                ["add"] = (10, DateTime.UtcNow),
-                ["commit"] = (8, DateTime.UtcNow),
-                ["push"] = (5, DateTime.UtcNow)
-            }
-        };
+                        {
+                            ["git"] = new()
+                                      {
+                                          ["add"] = (10, DateTime.UtcNow),
+                                          ["commit"] = (8, DateTime.UtcNow),
+                                          ["push"] = (5, DateTime.UtcNow)
+                                      }
+                        };
         predictor.Initialize(sequences);
 
         // Act - Multiple threads reading concurrently
-        var tasks = new System.Threading.Tasks.Task[10];
+        var tasks = new Task[10];
         var sw = Stopwatch.StartNew();
 
         for (int t = 0; t < 10; t++)
         {
-            tasks[t] = System.Threading.Tasks.Task.Run(() =>
-            {
-                for (int i = 0; i < 1000; i++)
+            tasks[t] = Task.Run(
+                () =>
                 {
-                    predictor.GetPredictions(new[] { "git" });
-                }
-            });
+                    for (int i = 0; i < 1000; i++)
+                    {
+                        predictor.GetPredictions(["git"]);
+                    }
+                },
+                TestContext.Current.CancellationToken);
         }
 
-        await System.Threading.Tasks.Task.WhenAll(tasks);
+        await Task.WhenAll(tasks);
         sw.Stop();
 
         var avgMsPerCall = sw.Elapsed.TotalMilliseconds / (10 * 1000);
@@ -288,7 +288,7 @@ public class SequencePerformanceTests
         // Act - Add 10,000 sequences (realistic for months of usage)
         for (int i = 0; i < 10000; i++)
         {
-            predictor.RecordSequence(new[] { $"cmd{i % 100}", $"next{i % 50}" });
+            predictor.RecordSequence([$"cmd{i % 100}", $"next{i % 50}"]);
         }
 
         // Capture memory after
@@ -296,12 +296,11 @@ public class SequencePerformanceTests
         GC.WaitForPendingFinalizers();
         GC.Collect();
         var memAfter = GC.GetTotalMemory(false);
+        var memUsedMb = (memAfter - memBefore) / (1024.0 * 1024.0);
 
-        var memUsedMB = (memAfter - memBefore) / (1024.0 * 1024.0);
-
-        _output.WriteLine($"Memory used for 10,000 sequences: {memUsedMB:F2}MB");
+        _output.WriteLine($"Memory used for 10,000 sequences: {memUsedMb:F2}MB");
 
         // Assert - Should be <5MB for 10,000 sequences
-        Assert.True(memUsedMB < 5.0, $"Memory usage was {memUsedMB:F2}MB, expected <5MB");
+        Assert.True(memUsedMb < 5.0, $"Memory usage was {memUsedMb:F2}MB, expected <5MB");
     }
 }

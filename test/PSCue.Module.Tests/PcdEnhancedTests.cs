@@ -1,11 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using PSCue.Module;
-using Xunit;
-using Xunit.Abstractions;
-
 namespace PSCue.Module.Tests;
 
 /// <summary>
@@ -1522,7 +1514,7 @@ public class PcdEnhancedTests : IDisposable
         }
 
         // Should only be one path stored (both normalized to the same value)
-        Assert.Equal(1, relevantPaths.Count);
+        Assert.Single(relevantPaths);
     }
 
     [Fact]

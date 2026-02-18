@@ -227,9 +227,9 @@ public class CommandHistoryTests
             {
                 for (int j = 0; j < 100; j++)
                 {
-                    history.Add($"cmd{threadNum}", $"cmd{threadNum} arg{j}", new[] { $"arg{j}" }, success: true);
+                    history.Add($"cmd{threadNum}", $"cmd{threadNum} arg{j}", [$"arg{j}"], success: true);
                 }
-            }));
+            }, TestContext.Current.CancellationToken));
         }
 
         await Task.WhenAll(tasks.ToArray());
