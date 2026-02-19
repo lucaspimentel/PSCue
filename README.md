@@ -278,9 +278,9 @@ pcd --interactive -Top 30
 ```
 
 Features:
-- **Interactive menu**: Arrow keys to navigate, type to search, Enter to select, Esc to cancel
+- **Interactive menu**: Arrow keys to navigate, type to search, Enter to select, Cancel option to abort
 - **Path filtering**: Pass a string to pre-filter results (e.g., `pcd -i dotnet` shows only paths containing "dotnet")
-- **Visual polish**: Color-coded usage indicators and timestamps for easy scanning
+- **Visual polish**: Color-coded usage indicators and timestamps for easy scanning; ASCII fallback for non-UTF-8 consoles
 - **Smart filtering**: Only shows existing directories, same frecency scoring as tab completion
 - **Configurable**: Show 5-100 entries with `-Top` parameter
 

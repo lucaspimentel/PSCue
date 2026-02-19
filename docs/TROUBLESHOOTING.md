@@ -59,6 +59,18 @@ Check that:
 2. PSCue module is fully initialized (`Get-Module PSCue`)
 3. You have some learned navigation history (`Get-PSCueLearning -Command cd`)
 
+### Interactive Mode: Symbols Display as `?` or `??`
+
+**Problem**: Icons and decorative symbols in `pcd -i` render as question marks.
+
+**Cause**: The console output encoding is not UTF-8. PSCue detects this and falls back to ASCII symbols automatically, but if you see `?` characters, the fallback detection may not have triggered.
+
+**Solution**: Set your console to UTF-8:
+```powershell
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+```
+Or add this to your PowerShell profile for a permanent fix. Windows Terminal uses UTF-8 by default.
+
 ---
 
 ### Duplicate Directory Suggestions

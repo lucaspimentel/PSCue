@@ -71,7 +71,7 @@ src/
 - `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence with 10 tables
 - `src/PSCue.Module/PcdCompletionEngine.cs`: Enhanced PCD algorithm with fuzzy matching, frecency scoring, filesystem search, symlink resolution (Phases 17.6 + 17.9 + 19.0 + 21.1)
 - `src/PSCue.Module/PcdConfiguration.cs`: Shared configuration for PCD (tab completion + predictor) (Phase 19.0 + 21.2)
-- `src/PSCue.Module/PcdInteractiveSelector.cs`: Interactive directory selection with visual styling (color-coded indicators, decorative UI)
+- `src/PSCue.Module/PcdInteractiveSelector.cs`: Interactive directory selection with visual styling (color-coded indicators, decorative UI, ASCII fallback for non-UTF-8 consoles)
 - `src/PSCue.Module/FeedbackProvider.cs`: Learns from command execution, records navigation paths with trailing separators
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
 - `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system
@@ -156,6 +156,7 @@ Invoke-PCD [path]                                  # Long-form function name
 #   - Path filter: `pcd -i dotnet` pre-filters to paths containing "dotnet" (case-insensitive)
 #   - Uses Spectre.Console for cross-platform interactive UI
 #   - Visual styling: Decorative header with folder icon, color-coded usage indicators (green/yellow/grey dots), time-based coloring
+#   - Encoding-aware: Detects UTF-8 console support; falls back to ASCII symbols when Unicode is unavailable
 #   - Display format: Bold paths with ~ shortening + usage stats (visits, last used time with recency colors)
 #   - Keyboard navigation: Arrow keys, type to search (with search icon), Enter to select; "< Cancel >" option or Esc to cancel
 #   - Highlight style: Cyan on grey background with bold for selected item
