@@ -39,7 +39,7 @@ For completed work history, see docs/COMPLETED.md.
   - **PcdCompletionEngine**: Enhanced directory navigation with fuzzy matching, frecency scoring, distance awareness
 - **Persistence**:
   - **PersistenceManager**: SQLite-based cross-session storage
-  - **Database Location**: `~/.local/share/PSCue/learned-data.db` (Linux/macOS), `%LOCALAPPDATA%\PSCue\learned-data.db` (Windows)
+  - **Database Location**: `~/.local/share/PSCue/learned-data.db` (Linux/macOS), `%LOCALAPPDATA%\PSCue\learned-data.db` (Windows), or `$PSCUE_DATA_DIR/learned-data.db` if set
   - **Tables**: commands, arguments, co_occurrences, flag_combinations, argument_sequences, command_history, command_sequences, workflow_transitions, parameters, parameter_values
   - **Auto-save**: Every 5 minutes + on module unload
   - **Concurrent Access**: SQLite WAL mode handles multiple PowerShell sessions safely

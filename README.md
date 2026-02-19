@@ -106,7 +106,11 @@ cd PSCue
 ./install-local.ps1
 ```
 
-Both methods install to `~/.local/pwsh-modules/PSCue/`
+Both methods install to `~/.local/pwsh-modules/PSCue/` by default. Use `-InstallPath` to install elsewhere (useful for dev/test isolation):
+
+```powershell
+./install-local.ps1 -Force -InstallPath D:\temp\PSCue-dev
+```
 
 ## Setup
 
@@ -578,6 +582,9 @@ TabExpansion2 'git checkout ma' 15
 ### Configuration
 
 ```powershell
+# Custom data directory (isolate database for dev/test)
+$env:PSCUE_DATA_DIR = "D:\temp\PSCue-dev\data"  # Database created at <dir>/learned-data.db
+
 # Disable generic learning entirely
 $env:PSCUE_DISABLE_LEARNING = "true"
 
@@ -698,6 +705,7 @@ Write-Host "In memory: $inMemory | In database: $inDb"
 **Database Location:**
 - Windows: `%LOCALAPPDATA%\PSCue\learned-data.db`
 - Linux: `~/.local/share/PSCue/learned-data.db`
+- Custom: Set `$env:PSCUE_DATA_DIR` to override (database created at `<dir>/learned-data.db`)
 
 For detailed documentation on database functions, schema, and use cases, see [DATABASE-FUNCTIONS.md](docs/DATABASE-FUNCTIONS.md).
 
