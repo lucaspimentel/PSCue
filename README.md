@@ -154,6 +154,7 @@ cd ~/<Tab>              # Shows home directory subdirectories
 pcd datadog<Tab>        # Shows learned directories with fuzzy matching
 pcd datadog             # Best-match navigation: finds "D:\source\datadog" even without Tab
 pcd -i                  # Interactive mode: browse and select from frequently visited directories
+pcd -i dotnet           # Interactive mode filtered to paths containing "dotnet"
 pcd -i -Top 50          # Interactive mode with more entries
 pcd ~                   # Home directory (well-known shortcut)
 pcd ..                  # Parent directory (well-known shortcut)
@@ -268,6 +269,9 @@ Browse and select from your most frequently visited directories using an interac
 # Show interactive menu with your top 20 directories
 pcd -i
 
+# Filter to directories containing "dotnet"
+pcd -i dotnet
+
 # Show more directories
 pcd -i -Top 50
 pcd --interactive -Top 30
@@ -275,6 +279,7 @@ pcd --interactive -Top 30
 
 Features:
 - **Interactive menu**: Arrow keys to navigate, type to search, Enter to select, Esc to cancel
+- **Path filtering**: Pass a string to pre-filter results (e.g., `pcd -i dotnet` shows only paths containing "dotnet")
 - **Visual polish**: Color-coded usage indicators and timestamps for easy scanning
 - **Smart filtering**: Only shows existing directories, same frecency scoring as tab completion
 - **Configurable**: Show 5-100 entries with `-Top` parameter

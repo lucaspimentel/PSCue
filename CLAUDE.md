@@ -141,7 +141,7 @@ Import-PSCueWorkflows -Path <path> [-Merge]        # Import workflows from JSON
 
 # Smart Directory Navigation (Phases 17.5 + 17.6 + 17.7 + 17.9 + 19.0 + Bug Fixes + Native cd Behavior + Interactive Mode)
 pcd [path]                                         # PowerShell Change Directory with inline predictions + tab completion
-pcd -Interactive [-Top <int>]                      # Interactive selection menu (alias: -i)
+pcd -Interactive [path] [-Top <int>]               # Interactive selection menu (alias: -i), optional path filter
 Invoke-PCD [path]                                  # Long-form function name
 
 # Features:
@@ -153,6 +153,7 @@ Invoke-PCD [path]                                  # Long-form function name
 #   - Uses platform-appropriate separators (\ on Windows, / on Unix)
 #   - Filesystem search: Shows unlearned directories via child + recursive search
 # - Interactive selection: `pcd -i` shows visual menu to browse and select from learned directories
+#   - Path filter: `pcd -i dotnet` pre-filters to paths containing "dotnet" (case-insensitive)
 #   - Uses Spectre.Console for cross-platform interactive UI
 #   - Visual styling: Decorative header with folder icon, color-coded usage indicators (green/yellow/grey dots), time-based coloring
 #   - Display format: Bold paths with ~ shortening + usage stats (visits, last used time with recency colors)
