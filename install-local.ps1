@@ -12,6 +12,10 @@
 .PARAMETER Force
     Overwrite existing installation without prompting.
 
+.PARAMETER InstallPath
+    Custom installation directory. When specified, installs to this path instead of ~/.local/pwsh-modules/PSCue.
+    Useful for dev/test installations that don't conflict with the production module.
+
 .EXAMPLE
     ./install-local.ps1
     Build and install PSCue from source.
@@ -19,11 +23,17 @@
 .EXAMPLE
     ./install-local.ps1 -Force
     Build and install, overwriting any existing installation.
+
+.EXAMPLE
+    ./install-local.ps1 -Force -InstallPath D:\temp\PSCue-dev
+    Build and install to a custom directory for dev testing.
 #>
 
 [CmdletBinding()]
 param(
-    [switch]$Force
+    [switch]$Force,
+
+    [string]$InstallPath
 )
 
 Set-StrictMode -Version Latest
@@ -83,7 +93,7 @@ try {
 }
 
 # Define installation directory
-$InstallDir = Join-Path $HOME ".local/pwsh-modules/PSCue"
+$InstallDir = if ($InstallPath) { $InstallPath } else { Join-Path $HOME ".local/pwsh-modules/PSCue" }
 Write-Info "Installation directory: $InstallDir"
 
 # Check if already installed
@@ -236,7 +246,8 @@ Write-Host "${Bold}Setup Instructions:${Reset}"
 Write-Host ""
 Write-Host "1. Add PSCue to your PowerShell profile:"
 Write-Host ""
-Write-Host "   ${Cyan}Import-Module ~/.local/pwsh-modules/PSCue/PSCue.psd1${Reset}"
+$ImportPath = Join-Path $InstallDir "PSCue.psd1"
+Write-Host "   ${Cyan}Import-Module $ImportPath${Reset}"
 Write-Host ""
 Write-Host "2. Enable inline predictions (recommended):"
 Write-Host ""

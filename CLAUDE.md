@@ -113,6 +113,13 @@ dotnet test --filter "FullyQualifiedName~WorkflowLearner"
 # Install locally
 ./install-local.ps1
 
+# Dev testing (isolated from production install)
+./install-local.ps1 -Force -InstallPath D:\temp\PSCue-dev
+# Then in a new PowerShell session:
+#   $env:PSCUE_DATA_DIR = "D:\temp\PSCue-dev\data"
+#   Import-Module "D:\temp\PSCue-dev\PSCue.psd1"
+# Cleanup: Remove-Item -Recurse -Force D:\temp\PSCue-dev
+
 # PowerShell Module Functions (Phase 16 - replaces PSCue.Debug)
 # Learning Management (in-memory + database)
 Get-PSCueLearning [-Command <string>] [-AsJson]    # View learned data (in-memory)
@@ -292,6 +299,10 @@ public void TestLearningAccess()
 
 ## Configuration (Environment Variables)
 ```powershell
+# Custom data directory (database location)
+# Useful for dev/test isolation from the production install
+$env:PSCUE_DATA_DIR = "D:\temp\PSCue-dev\data"  # Database created at <dir>/learned-data.db
+
 # Disable generic learning entirely
 $env:PSCUE_DISABLE_LEARNING = "true"
 

@@ -52,7 +52,11 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                 var workflowMinConf = double.TryParse(Environment.GetEnvironmentVariable("PSCUE_WORKFLOW_MIN_CONFIDENCE"), out var wc) ? wc : 0.6; // Default: 0.6
 
                 // Initialize persistence manager and load learned data
-                PSCueModule.Persistence = new PersistenceManager();
+                var customDataDir = Environment.GetEnvironmentVariable("PSCUE_DATA_DIR");
+                var dbPath = !string.IsNullOrWhiteSpace(customDataDir)
+                    ? Path.Combine(customDataDir, "learned-data.db")
+                    : null;
+                PSCueModule.Persistence = new PersistenceManager(dbPath);
                 PSCueModule.KnowledgeGraph = PSCueModule.Persistence.LoadArgumentGraph(maxCommands, maxArgs, decayDays);
                 PSCueModule.CommandHistory = PSCueModule.Persistence.LoadCommandHistory(historySize);
 
