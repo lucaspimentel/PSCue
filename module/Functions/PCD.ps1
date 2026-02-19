@@ -50,6 +50,10 @@ function Invoke-PCD {
     Shows an interactive menu to browse and select from your 20 most frequently visited directories.
 
     .EXAMPLE
+    pcd -i dotnet
+    Shows an interactive menu filtered to directories containing "dotnet".
+
+    .EXAMPLE
     pcd -Interactive -Top 50
     Shows an interactive menu with up to 50 learned directories.
 
@@ -95,7 +99,7 @@ function Invoke-PCD {
                 [PSCue.Module.PSCueModule]::KnowledgeGraph
             )
 
-            $selectedPath = $selector.ShowSelectionPrompt($PWD.Path, $Top)
+            $selectedPath = $selector.ShowSelectionPrompt($PWD.Path, $Top, $Path)
 
             if ($null -ne $selectedPath) {
                 $oldLocation = $PWD.Path

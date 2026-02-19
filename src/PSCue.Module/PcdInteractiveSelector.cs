@@ -25,7 +25,7 @@ public class PcdInteractiveSelector
         );
     }
 
-    public string? ShowSelectionPrompt(string currentDirectory, int maxResults)
+    public string? ShowSelectionPrompt(string currentDirectory, int maxResults, string filter = "")
     {
         if (string.IsNullOrEmpty(currentDirectory))
         {
@@ -54,10 +54,25 @@ public class PcdInteractiveSelector
                             .Equals(normalizedCurrentDir, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
+        // Apply path filter if provided
+        if (!string.IsNullOrWhiteSpace(filter))
+        {
+            validSuggestions = validSuggestions
+                .Where(s => s.DisplayPath.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
         if (validSuggestions.Count == 0)
         {
-            AnsiConsole.MarkupLine("[yellow]⚠[/] No valid directories in history.");
-            AnsiConsole.MarkupLine("[dim]  All learned paths have been deleted or moved.[/]");
+            if (!string.IsNullOrWhiteSpace(filter))
+            {
+                AnsiConsole.MarkupLine($"[yellow]⚠[/] No directories matching '{EscapeMarkup(filter)}' in history.");
+            }
+            else
+            {
+                AnsiConsole.MarkupLine("[yellow]⚠[/] No valid directories in history.");
+                AnsiConsole.MarkupLine("[dim]  All learned paths have been deleted or moved.[/]");
+            }
             return null;
         }
 
@@ -89,7 +104,10 @@ public class PcdInteractiveSelector
         {
             AnsiConsole.WriteLine();
 
-            var rule = new Rule("[cyan]📁 Navigate to Directory[/]")
+            var ruleTitle = string.IsNullOrWhiteSpace(filter)
+                ? "[cyan]📁 Navigate to Directory[/]"
+                : $"[cyan]📁 Navigate to Directory[/] [dim](filter: {EscapeMarkup(filter)})[/]";
+            var rule = new Rule(ruleTitle)
             {
                 Style = Style.Parse("cyan dim"),
                 Justification = Justify.Left

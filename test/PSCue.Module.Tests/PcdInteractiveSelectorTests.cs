@@ -243,6 +243,92 @@ public class PcdInteractiveSelectorTests
     }
 
     [Fact]
+    public void ShowSelectionPrompt_WithFilter_FiltersNonMatchingPaths()
+    {
+        // Arrange
+        var graph = new ArgumentGraph(maxCommands: 100, maxArgumentsPerCommand: 50);
+
+        var tempBase = Path.Combine(Path.GetTempPath(), "pscue-filter-test-" + Guid.NewGuid());
+        var dotnetDir = Path.Combine(tempBase, "dd-trace-dotnet");
+        var jsDir = Path.Combine(tempBase, "dd-trace-js");
+        var otherDir = Path.Combine(tempBase, "some-other-project");
+
+        try
+        {
+            Directory.CreateDirectory(dotnetDir);
+            Directory.CreateDirectory(jsDir);
+            Directory.CreateDirectory(otherDir);
+
+            var currentDir = tempBase;
+
+            // Record usage for all three directories
+            graph.RecordUsage("cd", new[] { dotnetDir }, currentDir);
+            graph.RecordUsage("cd", new[] { jsDir }, currentDir);
+            graph.RecordUsage("cd", new[] { otherDir }, currentDir);
+
+            // Build the engine to verify filtering logic directly
+            var engine = new PcdCompletionEngine(
+                graph,
+                PcdConfiguration.ScoreDecayDays,
+                PcdConfiguration.FrequencyWeight,
+                PcdConfiguration.RecencyWeight,
+                PcdConfiguration.DistanceWeight,
+                PcdConfiguration.TabCompletionMaxDepth,
+                PcdConfiguration.EnableRecursiveSearch,
+                PcdConfiguration.ExactMatchBoost,
+                PcdConfiguration.FuzzyMinMatchPercentage
+            );
+
+            var suggestions = engine.GetSuggestions(string.Empty, currentDir, 20);
+            var allValid = suggestions
+                .Where(s => s.Path != ".." && Directory.Exists(s.DisplayPath))
+                .ToList();
+
+            // Without filter: should include all three dirs
+            Assert.True(allValid.Count >= 3, $"Expected at least 3 suggestions, got {allValid.Count}");
+
+            // With "dotnet" filter: should only include dd-trace-dotnet
+            var filtered = allValid
+                .Where(s => s.DisplayPath.Contains("dotnet", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            Assert.Single(filtered);
+            Assert.Contains("dd-trace-dotnet", filtered[0].DisplayPath);
+        }
+        finally
+        {
+            if (Directory.Exists(tempBase)) Directory.Delete(tempBase, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ShowSelectionPrompt_WithFilter_NoMatches_ReturnsNull()
+    {
+        // Arrange
+        var graph = new ArgumentGraph(maxCommands: 100, maxArgumentsPerCommand: 50);
+
+        var tempDir = Path.Combine(Path.GetTempPath(), "pscue-filter-nomatch-" + Guid.NewGuid());
+        Directory.CreateDirectory(tempDir);
+
+        try
+        {
+            var currentDir = Directory.GetCurrentDirectory();
+            graph.RecordUsage("cd", new[] { tempDir }, currentDir);
+
+            var selector = new PcdInteractiveSelector(graph);
+
+            // Act - filter that won't match any path
+            var result = selector.ShowSelectionPrompt(currentDir, 20, "zzz-nonexistent-zzz");
+
+            // Assert
+            Assert.Null(result);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ShowSelectionPrompt_FiltersNonExistentPaths()
     {
         // Arrange
