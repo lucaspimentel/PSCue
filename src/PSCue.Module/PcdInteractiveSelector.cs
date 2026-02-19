@@ -8,6 +8,35 @@ public class PcdInteractiveSelector
     private readonly ArgumentGraph _graph;
     private readonly PcdCompletionEngine _engine;
 
+    // Detect whether the console supports Unicode (UTF-8) output
+    private static readonly bool s_supportsUnicode = DetectUnicodeSupport();
+
+    private static bool DetectUnicodeSupport()
+    {
+        try
+        {
+            var encoding = Console.OutputEncoding;
+            return encoding.CodePage == 65001 // UTF-8
+                || encoding is System.Text.UTF8Encoding
+                || encoding is System.Text.UnicodeEncoding;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // Emoji/symbol helpers with ASCII fallbacks
+    private static string SymbolFolder => s_supportsUnicode ? "\U0001f4c1" : "#";
+    private static string SymbolPrompt => s_supportsUnicode ? "\u2771" : ">";
+    private static string SymbolSearch => s_supportsUnicode ? "\U0001f50d" : "?";
+    private static string SymbolError => s_supportsUnicode ? "\u2717" : "x";
+    private static string SymbolWarning => s_supportsUnicode ? "\u26a0" : "!";
+    private static string SymbolBack => s_supportsUnicode ? "\u2190" : "<";
+    private static string SymbolDotFilled => s_supportsUnicode ? "\u25cf" : "*";
+    private static string SymbolDotEmpty => s_supportsUnicode ? "\u25cb" : "-";
+    private static string SymbolSeparator => s_supportsUnicode ? "\u2022" : "|";
+
     public PcdInteractiveSelector(ArgumentGraph graph)
     {
         _graph = graph ?? throw new ArgumentNullException(nameof(graph));
@@ -29,7 +58,7 @@ public class PcdInteractiveSelector
     {
         if (string.IsNullOrEmpty(currentDirectory))
         {
-            AnsiConsole.MarkupLine("[red]✗[/] [bold red]Error:[/] Current directory is not available.");
+            AnsiConsole.MarkupLine($"[red]{SymbolError}[/] [bold red]Error:[/] Current directory is not available.");
             return null;
         }
 
@@ -39,7 +68,7 @@ public class PcdInteractiveSelector
 
         if (suggestions.Count == 0)
         {
-            AnsiConsole.MarkupLine("[yellow]⚠[/] No learned directories yet.");
+            AnsiConsole.MarkupLine($"[yellow]{SymbolWarning}[/] No learned directories yet.");
             AnsiConsole.MarkupLine("[dim]  Use 'pcd <path>' to navigate and build history.[/]");
             return null;
         }
@@ -66,11 +95,11 @@ public class PcdInteractiveSelector
         {
             if (!string.IsNullOrWhiteSpace(filter))
             {
-                AnsiConsole.MarkupLine($"[yellow]⚠[/] No directories matching '{EscapeMarkup(filter)}' in history.");
+                AnsiConsole.MarkupLine($"[yellow]{SymbolWarning}[/] No directories matching '{EscapeMarkup(filter)}' in history.");
             }
             else
             {
-                AnsiConsole.MarkupLine("[yellow]⚠[/] No valid directories in history.");
+                AnsiConsole.MarkupLine($"[yellow]{SymbolWarning}[/] No valid directories in history.");
                 AnsiConsole.MarkupLine("[dim]  All learned paths have been deleted or moved.[/]");
             }
             return null;
@@ -79,7 +108,7 @@ public class PcdInteractiveSelector
         // Check if we're in a non-interactive terminal
         if (!AnsiConsole.Profile.Capabilities.Interactive)
         {
-            AnsiConsole.MarkupLine("[red]✗[/] [bold red]Error:[/] Interactive mode requires a TTY terminal.");
+            AnsiConsole.MarkupLine($"[red]{SymbolError}[/] [bold red]Error:[/] Interactive mode requires a TTY terminal.");
             AnsiConsole.MarkupLine("[dim]  Try running in Windows Terminal or a standard console.[/]");
             return null;
         }
@@ -105,8 +134,8 @@ public class PcdInteractiveSelector
             AnsiConsole.WriteLine();
 
             var ruleTitle = string.IsNullOrWhiteSpace(filter)
-                ? "[cyan]📁 Navigate to Directory[/]"
-                : $"[cyan]📁 Navigate to Directory[/] [dim](filter: {EscapeMarkup(filter)})[/]";
+                ? $"[cyan]{SymbolFolder} Navigate to Directory[/]"
+                : $"[cyan]{SymbolFolder} Navigate to Directory[/] [dim](filter: {EscapeMarkup(filter)})[/]";
             var rule = new Rule(ruleTitle)
             {
                 Style = Style.Parse("cyan dim"),
@@ -118,13 +147,15 @@ public class PcdInteractiveSelector
             // Create selection prompt
             var selection = AnsiConsole.Prompt(
                 new SelectionPrompt<PcdSuggestion>()
-                    .Title("[cyan]❯[/] [bold]Select a directory[/] [dim grey](Esc to cancel)[/]")
+                    .Title($"[cyan]{SymbolPrompt}[/] [bold]Select a directory[/]")
                     .PageSize(15)
-                    .MoreChoicesText("[grey]↓ Move up and down to reveal more directories ↓[/]")
+                    .MoreChoicesText(s_supportsUnicode
+                        ? "[grey]\u2193 Move up and down to reveal more directories \u2193[/]"
+                        : "[grey]Move up and down to reveal more directories[/]")
                     .AddChoices(choices)
                     .UseConverter(s => s == cancelSentinel ? FormatCancelEntry() : FormatDirectoryEntry(s))
                     .EnableSearch()
-                    .SearchPlaceholderText("🔍 Type to search...")
+                    .SearchPlaceholderText($"{SymbolSearch} Type to search...")
                     .WrapAround()
                     .HighlightStyle(new Style(foreground: Color.Cyan1, background: Color.Grey15, decoration: Decoration.Bold))
             );
@@ -140,7 +171,7 @@ public class PcdInteractiveSelector
         catch (InvalidOperationException ex) when (ex.Message.Contains("cannot read") || ex.Message.Contains("redirected"))
         {
             // Spectre.Console can't take over console (e.g., in VSCode integrated terminal)
-            AnsiConsole.MarkupLine("[red]✗[/] [bold red]Error:[/] Cannot show interactive prompt in this terminal.");
+            AnsiConsole.MarkupLine($"[red]{SymbolError}[/] [bold red]Error:[/] Cannot show interactive prompt in this terminal.");
             AnsiConsole.MarkupLine("[dim]  Try running in Windows Terminal or use regular 'pcd' commands.[/]");
             return null;
         }
@@ -148,7 +179,7 @@ public class PcdInteractiveSelector
 
     private string FormatCancelEntry()
     {
-        return "[dim]← Cancel[/]\n  [dim grey]Go back without selecting[/]";
+        return $"[dim]{SymbolBack} Cancel[/]\n  [dim grey]Go back without selecting[/]";
     }
 
     private string FormatDirectoryEntry(PcdSuggestion suggestion)
@@ -195,11 +226,11 @@ public class PcdInteractiveSelector
         if (usageCount > 0)
         {
             var usageColor = usageCount >= 10 ? "green" : usageCount >= 5 ? "yellow" : "grey";
-            statsLine += $"[{usageColor}]●[/] [dim]{usageCount} visit{(usageCount == 1 ? "" : "s")}[/]";
+            statsLine += $"[{usageColor}]{SymbolDotFilled}[/] [dim]{usageCount} visit{(usageCount == 1 ? "" : "s")}[/]";
         }
         else
         {
-            statsLine += "[dim grey]○ no visits[/]";
+            statsLine += $"[dim grey]{SymbolDotEmpty} no visits[/]";
         }
 
         // Last used time
@@ -207,7 +238,7 @@ public class PcdInteractiveSelector
         {
             var timeStr = FormatLastUsed(lastUsed);
             var timeColor = GetTimeColor(DateTime.UtcNow - lastUsed);
-            statsLine += $" [dim grey]•[/] [dim {timeColor}]{timeStr}[/]";
+            statsLine += $" [dim grey]{SymbolSeparator}[/] [dim {timeColor}]{timeStr}[/]";
         }
 
         return $"{pathLine}\n{statsLine}";
