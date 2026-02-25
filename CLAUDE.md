@@ -142,6 +142,7 @@ Import-PSCueWorkflows -Path <path> [-Merge]        # Import workflows from JSON
 # Smart Directory Navigation (Phases 17.5 + 17.6 + 17.7 + 17.9 + 19.0 + Bug Fixes + Native cd Behavior + Interactive Mode)
 pcd [path]                                         # PowerShell Change Directory with inline predictions + tab completion
 pcd -Interactive [path] [-Top <int>]               # Interactive selection menu (alias: -i), optional path filter
+pcd -Root                                          # Navigate to git repository root (alias: -r); filesystem root if not in a repo
 Invoke-PCD [path]                                  # Long-form function name
 
 # Features:
@@ -152,6 +153,9 @@ Invoke-PCD [path]                                  # Long-form function name
 #   - Tooltip: Full absolute path with match type indicator ([found], [learned], [fuzzy])
 #   - Uses platform-appropriate separators (\ on Windows, / on Unix)
 #   - Filesystem search: Shows unlearned directories via child + recursive search
+# - Git root navigation: `pcd -Root` (alias: -r) walks up from $PWD looking for .git (dir or file for worktree support)
+#   - Navigates to repo root if found; falls back to filesystem root (drive root on Windows, / on Unix)
+#   - Records navigation under 'cd' command for frecency tracking
 # - Interactive selection: `pcd -i` shows visual menu to browse and select from learned directories
 #   - Path filter: `pcd -i dotnet` pre-filters to paths containing "dotnet" (case-insensitive)
 #   - Uses Spectre.Console for cross-platform interactive UI

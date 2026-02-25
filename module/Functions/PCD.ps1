@@ -33,6 +33,11 @@ function Invoke-PCD {
     Number of directories to show in interactive mode. Default is 20.
     Valid range: 5-100.
 
+    .PARAMETER Root
+    Navigate to the root of the current git repository by walking up from $PWD looking for a .git
+    directory or file (supports worktrees). If not inside a git repo, navigates to the filesystem root.
+    Alias: -r
+
     .EXAMPLE
     pcd D:\source\datadog
     Changes to the specified directory.
@@ -52,6 +57,14 @@ function Invoke-PCD {
     .EXAMPLE
     pcd -i dotnet
     Shows an interactive menu filtered to directories containing "dotnet".
+
+    .EXAMPLE
+    pcd -Root
+    Navigates to the root of the current git repository, or filesystem root if not in a repo.
+
+    .EXAMPLE
+    pcd -r
+    Same as pcd -Root (alias).
 
     .EXAMPLE
     pcd -Interactive -Top 50
@@ -84,8 +97,38 @@ function Invoke-PCD {
 
         [Parameter(Mandatory = $false)]
         [ValidateRange(5, 100)]
-        [int]$Top = 20
+        [int]$Top = 20,
+
+        [Parameter(Mandatory = $false)]
+        [Alias('r')]
+        [switch]$Root
     )
+
+    # Root mode: navigate to git repository root (or filesystem root if not in a repo)
+    if ($Root) {
+        $dir = $PWD.Path
+        $gitRoot = $null
+        while ($dir) {
+            if (Test-Path -LiteralPath (Join-Path $dir '.git')) {
+                $gitRoot = $dir
+                break
+            }
+            $parent = Split-Path $dir -Parent
+            if ($parent -eq $dir -or [string]::IsNullOrEmpty($parent)) { break }
+            $dir = $parent
+        }
+
+        if (-not $gitRoot) {
+            $gitRoot = [System.IO.Path]::GetPathRoot($PWD.Path)
+        }
+
+        $oldLocation = $PWD.Path
+        Set-Location -LiteralPath $gitRoot
+        if ($null -ne [PSCue.Module.PSCueModule]::KnowledgeGraph) {
+            [PSCue.Module.PSCueModule]::KnowledgeGraph.RecordUsage('cd', @($gitRoot), $oldLocation)
+        }
+        return
+    }
 
     # Interactive mode: show selection prompt
     if ($Interactive) {

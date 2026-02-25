@@ -156,6 +156,8 @@ pcd datadog             # Best-match navigation: finds "D:\source\datadog" even 
 pcd -i                  # Interactive mode: browse and select from frequently visited directories
 pcd -i dotnet           # Interactive mode filtered to paths containing "dotnet"
 pcd -i -Top 50          # Interactive mode with more entries
+pcd -Root               # Navigate to git repository root (or filesystem root if not in a repo)
+pcd -r                  # Alias for -Root
 pcd ~                   # Home directory (well-known shortcut)
 pcd ..                  # Parent directory (well-known shortcut)
 ```
@@ -256,10 +258,32 @@ pcd nonexistent-project # Shows: "No learned directory matches 'nonexistent-proj
 pcd ~                   # Home directory
 pcd ..                  # Parent directory
 
+# Git root navigation
+pcd -Root               # Navigate to git repository root
+pcd -r                  # Alias for -Root
+
 # Interactive mode - browse and select visually
 pcd -i                  # Show top 20 directories in interactive menu
 pcd -i -Top 50          # Show top 50 directories
 ```
+
+**Git Root Navigation** (`pcd -Root` / `pcd -r`):
+
+Jump to the root of the current git repository instantly:
+
+```powershell
+# From anywhere inside a git repo
+pcd -Root               # Navigates to the repository root
+pcd -r                  # Same, using alias
+
+# Outside a git repo
+pcd -Root               # Navigates to the filesystem root (e.g., C:\)
+```
+
+Features:
+- **Worktree aware**: Detects both `.git` directories and `.git` files (used by worktrees)
+- **Filesystem fallback**: Outside a git repo, navigates to the drive/filesystem root
+- **Statistics tracked**: Navigation is recorded for frecency scoring like any other `pcd` use
 
 **Interactive Selection** (`pcd -i`):
 
