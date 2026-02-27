@@ -1,6 +1,9 @@
 # PCD - PowerShell Change Directory with PSCue smart suggestions
 # Leverages PSCue's learned directory data for intelligent navigation
 
+# Tracks the previous directory for 'pcd -' navigation (like cd -)
+$script:PreviousLocation = $null
+
 function Invoke-PCD {
     <#
     .SYNOPSIS
@@ -157,6 +160,19 @@ function Invoke-PCD {
             Write-Error "Failed to show interactive selection: $_"
         }
 
+        return
+    }
+
+    # Navigate to previous directory (like cd -)
+    if ($Path -eq '-') {
+        $oldLocation = $PWD.Path
+        Set-Location -
+        $newLocation = $PWD.Path
+        Write-Host $newLocation
+        # Record navigation
+        if ($null -ne [PSCue.Module.PSCueModule]::KnowledgeGraph) {
+            [PSCue.Module.PSCueModule]::KnowledgeGraph.RecordUsage('cd', @($newLocation), $oldLocation)
+        }
         return
     }
 
