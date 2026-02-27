@@ -96,25 +96,18 @@ try {
 $InstallDir = if ($InstallPath) { $InstallPath } else { Join-Path $HOME ".local/pwsh-modules/PSCue" }
 Write-Info "Installation directory: $InstallDir"
 
-# Check if already installed
-if (Test-Path $InstallDir) {
-    if ($Force) {
-        Write-Warning "Removing existing installation..."
-        Remove-Item -Path $InstallDir -Recurse -Force
-    } else {
+# Check if already installed — prompt now, but defer deletion until after builds succeed
+$AlreadyInstalled = Test-Path $InstallDir
+if ($AlreadyInstalled) {
+    if (-not $Force) {
         Write-Warning "PSCue is already installed at: $InstallDir"
         $response = Read-Host "Overwrite existing installation? (y/N)"
         if ($response -ne 'y' -and $response -ne 'Y') {
             Write-Info "Installation cancelled."
             exit 0
         }
-        Remove-Item -Path $InstallDir -Recurse -Force
     }
 }
-
-# Create installation directory
-Write-Status "Creating installation directory..."
-New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 
 # Build ArgumentCompleter (NativeAOT)
 Write-Status "Building ArgumentCompleter (NativeAOT)..."
@@ -145,6 +138,16 @@ try {
 } finally {
     Pop-Location
 }
+
+# Both builds succeeded — now safe to remove existing installation and create fresh directory
+if ($AlreadyInstalled) {
+    Write-Warning "Removing existing installation..."
+    Remove-Item -Path $InstallDir -Recurse -Force
+}
+
+# Create installation directory
+Write-Status "Creating installation directory..."
+New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 
 # Copy files to installation directory
 Write-Status "Installing files..."
