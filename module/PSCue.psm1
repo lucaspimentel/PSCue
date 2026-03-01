@@ -7,9 +7,6 @@
 # Get the module directory
 $ModuleRoot = $PSScriptRoot
 
-# Set PSCUE_PID environment variable so ArgumentCompleter can find the IPC server
-$env:PSCUE_PID = $PID
-
 # Find the pscue-completer executable
 $CompleterExe = if ($IsWindows) {
     Join-Path $ModuleRoot "pscue-completer.exe"
