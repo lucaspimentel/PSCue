@@ -73,6 +73,7 @@ $SupportedCommands = @(
 
     # Tools
     'code'
+    'claude'
     'chezmoi'
     'tre'
     'lsd'
