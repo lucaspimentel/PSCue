@@ -4,20 +4,20 @@
 PowerShell completion module combining Tab completion (NativeAOT) + inline predictions (managed DLL) with generic learning and cross-session persistence.
 
 **Key Features**:
-- **Parameter-Value Binding**: Understands parameter-value relationships (e.g., `-f net6.0`), provides context-aware suggestions (Phase 20)
+- **Parameter-Value Binding**: Understands parameter-value relationships (e.g., `-f net6.0`), provides context-aware suggestions
 - **Generic Learning**: Learns from ALL commands (not just predefined ones) with context-aware suggestions
 - **Partial Command Predictions**: Frequency-based command suggestions as you type (e.g., "g" → "git", "gh", "gt")
 - **Multi-Word Suggestions**: Shows common argument combinations (e.g., "git checkout master")
 - **Workflow Learning**: Learns command sequences and predicts next command based on usage patterns
 - **Cross-Session Persistence**: SQLite database stores learned data across sessions
 - **Directory-Aware Navigation**: Smart cd/Set-Location suggestions with path normalization and symlink resolution
-- **Symlink Deduplication**: Resolves symlinks, junctions, and directory links to prevent duplicate suggestions (Phase 21.1)
+- **Symlink Deduplication**: Resolves symlinks, junctions, and directory links to prevent duplicate suggestions
 - **ML Sequence Prediction**: N-gram based next-command prediction
 - **Privacy Protection**: Filters sensitive data (passwords, tokens, keys)
-- **PowerShell Module Functions**: 14 functions for learning, database, workflow management, and smart navigation (no IPC overhead)
+- **PowerShell Module Functions**: Learning, database, workflow management, and smart navigation
 - **Smart Directory Navigation**: `pcd` command with inline predictions, relative paths, fuzzy matching, frecency scoring, and best-match navigation
 
-**Supported Commands**: git, gh, gt (Graphite), az, azd, func, code, scoop, winget, wt (Windows Terminal), chezmoi, tre, lsd, dust, cd/Set-Location
+**Supported Commands**: git, gh, gt (Graphite), az, azd, func, code, scoop, winget, wt (Windows Terminal), chezmoi, tre, lsd, dust, claude, cd/Set-Location
 
 For completed work history, see docs/COMPLETED.md.
 
@@ -26,11 +26,11 @@ For completed work history, see docs/COMPLETED.md.
 - **Module** (`PSCue.Module.dll`): Long-lived, implements `ICommandPredictor` + `IFeedbackProvider` (7.4+), provides PowerShell module functions
 - **Learning System**:
   - **CommandHistory**: Ring buffer tracking last 100 commands
-  - **CommandParser**: Parses commands into typed arguments (Verb, Flag, Parameter, ParameterValue, Standalone) (Phase 20)
+  - **CommandParser**: Parses commands into typed arguments (Verb, Flag, Parameter, ParameterValue, Standalone)
   - **ArgumentGraph**: Knowledge graph of command → arguments with frequency + recency scoring
     - **ArgumentSequences**: Tracks consecutive argument pairs for multi-word suggestions (up to 50 per command)
-    - **ParameterStats**: Tracks parameters and their known values (Phase 20)
-    - **ParameterValuePairs**: Tracks bound parameter-value pairs (Phase 20)
+    - **ParameterStats**: Tracks parameters and their known values
+    - **ParameterValuePairs**: Tracks bound parameter-value pairs
   - **ContextAnalyzer**: Detects command sequences and workflow patterns
   - **SequencePredictor**: ML-based n-gram prediction for next commands
   - **WorkflowLearner**: Learns command → next command transitions with timing data
@@ -62,30 +62,30 @@ src/
 ## Key Files & Line References
 - `src/PSCue.Module/ModuleInitializer.cs`: Module lifecycle, subsystem registration
 - `src/PSCue.Module/PSCueModule.cs`: Static module state container for PowerShell functions
-- `src/PSCue.Module/CommandParser.cs`: Command line parser for parameter-value binding (Phase 20)
-- `src/PSCue.Module/ArgumentGraph.cs`: Knowledge graph with path normalization + symlink resolution + argument sequences + parameter tracking (Phase 21.1)
+- `src/PSCue.Module/CommandParser.cs`: Command line parser for parameter-value binding
+- `src/PSCue.Module/ArgumentGraph.cs`: Knowledge graph with path normalization + symlink resolution + argument sequences + parameter tracking
 - `src/PSCue.Module/GenericPredictor.cs`: Context-aware suggestions (values only after parameters, multi-word support)
 - `src/PSCue.Module/CommandPredictor.cs`: Hybrid predictor with multi-word Combine support
 - `src/PSCue.Module/SequencePredictor.cs`: N-gram ML prediction for command sequences
 - `src/PSCue.Module/WorkflowLearner.cs`: Dynamic workflow learning with timing-aware predictions
 - `src/PSCue.Module/PersistenceManager.cs`: SQLite-based cross-session persistence with 10 tables
-- `src/PSCue.Module/PcdCompletionEngine.cs`: Enhanced PCD algorithm with fuzzy matching, frecency scoring, filesystem search, symlink resolution (Phases 17.6 + 17.9 + 19.0 + 21.1)
-- `src/PSCue.Module/PcdConfiguration.cs`: Shared configuration for PCD (tab completion + predictor) (Phase 19.0 + 21.2)
+- `src/PSCue.Module/PcdCompletionEngine.cs`: Enhanced PCD algorithm with fuzzy matching, frecency scoring, filesystem search, symlink resolution
+- `src/PSCue.Module/PcdConfiguration.cs`: Shared configuration for PCD (tab completion + predictor)
 - `src/PSCue.Module/PcdInteractiveSelector.cs`: Interactive directory selection with visual styling (color-coded indicators, decorative UI, ASCII fallback for non-UTF-8 consoles)
 - `src/PSCue.Module/FeedbackProvider.cs`: Learns from command execution, records navigation paths with trailing separators
 - `src/PSCue.Shared/CommandCompleter.cs`: Completion orchestration
 - `module/Functions/LearningManagement.ps1`: PowerShell functions for learning system
 - `module/Functions/DatabaseManagement.ps1`: PowerShell functions for database queries
-- `module/Functions/WorkflowManagement.ps1`: PowerShell functions for workflow management (Phase 18.1)
-- `module/Functions/PCD.ps1`: PowerShell smart directory navigation function (Phases 17.5 + 17.6 + 17.9)
+- `module/Functions/WorkflowManagement.ps1`: PowerShell functions for workflow management
+- `module/Functions/PCD.ps1`: PowerShell smart directory navigation function
 - `module/Functions/Debugging.ps1`: PowerShell functions for testing/diagnostics
 - `test/PSCue.Module.Tests/ArgumentGraphTests.cs`: Argument graph + sequence tracking tests
 - `test/PSCue.Module.Tests/GenericPredictorTests.cs`: Generic predictor + multi-word tests
 - `test/PSCue.Module.Tests/CommandPredictorTests.cs`: Command predictor + Combine tests
 - `test/PSCue.Module.Tests/SequencePredictorTests.cs`: N-gram predictor unit tests
-- `test/PSCue.Module.Tests/WorkflowLearnerTests.cs`: Workflow learning tests (Phase 18.1)
-- `test/PSCue.Module.Tests/PCDTests.cs`: Smart directory navigation tests (Phase 17.5)
-- `test/PSCue.Module.Tests/PcdEnhancedTests.cs`: Enhanced PCD algorithm tests with symlink resolution (Phases 17.6 + 17.9 + 21.1 + 21.2)
+- `test/PSCue.Module.Tests/WorkflowLearnerTests.cs`: Workflow learning tests
+- `test/PSCue.Module.Tests/PCDTests.cs`: Smart directory navigation tests
+- `test/PSCue.Module.Tests/PcdEnhancedTests.cs`: Enhanced PCD algorithm tests with symlink resolution
 - `test/PSCue.Module.Tests/PcdMatchScoreTests.cs`: Unit tests for CalculateMatchScore directory name matching
 - `test/PSCue.Module.Tests/PcdRobustnessTests.cs`: Tests for handling stale/non-existent paths gracefully
 - `test/PSCue.Module.Tests/PcdInteractiveSelectorTests.cs`: Unit tests for interactive directory selection
@@ -95,7 +95,7 @@ src/
 
 ## Common Tasks
 ```bash
-# Build
+# Build (requires .NET 10.0 SDK — ArgumentCompleter targets net10.0, Module targets net9.0)
 dotnet build src/PSCue.Module/ -c Release -f net9.0
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
@@ -120,7 +120,7 @@ dotnet test --filter "FullyQualifiedName~WorkflowLearner"
 #   Import-Module "D:\temp\PSCue-dev\PSCue.psd1"
 # Cleanup: Remove-Item -Recurse -Force D:\temp\PSCue-dev
 
-# PowerShell Module Functions (Phase 16 - replaces PSCue.Debug)
+# PowerShell Module Functions
 # Learning Management (in-memory + database)
 Get-PSCueLearning [-Command <string>] [-AsJson]    # View learned data (in-memory)
 Clear-PSCueLearning [-Force] [-WhatIf] [-Confirm]  # Clear learned data (memory + DB), -Force to delete DB directly
@@ -132,15 +132,16 @@ Save-PSCueLearning                                 # Force save to disk
 Get-PSCueDatabaseStats [-Detailed] [-AsJson]       # Database stats (reads DB directly)
 Get-PSCueDatabaseHistory [-Last <n>] [-Command <name>] [-AsJson]  # Query DB history
 
-# Workflow Management (Phase 18.1)
+# Workflow Management
 Get-PSCueWorkflows [-Command <string>] [-AsJson]   # View learned workflows
 Get-PSCueWorkflowStats [-Detailed] [-AsJson]       # Workflow statistics
 Clear-PSCueWorkflows [-WhatIf] [-Confirm]          # Clear workflows (memory + DB)
 Export-PSCueWorkflows -Path <path>                 # Export workflows to JSON
 Import-PSCueWorkflows -Path <path> [-Merge]        # Import workflows from JSON
 
-# Smart Directory Navigation (Phases 17.5 + 17.6 + 17.7 + 17.9 + 19.0 + Bug Fixes + Native cd Behavior + Interactive Mode)
+# Smart Directory Navigation
 pcd [path]                                         # PowerShell Change Directory with inline predictions + tab completion
+pcd -                                              # Navigate to previous directory (like cd - in bash)
 pcd -Interactive [path] [-Top <int>]               # Interactive selection menu (alias: -i), optional path filter
 pcd -Root                                          # Navigate to git repository root (alias: -r); filesystem root if not in a repo
 Invoke-PCD [path]                                  # Long-form function name
@@ -180,15 +181,15 @@ Invoke-PCD [path]                                  # Long-form function name
 # - Path normalization: All paths end with trailing \ to prevent duplicates
 # - Well-known shortcuts: ~, .. (only suggested for relative paths, not absolute)
 # - Performance: <50ms tab completion, <10ms predictor
-# - Code sharing: Unified configuration via PcdConfiguration class (Phase 19.0)
+# - Code sharing: Unified configuration via PcdConfiguration class
 # - Robustness: Handles stale database entries, race conditions, and permission issues gracefully
 
-# Algorithm (Phase 17.6 + 17.9 + 19.0 + 21.2 + Bug Fixes - PcdCompletionEngine):
+# Algorithm (PcdCompletionEngine):
 # - Stage 1: Well-known shortcuts (~, ..) - skipped for absolute paths
 # - Stage 2: Learned directories (searches top 200 paths for better coverage)
-#   - Directory name matching: Checks both full path AND directory name for matches (PcdCompletionEngine.cs:559-589)
+#   - Directory name matching: Checks both full path AND directory name for matches
 #   - Exact match boost: 100× multiplier ensures exact matches always appear first
-#   - Cache filtering: Filters .codeium, .claude, .dotnet, node_modules, bin, obj, etc. (Phase 21.2)
+#   - Cache filtering: Filters .codeium, .claude, .dotnet, node_modules, bin, obj, etc.
 #   - Parent directory filtered for absolute paths
 # - Stage 3a: Direct filesystem search (non-recursive) - always enabled
 #   - Cache filtering: Applied to discovered directories
@@ -196,17 +197,17 @@ Invoke-PCD [path]                                  # Long-form function name
 #   - Tab completion: maxDepth=3 (thorough, can afford deeper search)
 #   - Inline predictor: maxDepth=1 (fast, shallow search only)
 #   - Cache filtering: Applied to recursively discovered directories
-# - Cache/metadata filtering (Phase 21.2): Blocklisted directories are filtered UNLESS explicitly typed
+# - Cache/metadata filtering: Blocklisted directories are filtered UNLESS explicitly typed
 #   - Default blocklist: .codeium, .claude, .dotnet, .nuget, .git, .vs, .vscode, .idea, node_modules, bin, obj, target, __pycache__, .pytest_cache
 #   - Explicit typing overrides: typing ".claude" will show .claude directories
 #   - Configurable via PSCUE_PCD_ENABLE_DOT_DIR_FILTER and PSCUE_PCD_CUSTOM_BLOCKLIST
-# - Fuzzy matching (Phase 21.4): Substring + Levenshtein with quality controls
+# - Fuzzy matching: Substring + Levenshtein with quality controls
 #   - Minimum similarity threshold: 70% (configurable via PSCUE_PCD_FUZZY_MIN_MATCH_PCT)
 #   - Long query protection (>10 chars): Requires 60% continuous substring overlap (LCS algorithm)
 #   - Prevents unrelated matches (e.g., "dd-trace-js" won't match "dd-trace-dotnet")
 # - Frecency scoring: Configurable blend (default: 50% frequency, 30% recency, 20% distance)
 # - Distance scoring: Parent (0.9), Child (0.85-0.5), Sibling (0.7), Ancestor (0.6-0.1)
-# - Tab completion display (module/Functions/PCD.ps1:183-228):
+# - Tab completion display (module/Functions/PCD.ps1):
 #   - CompletionText: Relative paths with .\ prefix for child dirs, ..\ for siblings, absolute for others
 #   - ListItemText: Clean names (e.g., "Screenshots" not ".\Screenshots\")
 #   - Single quotes for paths with spaces, platform-appropriate separators
@@ -227,7 +228,7 @@ Get-PSCueModuleInfo [-AsJson]                      # Module diagnostics
 3. **ArgumentCompleter computes locally**: Tab completion always computes locally with full dynamic arguments. Fast enough (<50ms) and simpler.
 4. **NestedModules in manifest**: Required for `IModuleAssemblyInitializer` to trigger
 5. **Concurrent logging**: `FileShare.ReadWrite` + `AutoFlush` for multi-process debug logging
-6. **PowerShell module functions**: Direct in-process access, no IPC overhead (Phase 16)
+6. **PowerShell module functions**: Direct in-process access, no IPC overhead
 
 ## Performance Targets
 - ArgumentCompleter startup: <10ms
@@ -238,7 +239,7 @@ Get-PSCueModuleInfo [-AsJson]                      # Module diagnostics
 - PCD best-match navigation: <50ms
 
 ## Supported Commands
-git, gh, gt, az, azd, func, code, scoop, winget, wt, chezmoi, tre, lsd, dust, cd (Set-Location/sl/chdir)
+git, gh, gt, az, azd, func, code, scoop, winget, wt, chezmoi, tre, lsd, dust, claude, cd (Set-Location/sl/chdir)
 
 **Git Completion Features**:
 - Hardcoded subcommands with detailed tooltips (add, commit, branch, etc.)
@@ -286,7 +287,7 @@ public void TestLearningAccess()
 9. **Path normalization requires workingDirectory**: When calling `ArgumentGraph.RecordUsage()` for navigation commands (cd, sl, chdir), MUST provide the `workingDirectory` parameter. If null/empty, path normalization (including symlink resolution) is skipped. This causes duplicate entries for symlinked paths. Always pass a valid working directory for proper deduplication.
 10. **PCD best-match returns 0 suggestions**: If `GetSuggestions()` returns no matches, check that `GetLearnedDirectories()` is requesting enough paths from ArgumentGraph. The default pool size should be 200+ to ensure less-frequently-used directories are searchable. Also verify `CalculateMatchScore()` checks BOTH full paths and directory names.
 11. **PCD attempts Set-Location on non-existent path**: Always loop through ALL suggestions and verify existence before navigation. Never call `Set-Location` on paths that don't exist - show helpful error messages instead. This handles race conditions and stale database entries gracefully.
-12. **PCD tab completion behavior**: CompletionText must match native cd exactly - use .\ prefix for child directories, ..\ for siblings, and single quotes for spaces. ListItemText should be clean (no prefixes/separators/quotes). See module/Functions/PCD.ps1:183-228 for implementation.
+12. **PCD tab completion behavior**: CompletionText must match native cd exactly - use .\ prefix for child directories, ..\ for siblings, and single quotes for spaces. ListItemText should be clean (no prefixes/separators/quotes). See module/Functions/PCD.ps1 for implementation.
 13. **Testing with non-existent paths**: Use `skipExistenceCheck: true` parameter in `PcdCompletionEngine.GetSuggestions()` when testing with mock/non-existent paths. Production code filters non-existent paths by default.
 14. **Release builds missing dependencies**: The release workflow (.github/workflows/release.yml) MUST use `dotnet publish` (not `dotnet build`) for PSCue.Module to include all dependencies, especially the `runtimes/` directory with native SQLite libraries. `dotnet build` only outputs primary assemblies, while `dotnet publish` creates a complete deployable package. The remote install script (install-remote.ps1) recursively copies all directories from the release archive to handle `runtimes/`, `Functions/`, and any future subdirectories.
 15. **install-local.ps1 dependency list**: The local install script has a hardcoded `$Dependencies` array listing DLLs to copy from the `publish/` directory. When adding new NuGet packages (e.g., Spectre.Console), you MUST add the DLL to this list or the module will fail at runtime with assembly-not-found errors. Consider replacing this with a bulk copy approach (like `install-remote.ps1` does) to avoid this pitfall.
@@ -296,8 +297,8 @@ public void TestLearningAccess()
 
 ## Documentation
 - **Implementation status**:
-  - Active work: See `TODO.md` (includes detailed Phase 18 workflow improvements roadmap)
-  - Completed phases: See `docs/COMPLETED.md` (Phases 1-21 archived, includes all PCD quality improvements)
+  - Active work: See `TODO.md`
+  - Completed work: See `docs/COMPLETED.md`
 - **Database functions**: See `docs/DATABASE-FUNCTIONS.md` for detailed SQLite query examples and schema
 - **Troubleshooting**: See `docs/TROUBLESHOOTING.md` for common issues and solutions
 - Bug fix history: See git log and commit messages
@@ -318,21 +319,21 @@ $env:PSCUE_MAX_COMMANDS = "500"          # Max commands to track
 $env:PSCUE_MAX_ARGS_PER_CMD = "100"      # Max arguments per command
 $env:PSCUE_DECAY_DAYS = "30"             # Score decay period (days)
 
-# ML prediction configuration (Phase 17.1: N-gram sequence predictor)
+# ML prediction configuration
 $env:PSCUE_ML_ENABLED = "true"           # Enable ML sequence predictions (default: true)
 $env:PSCUE_ML_NGRAM_ORDER = "2"          # N-gram order: 2=bigrams, 3=trigrams (default: 2)
 $env:PSCUE_ML_NGRAM_MIN_FREQ = "3"       # Minimum frequency to suggest (default: 3 occurrences)
 
-# Workflow learning configuration (Phase 18.1: Dynamic workflow learning)
+# Workflow learning configuration
 $env:PSCUE_WORKFLOW_LEARNING = "true"            # Enable workflow learning (default: true)
 $env:PSCUE_WORKFLOW_MIN_FREQUENCY = "5"          # Min occurrences to suggest (default: 5)
 $env:PSCUE_WORKFLOW_MAX_TIME_DELTA = "15"        # Max minutes between commands (default: 15)
 $env:PSCUE_WORKFLOW_MIN_CONFIDENCE = "0.6"       # Min confidence threshold (default: 0.6)
 
-# Partial command predictions (Phase 17.8: Frequency-based command suggestions)
+# Partial command predictions
 $env:PSCUE_PARTIAL_COMMAND_PREDICTIONS = "true"  # Enable partial command predictions (default: true)
 
-# PCD (Smart Directory Navigation) configuration (Phases 17.5-17.9 + 19.0 + 21.2 + 21.3 + 21.4)
+# PCD (Smart Directory Navigation) configuration
 $env:PSCUE_PCD_FREQUENCY_WEIGHT = "0.5"          # Frecency scoring: frequency weight (default: 0.5)
 $env:PSCUE_PCD_RECENCY_WEIGHT = "0.3"            # Frecency scoring: recency weight (default: 0.3)
 $env:PSCUE_PCD_DISTANCE_WEIGHT = "0.2"           # Frecency scoring: distance weight (default: 0.2)

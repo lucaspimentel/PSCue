@@ -11,8 +11,8 @@ PowerShell module library (`PSCue.Module.dll`) that provides inline predictions 
 - **Multi-Word Suggestions**: Shows common argument combinations (e.g., "git checkout master")
 - **Workflow Learning**: Predicts next command based on usage patterns and timing
 - **Smart Directory Navigation**: `pcd` command with fuzzy matching, frecency scoring, exact match prioritization, and symlink resolution
-- **Cross-Session Persistence**: SQLite database stores learned data (8 tables)
-- **PowerShell Functions**: 14 functions for learning, database, workflow, and navigation management
+- **Cross-Session Persistence**: SQLite database stores learned data
+- **PowerShell Functions**: Learning, database, workflow, navigation, and debugging management
 
 ## Key Components
 
@@ -31,6 +31,7 @@ PowerShell module library (`PSCue.Module.dll`) that provides inline predictions 
 ### NuGet Packages
 - `Microsoft.PowerShell.SDK` (7.5.0) - PowerShell SDK for ICommandPredictor and IFeedbackProvider
 - `Microsoft.Data.Sqlite` (9.0.0) - SQLite database for persistence
+- `Spectre.Console` - Cross-platform interactive UI for `pcd -i`
 
 ### Internal Dependencies
 - `PSCue.Shared` - Shared completion logic

@@ -252,7 +252,7 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps
 ```powershell
 # Check if completer exists
 $modulePath = (Get-Module PSCue -ListAvailable | Select-Object -First 1).ModuleBase
-Test-Path "$modulePath\bin\pscue-completer.exe"  # Should return True
+Test-Path "$modulePath\pscue-completer.exe"  # Should return True
 ```
 
 ### Git Commit Fails with 1Password Error

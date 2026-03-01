@@ -16,28 +16,6 @@ The following scripts work with the current PSCue architecture:
 
 ## Test Scripts
 
-### IPC Communication Tests
-
-**test-ipc.ps1**
-- Comprehensive IPC functionality test
-- Tests Named Pipe connectivity
-- Tests Tab completion with ArgumentCompleter
-- Tests CommandPredictor registration
-- Checks inline predictions setup
-- Includes debug output
-
-**test-ipc-simple.ps1**
-- Simplified IPC connectivity test
-- Quick check for Named Pipe server
-- Basic Tab completion test
-- Minimal output for quick validation
-
-**test-ipc-path.ps1**
-- Tests if ArgumentCompleter is using IPC or local fallback
-- Checks IPC connectivity with debug tool
-- Calls completer exe directly to see debug output
-- Verifies PSCUE_DEBUG environment variable enables logging
-
 ### CommandPredictor Tests
 
 **test-predictor.ps1**
@@ -61,7 +39,7 @@ The following scripts work with the current PSCue architecture:
 - **Requires PowerShell 7.4+ with PSFeedbackProvider experimental feature enabled**
 - Checks PowerShell version compatibility
 - Verifies experimental feature is enabled
-- Confirms FeedbackProvider is registered as `PSCue.CommandCompleterFeedbackProvider`
+- Confirms FeedbackProvider is registered as `PSCue.FeedbackProvider`
 - Tests both learning system (success events) and error suggestions (error events)
 - Documents feedback provider behavior:
   - **Success events**: Silent learning, updates cache scores
@@ -89,7 +67,6 @@ The following scripts work with the current PSCue architecture:
 
 **test-scoop-update-debug.ps1**
 - Debug version of scoop update test with logging enabled
-- Uses PSCue.Debug tool to test completions
 - Shows log output to diagnose completion behavior
 
 **test-scoop-update-with-logging.ps1**
@@ -107,12 +84,10 @@ The following scripts work with the current PSCue architecture:
 **test-with-clear-cache.ps1**
 - Tests cache population after clearing
 - Verifies cache is populated with ALL completions (unfiltered)
-- Inspects cache contents using PSCue.Debug tool
 - Useful for debugging cache storage issues
 
 **test-cache-contents.ps1**
 - Triggers a specific completion and inspects what gets cached
-- Uses PSCue.Debug tool to inspect cache entries
 - Shows completion count and top completions
 - Helps verify cache is storing data correctly
 
@@ -124,14 +99,6 @@ The following scripts work with the current PSCue architecture:
 - Triggers Tab completion to populate cache
 - Executes commands to trigger learning via FeedbackProvider
 - Shows cache statistics and entries
-
-**test-cache-debug.ps1**
-- Tests cache with debug logging enabled
-- Checks IPC connectivity
-- Triggers completions via TabExpansion2
-- Tests query-ipc command directly
-- Compares cache state before and after operations
-- Checks for debug log file
 
 **test-with-debug-enabled.ps1**
 - Main debug test with PSCUE_DEBUG=1
@@ -183,106 +150,35 @@ The following scripts work with the current PSCue architecture:
 - Displays log file path
 - Quick access to debug output
 
-### PSCue.Debug Tool Tests
-
-**test-pscue-debug.ps1**
-- Comprehensive test script for the PSCue.Debug tool
-- Tests all commands: query-local, query-ipc, stats, cache, clear, ping, help
-- Validates JSON output format
-- Tests both with and without IPC server running
-- Shows summary of test results
-
 ## Usage
-
-### Quick IPC Test
-```powershell
-# Run the simple IPC test
-pwsh -NoProfile -File test/test-scripts/test-ipc-simple.ps1
-```
-
-### Comprehensive IPC Test
-```powershell
-# Run the full IPC test suite
-pwsh -NoProfile -File test-scripts/test-ipc.ps1
-```
-
-### Cache Learning Test
-```powershell
-# See how the cache populates and learns from usage
-pwsh -NoProfile -File test-scripts/test-cache-learning.ps1
-```
-
-### Debug IPC Issues
-```powershell
-# Enable debug logging to diagnose IPC problems
-pwsh -NoProfile -File test-scripts/test-with-debug-enabled.ps1
-
-# Check the completer log
-pwsh -NoProfile -File test-scripts/test-check-completer-log.ps1
-```
 
 ### Verify Completer Registration
 ```powershell
-# Check if ArgumentCompleter is properly registered
 pwsh -NoProfile -File test-scripts/test-completer-registration.ps1
-
-# Test if completer is actually being invoked
 pwsh -NoProfile -File test-scripts/test-completer-invocation.ps1
 ```
 
-### Interactive Inline Predictions Test
+### Inline Predictions
 ```powershell
 # Must be run in interactive session (not with -File)
-# Load the module first
 Import-Module ~/.local/pwsh-modules/PSCue/PSCue.psd1
-
-# Then run the test script
 . test-scripts/test-inline-predictions.ps1
 ```
 
-### Feedback Provider Test (PowerShell 7.4+)
+### Feedback Provider (PowerShell 7.4+)
 ```powershell
-# Test the learning system and error suggestions
 pwsh -NoProfile -File test-scripts/test-feedback-provider.ps1
-
-# Or with full path on Windows
-& "C:\Program Files\PowerShell\7\pwsh.exe" -NoProfile -File test-scripts/test-feedback-provider.ps1
 ```
 
-**Note**: This test requires:
-- PowerShell 7.4 or higher
-- PSFeedbackProvider experimental feature enabled (script will prompt if not enabled)
-- PSCue module installed to `~/.local/pwsh-modules/PSCue/`
-
-### PSCue.Debug Tool Test
-```powershell
-# Run comprehensive test of PSCue.Debug tool
-pwsh -NoProfile -File test-scripts/test-pscue-debug.ps1
-```
-
-**Tests include**:
-- Help system (`help` command)
-- Local completions (`query-local`)
-- IPC connectivity (`ping`)
-- Cache statistics (`stats`, with and without `--json`)
-- Cache inspection (`cache`, with `--filter` and `--json`)
-- Clear cache (`clear`)
-- IPC completions (`query-ipc`)
-
-**Features tested**:
-- JSON output format for automation
-- PowerShell process auto-discovery
-- Filter support for cache inspection
-- Timing statistics on all commands
-- Graceful handling when IPC server unavailable
+**Note**: Requires PowerShell 7.4+ with PSFeedbackProvider experimental feature enabled.
 
 ### Module Functions Tests
 
 **test-module-functions.ps1**
 - Comprehensive test of all PowerShell module functions
 - Checks PowerShell version and experimental features
-- Verifies module initialization (Cache, KnowledgeGraph, CommandHistory, Persistence)
-- Tests all Get- functions (Get-PSCueCache, Get-PSCueLearning, Get-PSCueCacheStats)
+- Verifies module initialization (KnowledgeGraph, CommandHistory, Persistence)
+- Tests all Get- functions (Get-PSCueLearning, Get-PSCueDatabaseStats, etc.)
 - Checks subsystem registration (CommandPredictor, FeedbackProvider)
 - Provides setup instructions for generating learning data
 
@@ -314,12 +210,10 @@ pwsh -NoProfile -File test-scripts/test-empty-state.ps1
 ## Notes
 
 - All scripts assume PSCue is installed to `~/.local/pwsh-modules/PSCue/`
-- IPC tests require the module to be imported (which starts the IPC server)
 - Some tests may show errors in non-interactive sessions (e.g., PSReadLine features)
 - Run with `-Verbose` for detailed output where supported
 - Debug logging is controlled by the `PSCUE_DEBUG=1` environment variable
 - The completer log file is located at: `$env:LOCALAPPDATA/PSCue/log.txt` (Windows)
-- Set `$env:PSCUE_PID = $PID` in PowerShell to help debug tools find the IPC server
 
 ## Automated Tests
 

@@ -59,6 +59,7 @@ PSCue provides detailed completions for these commands:
 - **Chezmoi**: `chezmoi` - dotfile management commands
 - **Tree alternatives**: `tre`, `lsd` - directory navigation
 - **Disk usage**: `dust` - directory analysis
+- **Claude**: `claude` - Claude Code CLI commands
 - **Navigation**: `cd`, `Set-Location`, `sl`, `chdir` - directory completion with smart caching
 
 ### Universal Learning
@@ -98,7 +99,7 @@ $version = "1.0.0"; irm https://raw.githubusercontent.com/lucaspimentel/PSCue/ma
 
 ### From Source
 
-Build and install from source (requires .NET 9.0 SDK):
+Build and install from source (requires .NET 10.0 SDK):
 
 ```powershell
 git clone https://github.com/lucaspimentel/PSCue.git
@@ -158,6 +159,7 @@ pcd -i dotnet           # Interactive mode filtered to paths containing "dotnet"
 pcd -i -Top 50          # Interactive mode with more entries
 pcd -Root               # Navigate to git repository root (or filesystem root if not in a repo)
 pcd -r                  # Alias for -Root
+pcd -                   # Navigate to previous directory (like cd - in bash)
 pcd ~                   # Home directory (well-known shortcut)
 pcd ..                  # Parent directory (well-known shortcut)
 ```
@@ -180,6 +182,7 @@ The `pcd` (PowerShell Change Directory) command provides:
   - Explicit typing overrides filter (typing `.claude` shows `.claude/` directories)
 - **Symlink resolution**: Automatically resolves symlinks, junctions, and directory links to prevent duplicates
 - **Well-known shortcuts**: Instant access to `~` (home), `..` (parent) - only suggested for relative paths
+- **Previous directory**: `pcd -` navigates to the previous directory (like `cd -` in bash)
 - **Frecency scoring**: Balances frequency + recency + distance for better suggestions
 - **Distance scoring**: Prefers directories near your current location
 - **Best-match navigation**: `pcd datadog` automatically finds best match if exact path doesn't exist
@@ -340,7 +343,7 @@ git checkout nonexistent-branch
 # 💡 Create and switch to branch: git checkout -b <name>
 ```
 
-**Requirements**: PowerShell 7.4+ with `PSFeedbackProvider` experimental feature enabled (see setup instructions below).
+**Requirements**: PowerShell 7.4+ with `PSFeedbackProvider` enabled (experimental feature on 7.4-7.5; mainstream in 7.6+).
 
 ## Privacy & Security
 
@@ -450,7 +453,7 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 PSCue includes an optional learning system that improves suggestions based on your usage patterns. This requires:
 
 1. **PowerShell 7.4 or higher**
-2. **PSFeedbackProvider experimental feature enabled**:
+2. **PSFeedbackProvider experimental feature enabled** (required on PowerShell 7.4-7.5; becomes mainstream in 7.6+):
    ```powershell
    Enable-ExperimentalFeature -Name PSFeedbackProvider
    # Restart PowerShell after enabling
@@ -566,49 +569,7 @@ Get-PSCueModuleInfo
 TabExpansion2 'git checkout ma' 15
 ```
 
-## Roadmap
-
-### Current Status ✅
-
-- [x] Tab completion working (ArgumentCompleter)
-- [x] Inline predictions working (CommandPredictor)
-- [x] Shared completion logic (PSCue.Shared)
-- [x] Multi-platform CI/CD (Windows x64, Linux x64)
-- [x] Comprehensive documentation
-- [x] **Simplified Architecture** (Phase 16, completed 2025-01-30)
-  - Removed IPC layer entirely (no longer needed)
-  - ArgumentCompleter computes locally with full dynamic arguments
-  - CommandPredictor uses direct in-process access
-  - Simpler, faster, less code to maintain
-- [x] **Learning System & Error Suggestions**
-  - Full `IFeedbackProvider` implementation (PowerShell 7.4+)
-  - Usage tracking and priority scoring
-  - Personalized completions based on command history
-  - Error recovery suggestions for git commands
-- [x] **PowerShell Module Functions** (Phase 16)
-  - 14 native PowerShell functions for learning, database, and workflow management
-  - Direct in-process access (no external tools needed)
-  - Pipeline support, tab completion, comprehensive help
-  - Functions: Get-PSCueLearning, Clear-PSCueLearning, Export-PSCueLearning, Import-PSCueLearning, Save-PSCueLearning, Get-PSCueDatabaseStats, Get-PSCueDatabaseHistory, Get-PSCueWorkflows, Get-PSCueWorkflowStats, Clear-PSCueWorkflows, Export-PSCueWorkflows, Import-PSCueWorkflows, Test-PSCueCompletion, Get-PSCueModuleInfo
-
-- [x] **Generic Command Learning** ✅ **COMPLETE**
-  - Universal command learning (learns from ALL commands, not just pre-configured ones)
-  - Enhanced learning algorithms (frequency × recency scoring: 60% frequency + 40% recency)
-  - Context-aware suggestions based on recent command history
-  - Command sequence detection for workflows (git add → commit → push, docker build → run, etc.)
-  - Privacy controls via `PSCUE_IGNORE_PATTERNS` environment variable
-  - Components: CommandHistory (ring buffer), ArgumentGraph (knowledge graph), ContextAnalyzer, GenericPredictor, Hybrid CommandPredictor
-  - Comprehensive test coverage for all learning components
-
-- **Test Coverage Improvements**
-  - Comprehensive tests for critical components (CommandPredictor, FeedbackProvider)
-  - Fixed the "pluginstall" bug with thorough CommandPredictor.Combine tests
-  - Extensive FeedbackProvider tests covering command parsing, privacy filtering, and learning integration
-  - Uses reflection to properly test internal PowerShell SDK components
-  - High coverage for CommandPredictor and FeedbackProvider
-  - Removed 44 IPC tests (Phase 16.7 - IPC layer removed)
-
-### Configuration
+## Configuration
 
 ```powershell
 # Custom data directory (isolate database for dev/test)
