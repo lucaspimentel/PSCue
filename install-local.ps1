@@ -12,6 +12,9 @@
 .PARAMETER Force
     Overwrite existing installation without prompting.
 
+.PARAMETER Update
+    Pull the latest changes from the remote before building. Runs 'git pull' on the current branch.
+
 .PARAMETER InstallPath
     Custom installation directory. When specified, installs to this path instead of ~/.local/pwsh-modules/PSCue.
     Useful for dev/test installations that don't conflict with the production module.
@@ -25,6 +28,10 @@
     Build and install, overwriting any existing installation.
 
 .EXAMPLE
+    ./install-local.ps1 -Update -Force
+    Pull latest changes, then build and install.
+
+.EXAMPLE
     ./install-local.ps1 -Force -InstallPath D:\temp\PSCue-dev
     Build and install to a custom directory for dev testing.
 #>
@@ -32,6 +39,8 @@
 [CmdletBinding()]
 param(
     [switch]$Force,
+
+    [switch]$Update,
 
     [string]$InstallPath
 )
@@ -71,6 +80,48 @@ function Write-Error {
 # Get the repository root directory
 $RepoRoot = $PSScriptRoot
 Write-Info "Repository: $RepoRoot"
+
+# Check if the local clone is up-to-date with remote
+Write-Status "Checking if repository is up-to-date..."
+try {
+    Push-Location $RepoRoot
+    $branch = & git rev-parse --abbrev-ref HEAD 2>&1
+    & git fetch origin $branch --quiet 2>&1
+    $local = & git rev-parse HEAD 2>&1
+    $remote = & git rev-parse "origin/$branch" 2>&1
+
+    if ($local -ne $remote) {
+        $behind = & git rev-list --count "HEAD..origin/$branch" 2>&1
+        $ahead = & git rev-list --count "origin/$branch..HEAD" 2>&1
+        $status = @()
+        if ([int]$behind -gt 0) { $status += "$behind commit(s) behind" }
+        if ([int]$ahead -gt 0) { $status += "$ahead commit(s) ahead of" }
+        Write-Warning "Local branch '$branch' is $($status -join ' and ') origin/$branch."
+
+        if ($Update) {
+            Write-Status "Pulling latest changes..."
+            & git pull --quiet 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Write-Error "git pull failed. Resolve conflicts and try again."
+                exit 1
+            }
+            Write-Info "Repository updated successfully."
+        } elseif (-not $Force) {
+            $response = Read-Host "Continue anyway? (y/N)"
+            if ($response -ne 'y' -and $response -ne 'Y') {
+                Write-Info "Installation cancelled. Run 'git pull' or use -Update to update."
+                exit 0
+            }
+        }
+    } else {
+        Write-Info "Repository is up-to-date with origin/$branch."
+    }
+} catch {
+    Write-Warning "Could not check remote status: $_"
+    Write-Warning "Continuing with installation..."
+} finally {
+    Pop-Location
+}
 
 # Detect platform and architecture
 $IsWindowsPlatform = $IsWindows -or ($PSVersionTable.PSVersion.Major -le 5)
