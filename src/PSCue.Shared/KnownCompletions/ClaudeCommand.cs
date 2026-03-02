@@ -3,10 +3,11 @@
 // Commands:
 //   mcp                         Configure and manage MCP servers
 //   plugin                      Manage Claude Code plugins
-//   migrate-installer           Migrate from global npm installation to local installation
+//   auth                        Manage authentication
+//   agents                      List available agents
 //   setup-token                 Set up a long-lived authentication token
 //   doctor                      Check the health of your Claude Code auto-updater
-//   update                      Check for updates and install if available
+//   update                      Check for updates and install if available (alias: upgrade)
 //   install                     Install Claude Code native build
 
 using PSCue.Shared.Completions;
@@ -29,6 +30,8 @@ public static class ClaudeCommand
                         {
                             Parameters =
                             [
+                                new("--debug", "Enable debug mode") { Alias = "-d" },
+                                new("--verbose", "Enable verbose output"),
                                 new("--help", "Display help for command") { Alias = "-h" },
                             ]
                         },
@@ -36,8 +39,13 @@ public static class ClaudeCommand
                         {
                             Parameters =
                             [
-                                new("--transport", "Transport type (http, sse, stdio)"),
-                                new("--env", "Environment variables"),
+                                new("--scope", "Scope for the server (local, user, project)") { Alias = "-s", StaticArguments = [new("local"), new("user"), new("project")] },
+                                new("--transport", "Transport type (stdio, sse, http)") { Alias = "-t", StaticArguments = [new("stdio"), new("sse"), new("http")] },
+                                new("--env", "Environment variables") { Alias = "-e" },
+                                new("--header", "HTTP headers") { Alias = "-H" },
+                                new("--callback-port", "OAuth callback port"),
+                                new("--client-id", "OAuth client ID"),
+                                new("--client-secret", "OAuth client secret"),
                                 new("--help", "Display help for command") { Alias = "-h" },
                             ]
                         },
@@ -45,6 +53,7 @@ public static class ClaudeCommand
                         {
                             Parameters =
                             [
+                                new("--scope", "Scope for the server (local, user, project)") { Alias = "-s", StaticArguments = [new("local"), new("user"), new("project")] },
                                 new("--help", "Display help for command") { Alias = "-h" },
                             ]
                         },
@@ -54,6 +63,8 @@ public static class ClaudeCommand
                         {
                             Parameters =
                             [
+                                new("--scope", "Scope for the server (local, user, project)") { Alias = "-s", StaticArguments = [new("local"), new("user"), new("project")] },
+                                new("--client-secret", "OAuth client secret"),
                                 new("--help", "Display help for command") { Alias = "-h" },
                             ]
                         },
@@ -61,6 +72,7 @@ public static class ClaudeCommand
                         {
                             Parameters =
                             [
+                                new("--scope", "Scope for the server (local, user, project)") { Alias = "-s", StaticArguments = [new("local"), new("user"), new("project")] },
                                 new("--help", "Display help for command") { Alias = "-h" },
                             ]
                         },
@@ -76,14 +88,79 @@ public static class ClaudeCommand
                 {
                     SubCommands =
                     [
-                        new("validate", "Validate a plugin or marketplace manifest"),
-                        new("marketplace", "Manage Claude Code marketplaces"),
-                        new("install", "Install a plugin from available marketplaces"),
-                        new("i", "Install a plugin from available marketplaces"),
-                        new("uninstall", "Uninstall an installed plugin"),
-                        new("remove", "Uninstall an installed plugin"),
-                        new("enable", "Enable a disabled plugin"),
-                        new("disable", "Disable an enabled plugin"),
+                        new("validate", "Validate a plugin or marketplace manifest")
+                        {
+                            Parameters =
+                            [
+                                new("--help", "Display help for command") { Alias = "-h" },
+                            ]
+                        },
+                        new("marketplace", "Manage Claude Code marketplaces")
+                        {
+                            SubCommands =
+                            [
+                                new("add", "Add a marketplace")
+                                {
+                                    Parameters =
+                                    [
+                                        new("--scope", "Scope for the marketplace (local, user, project)") { Alias = "-s", StaticArguments = [new("local"), new("user"), new("project")] },
+                                        new("--sparse", "Use sparse checkout for Git marketplaces"),
+                                        new("--help", "Display help for command") { Alias = "-h" },
+                                    ]
+                                },
+                                new("list", "List configured marketplaces")
+                                {
+                                    Parameters =
+                                    [
+                                        new("--json", "Output as JSON"),
+                                        new("--help", "Display help for command") { Alias = "-h" },
+                                    ]
+                                },
+                                new("remove", "Remove a marketplace") { Alias = "rm" },
+                                new("update", "Update marketplaces"),
+                                new("help", "Display help for command"),
+                            ],
+                            Parameters =
+                            [
+                                new("--help", "Display help for command") { Alias = "-h" },
+                            ]
+                        },
+                        new("install", "Install a plugin from available marketplaces (alias: i)") { Alias = "i", Parameters = [new("--scope", "Scope for the plugin (local, user, project)") { Alias = "-s", StaticArguments = [new("local"), new("user"), new("project")] }, new("--help", "Display help for command") { Alias = "-h" }] },
+                        new("uninstall", "Uninstall an installed plugin (alias: remove)") { Alias = "remove", Parameters = [new("--scope", "Scope for the plugin (local, user, project)") { Alias = "-s", StaticArguments = [new("local"), new("user"), new("project")] }, new("--help", "Display help for command") { Alias = "-h" }] },
+                        new("enable", "Enable a disabled plugin")
+                        {
+                            Parameters =
+                            [
+                                new("--scope", "Scope for the plugin (local, user, project)") { Alias = "-s", StaticArguments = [new("local"), new("user"), new("project")] },
+                                new("--help", "Display help for command") { Alias = "-h" },
+                            ]
+                        },
+                        new("disable", "Disable an enabled plugin")
+                        {
+                            Parameters =
+                            [
+                                new("--scope", "Scope for the plugin (local, user, project)") { Alias = "-s", StaticArguments = [new("local"), new("user"), new("project")] },
+                                new("--all", "Disable all plugins") { Alias = "-a" },
+                                new("--help", "Display help for command") { Alias = "-h" },
+                            ]
+                        },
+                        new("list", "List installed plugins")
+                        {
+                            Parameters =
+                            [
+                                new("--json", "Output as JSON"),
+                                new("--available", "List available plugins from marketplaces"),
+                                new("--help", "Display help for command") { Alias = "-h" },
+                            ]
+                        },
+                        new("update", "Update installed plugins")
+                        {
+                            Parameters =
+                            [
+                                new("--scope", "Scope for the plugin (local, user, project)") { Alias = "-s", StaticArguments = [new("local"), new("user"), new("project")] },
+                                new("--help", "Display help for command") { Alias = "-h" },
+                            ]
+                        },
                         new("help", "Display help for command"),
                     ],
                     Parameters =
@@ -91,36 +168,120 @@ public static class ClaudeCommand
                         new("--help", "Display help for command") { Alias = "-h" },
                     ]
                 },
-                new("migrate-installer", "Migrate from global npm installation to local installation"),
+                new("auth", "Manage authentication")
+                {
+                    SubCommands =
+                    [
+                        new("login", "Log in to Claude")
+                        {
+                            Parameters =
+                            [
+                                new("--email", "Email address for login"),
+                                new("--sso", "Log in with SSO"),
+                                new("--help", "Display help for command") { Alias = "-h" },
+                            ]
+                        },
+                        new("logout", "Log out of Claude"),
+                        new("status", "Show authentication status")
+                        {
+                            Parameters =
+                            [
+                                new("--json", "Output as JSON"),
+                                new("--text", "Output as text"),
+                                new("--help", "Display help for command") { Alias = "-h" },
+                            ]
+                        },
+                        new("help", "Display help for command"),
+                    ],
+                    Parameters =
+                    [
+                        new("--help", "Display help for command") { Alias = "-h" },
+                    ]
+                },
+                new("agents", "List available agents")
+                {
+                    Parameters =
+                    [
+                        new("--setting-sources", "Comma-separated list of setting sources"),
+                        new("--help", "Display help for command") { Alias = "-h" },
+                    ]
+                },
                 new("setup-token", "Set up a long-lived authentication token"),
                 new("doctor", "Check the health of your Claude Code auto-updater"),
-                new("update", "Check for updates and install if available"),
+                new("update", "Check for updates and install if available (alias: upgrade)") { Alias = "upgrade" },
                 new("install", "Install Claude Code native build")
                 {
                     Parameters =
                     [
+                        new("--force", "Force installation"),
                         new("--help", "Display help for command") { Alias = "-h" },
                     ]
                 },
             ],
             Parameters =
             [
+                new("--agent", "Agent for the current session"),
+                new("--betas", "Beta headers"),
+                new("--chrome", "Enable Chrome integration"),
+                new("--no-chrome", "Disable Chrome integration"),
                 new("--debug", "Enable debug mode with optional category filtering") { Alias = "-d" },
+                new("--debug-file", "Debug log file path"),
                 new("--verbose", "Override verbose mode setting from config"),
                 new("--print", "Print response and exit") { Alias = "-p" },
-                new("--output-format", "Output format (text, json, stream-json)"),
+                new("--output-format", "Output format")
+                {
+                    StaticArguments =
+                    [
+                        new("text", "Plain text output"),
+                        new("json", "JSON output"),
+                        new("stream-json", "Streaming JSON output"),
+                    ]
+                },
                 new("--include-partial-messages", "Include partial message chunks"),
-                new("--input-format", "Input format (text, stream-json)"),
+                new("--input-format", "Input format")
+                {
+                    StaticArguments =
+                    [
+                        new("text", "Plain text input"),
+                        new("stream-json", "Streaming JSON input"),
+                    ]
+                },
                 new("--mcp-debug", "[DEPRECATED] Enable MCP debug mode"),
                 new("--dangerously-skip-permissions", "Bypass all permission checks"),
                 new("--allow-dangerously-skip-permissions", "Enable bypassing permissions as an option"),
+                new("--disable-slash-commands", "Disable all skills"),
+                new("--effort", "Effort level for the session")
+                {
+                    StaticArguments =
+                    [
+                        new("low", "Low effort"),
+                        new("medium", "Medium effort"),
+                        new("high", "High effort"),
+                    ]
+                },
+                new("--file", "File resources to download"),
+                new("--from-pr", "Resume session linked to PR"),
+                new("--json-schema", "JSON Schema for structured output"),
+                new("--max-budget-usd", "Maximum dollar amount"),
+                new("--no-session-persistence", "Disable session persistence"),
                 new("--replay-user-messages", "Re-emit user messages from stdin"),
                 new("--allowedTools", "Comma or space-separated list of allowed tools") { Alias = "--allowed-tools" },
                 new("--disallowedTools", "Comma or space-separated list of denied tools") { Alias = "--disallowed-tools" },
+                new("--tools", "Specify available tools"),
                 new("--mcp-config", "Load MCP servers from JSON files or strings"),
                 new("--system-prompt", "System prompt to use for the session"),
                 new("--append-system-prompt", "Append a system prompt to the default"),
-                new("--permission-mode", "Permission mode (acceptEdits, bypassPermissions, default, plan)"),
+                new("--permission-mode", "Permission mode")
+                {
+                    StaticArguments =
+                    [
+                        new("acceptEdits", "Accept edit permissions"),
+                        new("bypassPermissions", "Bypass all permissions"),
+                        new("default", "Default permission mode"),
+                        new("dontAsk", "Don't ask for permissions"),
+                        new("plan", "Plan mode"),
+                    ]
+                },
                 new("--continue", "Continue the most recent conversation") { Alias = "-c" },
                 new("--resume", "Resume a conversation") { Alias = "-r" },
                 new("--fork-session", "Create a new session ID when resuming"),
@@ -134,6 +295,8 @@ public static class ClaudeCommand
                 new("--agents", "JSON object defining custom agents"),
                 new("--setting-sources", "Comma-separated list of setting sources"),
                 new("--plugin-dir", "Load plugins from directories"),
+                new("--tmux", "Create tmux session"),
+                new("--worktree", "Create git worktree") { Alias = "-w" },
                 new("--version", "Output the version number") { Alias = "-v" },
                 new("--help", "Display help for command") { Alias = "-h" },
             ]
