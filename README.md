@@ -59,6 +59,7 @@ PSCue provides detailed completions for these commands:
 - **Chezmoi**: `chezmoi` - dotfile management commands
 - **Tree alternatives**: `tre`, `lsd` - directory navigation
 - **Disk usage**: `dust` - directory analysis
+- **Character art**: `chafa` - terminal graphics/character art generator
 - **Claude**: `claude` - Claude Code CLI commands
 - **Navigation**: `cd`, `Set-Location`, `sl`, `chdir` - directory completion with smart caching
 
