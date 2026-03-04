@@ -46,6 +46,7 @@ public static class CommandCompleter
             "lsd" => LsdCommand.Create(),
             "dust" => DustCommand.Create(),
             "chafa" => ChafaCommand.Create(),
+            "rg" => RgCommand.Create(),
             "azd" => AzdCommand.Create(),
             "az" => AzCommand.Create(),
             "func" => FuncCommand.Create(),

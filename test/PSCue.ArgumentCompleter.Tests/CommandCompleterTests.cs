@@ -659,6 +659,46 @@ public class CommandCompleterTests
         Assert.Contains(completions, x => x.CompletionText == "--version");
     }
 
+    [Fact]
+    public void Rg()
+    {
+        var completions = CommandCompleter.GetCompletions("rg").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--glob");
+        Assert.Contains(completions, x => x.CompletionText == "--type");
+        Assert.Contains(completions, x => x.CompletionText == "--hidden");
+        Assert.Contains(completions, x => x.CompletionText == "--help");
+    }
+
+    [Fact]
+    public void Rg_Color()
+    {
+        var completions = CommandCompleter.GetCompletions("rg --color").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "never");
+        Assert.Contains(completions, x => x.CompletionText == "auto");
+        Assert.Contains(completions, x => x.CompletionText == "always");
+        Assert.Contains(completions, x => x.CompletionText == "ansi");
+    }
+
+    [Fact]
+    public void Rg_Sort()
+    {
+        var completions = CommandCompleter.GetCompletions("rg --sort").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "path");
+        Assert.Contains(completions, x => x.CompletionText == "modified");
+        Assert.Contains(completions, x => x.CompletionText == "accessed");
+        Assert.Contains(completions, x => x.CompletionText == "created");
+        Assert.Contains(completions, x => x.CompletionText == "none");
+    }
+
+    [Fact]
+    public void Rg_Engine()
+    {
+        var completions = CommandCompleter.GetCompletions("rg --engine").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "default");
+        Assert.Contains(completions, x => x.CompletionText == "pcre2");
+        Assert.Contains(completions, x => x.CompletionText == "auto");
+    }
+
     [SkippableFact]
     public void Winget_MultipleParameters()
     {

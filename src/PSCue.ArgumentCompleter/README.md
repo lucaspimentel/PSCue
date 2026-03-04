@@ -8,7 +8,7 @@ NativeAOT-compiled executable (`pscue-completer.exe`) that provides fast Tab com
 
 - **Fast Startup**: <10ms cold start via NativeAOT compilation
 - **Local Completion**: All completions computed locally, including dynamic arguments (git branches, scoop packages)
-- **Smart Suggestions**: Context-aware completion for git, gh, az, scoop, winget, wt, chezmoi, and more
+- **Smart Suggestions**: Context-aware completion for git, gh, az, scoop, winget, wt, chezmoi, rg, and more
 - **Directory Navigation**: Enhanced `cd`/`Set-Location` completions with learned directory suggestions
 
 ## Build Configuration

@@ -76,6 +76,7 @@ $SupportedCommands = @(
     'lsd'
     'dust'
     'chafa'
+    'rg'
     'wt'
 )
 
