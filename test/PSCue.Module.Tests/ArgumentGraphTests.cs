@@ -606,7 +606,6 @@ public class ArgumentGraphTests
         Assert.Equal("subdir", storedPath); // Not normalized
     }
 
-    #region Argument Sequence Tests (Multi-Word Suggestions)
 
     [Fact]
     public void RecordUsage_TracksArgumentSequences()
@@ -813,5 +812,58 @@ public class ArgumentGraphTests
         Assert.True(knowledge.ArgumentSequences.Count <= 50);
     }
 
-    #endregion
+    [Fact]
+    public void RecordUsage_UpdatesArgumentCasing_WhenCaseChanges()
+    {
+        var graph = new ArgumentGraph();
+        graph.RecordUsage("git", new[] { "MyBranch" });
+
+        graph.RecordUsage("git", new[] { "mybranch" });
+
+        var knowledge = graph.GetCommandKnowledge("git");
+        Assert.NotNull(knowledge);
+        var arg = knowledge.Arguments["mybranch"];
+        Assert.Equal("mybranch", arg.Argument);
+        Assert.Equal(2, arg.UsageCount);
+    }
+
+    [Fact]
+    public void RecordUsage_PreservesCasing_WhenCaseIsSame()
+    {
+        var graph = new ArgumentGraph();
+        graph.RecordUsage("git", new[] { "main" });
+        graph.RecordUsage("git", new[] { "main" });
+
+        var knowledge = graph.GetCommandKnowledge("git");
+        Assert.NotNull(knowledge);
+        var arg = knowledge.Arguments["main"];
+        Assert.Equal("main", arg.Argument);
+        Assert.Equal(2, arg.UsageCount);
+    }
+
+    [Theory]
+    [InlineData("cd")]
+    [InlineData("nonexistent")]
+    public void RemoveArgument_ReturnsFalse_WhenNotFound(string command)
+    {
+        var graph = new ArgumentGraph();
+        graph.RecordUsage("cd", new[] { "somepath" });
+
+        Assert.False(graph.RemoveArgument(command, "otherpath"));
+    }
+
+    [Fact]
+    public void RemoveArgument_RemovesFromKnowledgeAndBaseline()
+    {
+        var graph = new ArgumentGraph();
+        graph.RecordUsage("cd", new[] { "somepath" });
+        graph.UpdateBaseline();
+
+        bool removed = graph.RemoveArgument("cd", "somepath");
+
+        Assert.True(removed);
+        var knowledge = graph.GetCommandKnowledge("cd");
+        Assert.NotNull(knowledge);
+        Assert.Empty(knowledge.Arguments);
+    }
 }

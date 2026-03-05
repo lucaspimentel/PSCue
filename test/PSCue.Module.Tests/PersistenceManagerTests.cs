@@ -365,6 +365,28 @@ public class PersistenceManagerTests : IDisposable
     }
 
     [Fact]
+    public void SaveArgumentGraph_UpdatesArgumentCasing_OnConflict()
+    {
+        // Arrange - save with original casing
+        var graph1 = new ArgumentGraph();
+        graph1.RecordUsage("git", new[] { "MyBranch" });
+        _persistence.SaveArgumentGraph(graph1);
+
+        // Act - save with different casing
+        var graph2 = new ArgumentGraph();
+        graph2.RecordUsage("git", new[] { "mybranch" });
+        _persistence.SaveArgumentGraph(graph2);
+
+        // Assert - loaded argument text should have updated casing
+        var loaded = _persistence.LoadArgumentGraph();
+        var knowledge = loaded.GetCommandKnowledge("git");
+        Assert.NotNull(knowledge);
+        var arg = knowledge.Arguments["mybranch"];
+        Assert.Equal("mybranch", arg.Argument);
+        Assert.Equal(2, arg.UsageCount);
+    }
+
+    [Fact]
     public void PruneStaleDirectoryEntries_ReturnsZeroWhenNothingToPrune()
     {
         // Arrange - save with only existing paths

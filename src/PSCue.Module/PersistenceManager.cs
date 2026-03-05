@@ -282,6 +282,7 @@ public class PersistenceManager : IDisposable
                             INSERT INTO arguments (command, argument, usage_count, first_seen, last_used, is_flag)
                             VALUES (@command, @argument, @usage, @firstSeen, @lastUsed, @isFlag)
                             ON CONFLICT (command, argument) DO UPDATE SET
+                                argument = @argument,
                                 usage_count = usage_count + @usage,
                                 first_seen = MIN(first_seen, @firstSeen),
                                 last_used = MAX(last_used, @lastUsed)

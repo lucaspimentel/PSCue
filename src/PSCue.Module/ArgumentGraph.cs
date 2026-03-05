@@ -313,6 +313,13 @@ public class ArgumentGraph
                 IsFlag = a.StartsWith("-")
             });
 
+            // Update casing if it changed (e.g., directory renamed from "Foo" to "foo")
+            if (!string.Equals(stats.Argument, arg, StringComparison.Ordinal) &&
+                string.Equals(stats.Argument, arg, StringComparison.OrdinalIgnoreCase))
+            {
+                stats.Argument = arg;
+            }
+
             stats.UsageCount++;
             stats.LastUsed = now;
 
@@ -520,7 +527,7 @@ public class ArgumentGraph
 
             // Resolve symlinks to real paths for deduplication
             // Always try to resolve, even if the path itself isn't a symlink (parent directories might be)
-            var realPath = ResolveSymlinkFullPath(fullPath);
+            var realPath = ResolveCanonicalPath(fullPath);
 
             // Ensure trailing separator for consistency (prevents duplicates like "C:\Users" vs "C:\Users\")
             // This is critical for deduplication across the learning system
@@ -539,11 +546,12 @@ public class ArgumentGraph
     }
 
     /// <summary>
-    /// Resolves symlinks, junctions, and directory links to their real target paths.
+    /// Resolves symlinks, junctions, and directory links to their real target paths,
+    /// and corrects filesystem casing for each path component.
     /// Handles both the directory itself and any symlinked parent directories in the path.
-    /// Returns the fully resolved path, or the original path if no symlinks are involved.
+    /// Returns the fully resolved path with correct casing, or the original path if resolution fails.
     /// </summary>
-    private static string ResolveSymlinkFullPath(string path)
+    private static string ResolveCanonicalPath(string path)
     {
         try
         {
@@ -553,15 +561,14 @@ public class ArgumentGraph
             // Use Path.GetFullPath to get the absolute path first
             var realPath = Path.GetFullPath(path);
 
-            // Walk from the root down, resolving symlinks as we go
-            // This ensures we resolve symlinks in parent directories
+            // Walk from the root down, resolving symlinks and correcting casing as we go
             var parts = realPath.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
             var currentPath = string.Empty;
 
             // Handle drive letter on Windows (e.g., "C:")
             if (parts.Length > 0 && parts[0].EndsWith(":"))
             {
-                currentPath = parts[0] + Path.DirectorySeparatorChar;
+                currentPath = parts[0].ToUpperInvariant() + Path.DirectorySeparatorChar;
                 parts = parts.Skip(1).ToArray();
             }
             else if (realPath.StartsWith(Path.DirectorySeparatorChar.ToString()))
@@ -596,6 +603,21 @@ public class ArgumentGraph
 
                             // Replace current path with resolved target
                             currentPath = target;
+                        }
+                    }
+                    else
+                    {
+                        // Not a symlink - resolve actual filesystem casing
+                        // On Windows, directory names are case-insensitive but case-preserving,
+                        // so we need to get the real casing from the filesystem
+                        var parentDir = dirInfo2.Parent;
+                        if (parentDir != null)
+                        {
+                            var actualDir = parentDir.GetDirectories(dirInfo2.Name).FirstOrDefault();
+                            if (actualDir != null)
+                            {
+                                currentPath = actualDir.FullName;
+                            }
                         }
                     }
                 }
