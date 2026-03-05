@@ -996,13 +996,13 @@ public class ArgumentGraph
         }
 
         // Prune sequences if over limit (keep top 50 by usage count and recency)
-        const int maxSequences = 50;
-        if (knowledge.ArgumentSequences.Count > maxSequences)
+        const int MaxSequences = 50;
+        if (knowledge.ArgumentSequences.Count > MaxSequences)
         {
             var toRemoveSeq = knowledge.ArgumentSequences.Values
                 .OrderBy(s => s.LastUsed)
                 .ThenBy(s => s.UsageCount)
-                .Take(knowledge.ArgumentSequences.Count - maxSequences)
+                .Take(knowledge.ArgumentSequences.Count - MaxSequences)
                 .Select(s => $"{s.FirstArgument}|{s.SecondArgument}")
                 .ToList();
 
