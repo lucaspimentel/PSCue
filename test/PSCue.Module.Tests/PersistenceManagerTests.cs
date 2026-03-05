@@ -292,4 +292,92 @@ public class PersistenceManagerTests : IDisposable
         Assert.NotNull(dockerKnowledge);
         Assert.Equal(1, dockerKnowledge.TotalUsageCount);
     }
+
+    [Fact]
+    public void PruneStaleDirectoryEntries_RemovesNonExistentPaths()
+    {
+        // Arrange - save a graph with a real and a fake directory path
+        var graph = new ArgumentGraph();
+        var realPath = Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        var fakePath = @"C:\this\path\does\not\exist\";
+
+        graph.RecordUsage("cd", new[] { realPath });
+        graph.RecordUsage("cd", new[] { fakePath });
+
+        _persistence.SaveArgumentGraph(graph);
+
+        // Act
+        int pruned = _persistence.PruneStaleDirectoryEntries(graph);
+
+        // Assert - fake path should be pruned
+        Assert.Equal(1, pruned);
+
+        // Verify via reload
+        var loaded = _persistence.LoadArgumentGraph();
+        var cdKnowledge = loaded.GetCommandKnowledge("cd");
+        Assert.NotNull(cdKnowledge);
+        Assert.Contains(cdKnowledge.Arguments.Keys, k => k.Equals(realPath, StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(cdKnowledge.Arguments.Keys, k => k.Equals(fakePath, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void PruneStaleDirectoryEntries_RemovesFromInMemoryGraph()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        var fakePath = @"C:\nonexistent\directory\for\test\";
+
+        graph.RecordUsage("cd", new[] { fakePath });
+        _persistence.SaveArgumentGraph(graph);
+
+        // Verify it's in memory before pruning
+        var cdKnowledge = graph.GetCommandKnowledge("cd");
+        Assert.NotNull(cdKnowledge);
+        Assert.Contains(cdKnowledge.Arguments.Keys, k => k.Equals(fakePath, StringComparison.OrdinalIgnoreCase));
+
+        // Act
+        _persistence.PruneStaleDirectoryEntries(graph);
+
+        // Assert - should be removed from in-memory graph too
+        cdKnowledge = graph.GetCommandKnowledge("cd");
+        Assert.NotNull(cdKnowledge);
+        Assert.DoesNotContain(cdKnowledge.Arguments.Keys, k => k.Equals(fakePath, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    public void PruneStaleDirectoryEntries_OnlyAffectsNavigationCommands()
+    {
+        // Arrange - save both a navigation command and a regular command with non-existent args
+        var graph = new ArgumentGraph();
+        graph.RecordUsage("cd", new[] { @"C:\nonexistent\path\" });
+        graph.RecordUsage("git", new[] { "nonexistent-branch" });
+
+        _persistence.SaveArgumentGraph(graph);
+
+        // Act
+        _persistence.PruneStaleDirectoryEntries(graph);
+
+        // Assert - git argument should not be affected
+        var loaded = _persistence.LoadArgumentGraph();
+        var gitKnowledge = loaded.GetCommandKnowledge("git");
+        Assert.NotNull(gitKnowledge);
+        Assert.Contains(gitKnowledge.Arguments.Keys, k => k == "nonexistent-branch");
+    }
+
+    [Fact]
+    public void PruneStaleDirectoryEntries_ReturnsZeroWhenNothingToPrune()
+    {
+        // Arrange - save with only existing paths
+        var graph = new ArgumentGraph();
+        var realPath = Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
+        graph.RecordUsage("cd", new[] { realPath });
+
+        _persistence.SaveArgumentGraph(graph);
+
+        // Act
+        int pruned = _persistence.PruneStaleDirectoryEntries(graph);
+
+        // Assert
+        Assert.Equal(0, pruned);
+    }
 }

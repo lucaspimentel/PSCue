@@ -176,6 +176,9 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                 PSCueModule.Persistence.SaveArgumentGraph(PSCueModule.KnowledgeGraph);
                 PSCueModule.Persistence.SaveCommandHistory(PSCueModule.CommandHistory);
 
+                // Prune stale directory entries after save
+                PSCueModule.Persistence.PruneStaleDirectoryEntries(PSCueModule.KnowledgeGraph);
+
                 // Save ML sequence data if enabled
                 if (PSCueModule.SequencePredictor != null)
                 {
@@ -218,6 +221,9 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
             {
                 PSCueModule.Persistence.SaveArgumentGraph(PSCueModule.KnowledgeGraph);
                 PSCueModule.Persistence.SaveCommandHistory(PSCueModule.CommandHistory);
+
+                // Prune stale directory entries after save
+                PSCueModule.Persistence.PruneStaleDirectoryEntries(PSCueModule.KnowledgeGraph);
 
                 // Save ML sequence data if enabled
                 if (PSCueModule.SequencePredictor != null)

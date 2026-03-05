@@ -1073,6 +1073,73 @@ public class PersistenceManager : IDisposable
     }
 
     /// <summary>
+    /// Removes learned directory entries that no longer exist on the filesystem.
+    /// Only affects navigation commands (cd, Set-Location, sl, chdir).
+    /// </summary>
+    /// <returns>The number of stale entries removed.</returns>
+    public int PruneStaleDirectoryEntries(ArgumentGraph? graph = null)
+    {
+        using var connection = CreateConnection();
+
+        // Query all arguments for navigation commands
+        var stalePaths = new List<(string Command, string Argument)>();
+
+        using (var cmd = connection.CreateCommand())
+        {
+            cmd.CommandText = @"
+                SELECT command, argument FROM arguments
+                WHERE command IN ('cd', 'Set-Location', 'sl', 'chdir')
+            ";
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                var command = reader.GetString(0);
+                var argument = reader.GetString(1);
+
+                if (!Directory.Exists(argument))
+                {
+                    stalePaths.Add((command, argument));
+                }
+            }
+        }
+
+        if (stalePaths.Count == 0)
+            return 0;
+
+        // Delete stale entries from database
+        using var transaction = connection.BeginTransaction(IsolationLevel.Serializable);
+
+        try
+        {
+            using var deleteCmd = connection.CreateCommand();
+            deleteCmd.Transaction = transaction;
+            deleteCmd.CommandText = "DELETE FROM arguments WHERE command = @command AND argument = @argument";
+            var commandParam = deleteCmd.Parameters.Add("@command", SqliteType.Text);
+            var argumentParam = deleteCmd.Parameters.Add("@argument", SqliteType.Text);
+
+            foreach (var (command, argument) in stalePaths)
+            {
+                commandParam.Value = command;
+                argumentParam.Value = argument;
+                deleteCmd.ExecuteNonQuery();
+
+                // Also remove from in-memory graph and baseline
+                graph?.RemoveArgument(command, argument);
+            }
+
+            transaction.Commit();
+        }
+        catch
+        {
+            transaction.Rollback();
+            throw;
+        }
+
+        return stalePaths.Count;
+    }
+
+    /// <summary>
     /// Gets the path to the database file.
     /// </summary>
     public string DatabasePath => _dbPath;

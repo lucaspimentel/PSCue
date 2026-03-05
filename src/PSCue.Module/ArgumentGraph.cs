@@ -931,6 +931,29 @@ public class ArgumentGraph
     }
 
     /// <summary>
+    /// Removes an argument from a command's knowledge and baseline.
+    /// Used for pruning stale entries (e.g., directories that no longer exist).
+    /// </summary>
+    /// <returns>True if the argument was removed, false if not found.</returns>
+    internal bool RemoveArgument(string command, string argument)
+    {
+        if (!_commands.TryGetValue(command, out var knowledge))
+            return false;
+
+        if (!knowledge.Arguments.TryRemove(argument, out _))
+            return false;
+
+        // Also remove from baseline to keep delta tracking consistent
+        if (_baseline.TryGetValue(command, out var baseline))
+        {
+            baseline.ArgCounts.TryRemove(argument, out _);
+            baseline.CoOccurrences.TryRemove(argument, out _);
+        }
+
+        return true;
+    }
+
+    /// <summary>
     /// Removes least recently used arguments and sequences if over limit.
     /// </summary>
     private void EnforceLimits(CommandKnowledge knowledge)
