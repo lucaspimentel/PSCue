@@ -2,7 +2,9 @@
 
 [![CI](https://github.com/lucaspimentel/PSCue/actions/workflows/ci.yml/badge.svg)](https://github.com/lucaspimentel/PSCue/actions/workflows/ci.yml)
 
-**PSCue** is a unified PowerShell module that provides intelligent command-line completion and prediction for PowerShell Core (7.2+). It combines fast Tab completion with inline command suggestions to enhance your PowerShell experience.
+A PowerShell module that provides intelligent command-line completion and prediction.
+
+Pre-built binaries support Windows and Linux. macOS is supported when built from source.
 
 ## Features
 
