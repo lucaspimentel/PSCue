@@ -1,6 +1,6 @@
 # PSCue
 
-[![CI](https://github.com/lucaspimentel/PSCue/actions/workflows/ci.yml/badge.svg)](https://github.com/lucaspimentel/PSCue/actions/workflows/ci.yml)
+[![CI](https://github.com/lucaspimentel/PSCue/actions/workflows/ci.yml/badge.svg)](https://github.com/lucaspimentel/PSCue/actions/workflows/ci.yml) [![Release](https://github.com/lucaspimentel/PSCue/actions/workflows/release.yml/badge.svg)](https://github.com/lucaspimentel/PSCue/actions/workflows/release.yml)
 
 A PowerShell module that provides intelligent command-line completion and prediction.
 
