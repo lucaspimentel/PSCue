@@ -85,6 +85,13 @@ PSCue provides detailed completions for these commands:
 
 ## Installation
 
+### Scoop (Windows)
+
+```powershell
+scoop bucket add lucaspimentel https://github.com/lucaspimentel/scoop-bucket
+scoop install pscue
+```
+
 ### From GitHub Releases (Recommended)
 
 One-line installation from the latest release:
