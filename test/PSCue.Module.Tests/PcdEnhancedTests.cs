@@ -178,8 +178,9 @@ public class PcdEnhancedTests : IDisposable
     [Fact]
     public void GetSuggestions_FuzzyMatch_Substring_ReturnsMatch()
     {
-        // Arrange - Record directory with "datadog" in path
-        _graph.RecordUsage("cd", new[] { "D:\\source\\datadog\\dd-trace-dotnet" }, null);
+        // Arrange - Create directory and record it
+        Directory.CreateDirectory(_testDdTraceDir);
+        _graph.RecordUsage("cd", new[] { _testDdTraceDir }, null);
         var engine = new PcdCompletionEngine(_graph);
 
         // Act - Search for substring
@@ -194,8 +195,9 @@ public class PcdEnhancedTests : IDisposable
     [Fact]
     public void GetSuggestions_FuzzyMatch_SubstringMatching_Works()
     {
-        // Arrange - Record full path with "datadog" in it
-        _graph.RecordUsage("cd", new[] { "D:\\source\\datadog\\dd-trace-dotnet" }, null);
+        // Arrange - Create directory and record it
+        Directory.CreateDirectory(_testDdTraceDir);
+        _graph.RecordUsage("cd", new[] { _testDdTraceDir }, null);
         var engine = new PcdCompletionEngine(_graph);
 
         // Act - Search for substring that appears in the path
@@ -220,33 +222,42 @@ public class PcdEnhancedTests : IDisposable
     [Fact]
     public void GetSuggestions_FuzzyMatch_CaseInsensitive()
     {
-        // Arrange
-        _graph.RecordUsage("cd", new[] { "D:\\source\\DataDog" }, null);
+        // Arrange - Create directory with mixed case
+        var mixedCaseDir = Path.Combine(_testSourceDir, "DataDog");
+        Directory.CreateDirectory(mixedCaseDir);
+        _tempDirectories.Add(mixedCaseDir);
+        _graph.RecordUsage("cd", new[] { mixedCaseDir }, null);
         var engine = new PcdCompletionEngine(_graph);
 
         // Act - Search with different case
         var suggestions = engine.GetSuggestions("datadog", _testCurrentDir, 20);
 
         // Assert
-        var match = suggestions.FirstOrDefault(s => s.Path.Contains("DataDog"));
+        var match = suggestions.FirstOrDefault(s => s.Path.Contains("DataDog", StringComparison.Ordinal));
         Assert.NotNull(match);
     }
 
     [Fact]
     public void GetSuggestions_ExactMatch_HigherScoreThanFuzzy()
     {
-        // Arrange
-        _graph.RecordUsage("cd", new[] { "D:\\source\\datadog" }, null);
-        _graph.RecordUsage("cd", new[] { "D:\\source\\datadog-backup" }, null);
+        // Arrange - Create directories
+        Directory.CreateDirectory(_testDatadogDir);
+        Directory.CreateDirectory(_testDatadogBackupDir);
+        _graph.RecordUsage("cd", new[] { _testDatadogDir }, null);
+        _graph.RecordUsage("cd", new[] { _testDatadogBackupDir }, null);
         var engine = new PcdCompletionEngine(_graph);
 
         // Act - Search for exact path
-        var suggestions = engine.GetSuggestions("D:\\source\\datadog", _testCurrentDir, 20);
+        var suggestions = engine.GetSuggestions(_testDatadogDir, _testCurrentDir, 20);
 
         // Assert - Exact match should rank higher than partial
         Assert.NotEmpty(suggestions);
-        var exactMatch = suggestions.FirstOrDefault(s => s.Path == "D:\\source\\datadog");
-        var fuzzyMatch = suggestions.FirstOrDefault(s => s.Path == "D:\\source\\datadog-backup");
+        var exactMatch = suggestions.FirstOrDefault(s =>
+            s.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Equals(_testDatadogDir, StringComparison.OrdinalIgnoreCase));
+        var fuzzyMatch = suggestions.FirstOrDefault(s =>
+            s.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Equals(_testDatadogBackupDir, StringComparison.OrdinalIgnoreCase));
 
         if (exactMatch != null && fuzzyMatch != null)
         {
@@ -531,9 +542,11 @@ public class PcdEnhancedTests : IDisposable
     [Fact]
     public void GetSuggestions_BestMatch_FindsClosestMatch()
     {
-        // Arrange
-        _graph.RecordUsage("cd", new[] { "D:\\source\\datadog" }, null);
-        _graph.RecordUsage("cd", new[] { "D:\\source\\datadog-backup" }, null);
+        // Arrange - Create directories
+        Directory.CreateDirectory(_testDatadogDir);
+        Directory.CreateDirectory(_testDatadogBackupDir);
+        _graph.RecordUsage("cd", new[] { _testDatadogDir }, null);
+        _graph.RecordUsage("cd", new[] { _testDatadogBackupDir }, null);
         var engine = new PcdCompletionEngine(_graph);
 
         // Act - Search for partial match
@@ -1159,11 +1172,17 @@ public class PcdEnhancedTests : IDisposable
     [Fact]
     public void GetSuggestions_ExactMatch_AppearsFirst()
     {
-        // Arrange - Learn multiple directories with similar names
-        var baseDir = "D:\\source\\datadog\\dd-trace-dotnet";
-        var worktreeDir1 = baseDir + "-APMSVLS-58";
-        var worktreeDir2 = baseDir + "-aws-lambda-layer";
-        var worktreeDir3 = baseDir + "-pr-reviews";
+        // Arrange - Create directory hierarchy with similar names
+        Directory.CreateDirectory(_testDdTraceDir);
+        var worktreeDir1 = _testDdTraceDir + "-APMSVLS-58";
+        var worktreeDir2 = _testDdTraceDir + "-aws-lambda-layer";
+        var worktreeDir3 = _testDdTraceDir + "-pr-reviews";
+        Directory.CreateDirectory(worktreeDir1);
+        Directory.CreateDirectory(worktreeDir2);
+        Directory.CreateDirectory(worktreeDir3);
+        _tempDirectories.Add(worktreeDir1);
+        _tempDirectories.Add(worktreeDir2);
+        _tempDirectories.Add(worktreeDir3);
 
         // Record usage with higher frequency for non-exact matches to test scoring
         _graph.RecordUsage("cd", new[] { worktreeDir1 }, null);
@@ -1171,18 +1190,19 @@ public class PcdEnhancedTests : IDisposable
         _graph.RecordUsage("cd", new[] { worktreeDir1 }, null);
         _graph.RecordUsage("cd", new[] { worktreeDir2 }, null);
         _graph.RecordUsage("cd", new[] { worktreeDir2 }, null);
-        _graph.RecordUsage("cd", new[] { baseDir }, null); // Exact match, less frequent
+        _graph.RecordUsage("cd", new[] { _testDdTraceDir }, null); // Exact match, less frequent
         _graph.RecordUsage("cd", new[] { worktreeDir3 }, null);
 
         var engine = new PcdCompletionEngine(_graph);
 
         // Act - Type exact path
-        var suggestions = engine.GetSuggestions(baseDir, "D:\\source\\lucaspimentel\\PSCue", 20);
+        Directory.CreateDirectory(_testCurrentDir);
+        var suggestions = engine.GetSuggestions(_testDdTraceDir, _testCurrentDir, 20);
 
         // Assert - Exact match should be first, even though others have higher frequency
         Assert.NotEmpty(suggestions);
         var firstSuggestion = suggestions.First();
-        Assert.Equal(baseDir,
+        Assert.Equal(_testDdTraceDir,
             firstSuggestion.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
             ignoreCase: true);
     }
