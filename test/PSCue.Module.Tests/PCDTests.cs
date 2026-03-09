@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Management.Automation;
-using System.Management.Automation.Language;
 using PSCue.Module;
 using Xunit;
 
@@ -12,25 +11,13 @@ namespace PSCue.Module.Tests;
 /// Tests for PCD (PowerShell Change Directory) smart navigation functionality.
 /// Tests both the Invoke-PCD function behavior and tab completion integration.
 /// </summary>
-public class PCDTests : IDisposable
+public class PCDTests
 {
     private readonly ArgumentGraph _graph;
-    private readonly CommandPredictor _predictor;
 
     public PCDTests()
     {
-        // Create fresh instances for each test
         _graph = new ArgumentGraph();
-        _predictor = new CommandPredictor();
-
-        // Set up static module state for tab completion testing
-        PSCueModule.KnowledgeGraph = _graph;
-    }
-
-    public void Dispose()
-    {
-        // Clean up static state
-        PSCueModule.KnowledgeGraph = null;
     }
 
     #region ArgumentGraph Integration Tests
@@ -220,18 +207,13 @@ public class PCDTests : IDisposable
     [Fact]
     public void TabCompletion_UninitializedModule_HandlesGracefully()
     {
-        // Arrange - Simulate uninitialized module
-        PSCueModule.KnowledgeGraph = null;
-
-        // Act - Tab completion should check for null and return empty
-        var suggestions = PSCueModule.KnowledgeGraph?.GetSuggestions("cd", Array.Empty<string>())
+        // Act - Simulate null-conditional pattern used in tab completion
+        ArgumentGraph? nullGraph = null;
+        var suggestions = nullGraph?.GetSuggestions("cd", Array.Empty<string>())
             ?? new List<ArgumentStats>();
 
         // Assert
         Assert.Empty(suggestions);
-
-        // Restore for cleanup
-        PSCueModule.KnowledgeGraph = _graph;
     }
 
     #endregion

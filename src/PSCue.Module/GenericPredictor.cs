@@ -45,16 +45,18 @@ public class GenericPredictor
     private readonly ArgumentGraph _argumentGraph;
     private readonly ContextAnalyzer _contextAnalyzer;
     private readonly SequencePredictor? _sequencePredictor;
+    private readonly CommandParser? _commandParser;
 
     /// <summary>
     /// Creates a new GenericPredictor.
     /// </summary>
-    public GenericPredictor(CommandHistory history, ArgumentGraph argumentGraph, ContextAnalyzer contextAnalyzer, SequencePredictor? sequencePredictor = null)
+    public GenericPredictor(CommandHistory history, ArgumentGraph argumentGraph, ContextAnalyzer contextAnalyzer, SequencePredictor? sequencePredictor = null, CommandParser? commandParser = null)
     {
         _history = history ?? throw new ArgumentNullException(nameof(history));
         _argumentGraph = argumentGraph ?? throw new ArgumentNullException(nameof(argumentGraph));
         _contextAnalyzer = contextAnalyzer ?? throw new ArgumentNullException(nameof(contextAnalyzer));
         _sequencePredictor = sequencePredictor; // Optional - null if ML disabled
+        _commandParser = commandParser; // Optional - falls back to PSCueModule.CommandParser
     }
 
     /// <summary>
@@ -69,7 +71,7 @@ public class GenericPredictor
             return new List<PredictionSuggestion>();
 
         // Parse command to understand parameter-value context
-        var parser = PSCueModule.CommandParser;
+        var parser = _commandParser ?? PSCueModule.CommandParser;
         if (parser != null)
         {
             var parsed = parser.Parse(commandLine);
@@ -422,7 +424,7 @@ public class GenericPredictor
     private void AddMultiWordSuggestions(string command, List<PredictionSuggestion> suggestions, string wordToComplete, int maxResults)
     {
         // Minimum usage count to consider a sequence for multi-word suggestion
-        const int minUsageThreshold = 3;
+        const int MinUsageThreshold = 3;
 
         // Only generate multi-word suggestions for the top single-word suggestions
         var topSuggestions = suggestions
@@ -439,7 +441,7 @@ public class GenericPredictor
             foreach (var seq in sequences)
             {
                 // Only suggest sequences that are used frequently enough
-                if (seq.UsageCount < minUsageThreshold)
+                if (seq.UsageCount < MinUsageThreshold)
                     continue;
 
                 // Build the multi-word suggestion

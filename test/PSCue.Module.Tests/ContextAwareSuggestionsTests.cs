@@ -14,15 +14,12 @@ public class ContextAwareSuggestionsTests
         var analyzer = new ContextAnalyzer();
         parser.RegisterParameterRequiringValue("-f");
 
-        // Set up CommandParser in PSCueModule for GenericPredictor to use
-        PSCueModule.CommandParser = parser;
-
         // Record some usage
         graph.RecordParsedUsage(parser.Parse("dotnet build -f net6.0"));
         graph.RecordParsedUsage(parser.Parse("dotnet build -f net7.0"));
         graph.RecordParsedUsage(parser.Parse("dotnet build -f net8.0"));
 
-        var predictor = new GenericPredictor(history, graph, analyzer);
+        var predictor = new GenericPredictor(history, graph, analyzer, commandParser: parser);
 
         // Get suggestions after typing "dotnet build -f "
         var suggestions = predictor.GetSuggestions("dotnet build -f ");
@@ -43,13 +40,11 @@ public class ContextAwareSuggestionsTests
         var analyzer = new ContextAnalyzer();
         parser.RegisterParameterRequiringValue("-f");
 
-        PSCueModule.CommandParser = parser;
-
         // Record parameter values and some flags
         graph.RecordParsedUsage(parser.Parse("dotnet build -f net6.0"));
         graph.RecordParsedUsage(parser.Parse("dotnet build --verbose"));
 
-        var predictor = new GenericPredictor(history, graph, analyzer);
+        var predictor = new GenericPredictor(history, graph, analyzer, commandParser: parser);
 
         var suggestions = predictor.GetSuggestions("dotnet build -f ");
 
@@ -66,12 +61,10 @@ public class ContextAwareSuggestionsTests
         var parser = new CommandParser();
         var analyzer = new ContextAnalyzer();
 
-        PSCueModule.CommandParser = parser;
-
         // Record some usage
         graph.RecordUsage("dotnet", new[] { "build", "--verbose" }, null);
 
-        var predictor = new GenericPredictor(history, graph, analyzer);
+        var predictor = new GenericPredictor(history, graph, analyzer, commandParser: parser);
 
         var suggestions = predictor.GetSuggestions("dotnet build ");
 
@@ -88,12 +81,10 @@ public class ContextAwareSuggestionsTests
         var parser = new CommandParser();
         var analyzer = new ContextAnalyzer();
 
-        PSCueModule.CommandParser = parser;
-
         // Record some usage
         graph.RecordUsage("dotnet", new[] { "build" }, null);
 
-        var predictor = new GenericPredictor(history, graph, analyzer);
+        var predictor = new GenericPredictor(history, graph, analyzer, commandParser: parser);
 
         // Unknown parameter -x, should fall back to legacy behavior
         var suggestions = predictor.GetSuggestions("dotnet build -x ");
@@ -111,11 +102,9 @@ public class ContextAwareSuggestionsTests
         var analyzer = new ContextAnalyzer();
         parser.RegisterParameterRequiringValue("-f");
 
-        PSCueModule.CommandParser = parser;
-
         // Don't record any usage for -f
 
-        var predictor = new GenericPredictor(history, graph, analyzer);
+        var predictor = new GenericPredictor(history, graph, analyzer, commandParser: parser);
 
         var suggestions = predictor.GetSuggestions("dotnet build -f ");
 
@@ -132,12 +121,10 @@ public class ContextAwareSuggestionsTests
         var analyzer = new ContextAnalyzer();
         parser.RegisterParameterRequiringValue("-m");
 
-        PSCueModule.CommandParser = parser;
-
         // Record with -m
         graph.RecordParsedUsage(parser.Parse("git commit -m \"test message\""));
 
-        var predictor = new GenericPredictor(history, graph, analyzer);
+        var predictor = new GenericPredictor(history, graph, analyzer, commandParser: parser);
 
         // Should suggest learned value
         var suggestions = predictor.GetSuggestions("git commit -m ");

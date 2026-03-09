@@ -15,9 +15,13 @@ namespace PSCue.Module;
 /// </summary>
 public class FeedbackProvider : IFeedbackProvider
 {
-    // Note: Don't store instances - get them dynamically from PSCueModule
-    // This ensures we always use the current instances even after module reload
     private readonly HashSet<string> _ignorePatterns;
+    private readonly CommandHistory? _commandHistory;
+    private readonly ArgumentGraph? _knowledgeGraph;
+    private readonly SequencePredictor? _sequencePredictor;
+    private readonly WorkflowLearner? _workflowLearner;
+    private readonly CommandParser? _commandParser;
+    private readonly bool _useDependencyInjection;
 
     /// <summary>
     /// Gets the unique identifier for this feedback provider.
@@ -42,10 +46,27 @@ public class FeedbackProvider : IFeedbackProvider
 
     /// <summary>
     /// Initializes a new instance of the FeedbackProvider class.
+    /// Production constructor - reads dependencies from PSCueModule statics.
     /// </summary>
     public FeedbackProvider()
     {
         _ignorePatterns = LoadIgnorePatterns();
+    }
+
+    /// <summary>
+    /// Test constructor with dependency injection to avoid relying on PSCueModule statics.
+    /// </summary>
+    internal FeedbackProvider(CommandHistory? commandHistory, ArgumentGraph? knowledgeGraph,
+        SequencePredictor? sequencePredictor = null, WorkflowLearner? workflowLearner = null,
+        CommandParser? commandParser = null)
+    {
+        _ignorePatterns = LoadIgnorePatterns();
+        _commandHistory = commandHistory;
+        _knowledgeGraph = knowledgeGraph;
+        _sequencePredictor = sequencePredictor;
+        _workflowLearner = workflowLearner;
+        _commandParser = commandParser;
+        _useDependencyInjection = true;
     }
 
     /// <summary>
@@ -385,12 +406,12 @@ public class FeedbackProvider : IFeedbackProvider
             // Extract arguments (everything after the command)
             var arguments = commandElements.Skip(1).ToArray();
 
-            // Get current instances dynamically from PSCueModule
-            var commandHistory = PSCueModule.CommandHistory;
-            var argumentGraph = PSCueModule.KnowledgeGraph;
-            var sequencePredictor = PSCueModule.SequencePredictor;
-            var workflowLearner = PSCueModule.WorkflowLearner;
-            var commandParser = PSCueModule.CommandParser;
+            // Use injected dependencies if available, otherwise fall back to PSCueModule statics
+            var commandHistory = _useDependencyInjection ? _commandHistory : PSCueModule.CommandHistory;
+            var argumentGraph = _useDependencyInjection ? _knowledgeGraph : PSCueModule.KnowledgeGraph;
+            var sequencePredictor = _useDependencyInjection ? _sequencePredictor : PSCueModule.SequencePredictor;
+            var workflowLearner = _useDependencyInjection ? _workflowLearner : PSCueModule.WorkflowLearner;
+            var commandParser = _useDependencyInjection ? _commandParser : PSCueModule.CommandParser;
 
             // Get previous command for workflow learning
             CommandHistoryEntry? previousCommand = null;
