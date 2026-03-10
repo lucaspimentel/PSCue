@@ -17,7 +17,7 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 - **PowerShell Module Functions**: Learning, database, workflow management, and smart navigation
 - **Smart Directory Navigation**: `pcd` command with inline predictions, relative paths, fuzzy matching, frecency scoring, and best-match navigation
 
-**Supported Commands**: git, gh, gt (Graphite), az, azd, func, code, scoop, winget, wt (Windows Terminal), chezmoi, tre, lsd, dust, chafa, rg (ripgrep), claude, cd/Set-Location
+**Supported Commands**: git, gh, gt (Graphite), az, azd, func, code, scoop, winget, wt (Windows Terminal), chezmoi, tre, lsd, dust, chafa, rg (ripgrep), fd (fd-find), claude, cd/Set-Location
 
 For completed work history, see docs/COMPLETED.md.
 
@@ -239,7 +239,7 @@ Get-PSCueModuleInfo [-AsJson]                      # Module diagnostics
 - PCD best-match navigation: <50ms
 
 ## Supported Commands
-git, gh, gt, az, azd, func, code, scoop, winget, wt, chezmoi, tre, lsd, dust, chafa, rg, claude, cd (Set-Location/sl/chdir)
+git, gh, gt, az, azd, func, code, scoop, winget, wt, chezmoi, tre, lsd, dust, chafa, rg, fd, claude, cd (Set-Location/sl/chdir)
 
 **Git Completion Features**:
 - Hardcoded subcommands with detailed tooltips (add, commit, branch, etc.)

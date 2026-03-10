@@ -62,7 +62,7 @@ PSCue provides detailed completions for these commands:
 - **Tree alternatives**: `tre`, `lsd` - directory navigation
 - **Disk usage**: `dust` - directory analysis
 - **Character art**: `chafa` - terminal graphics/character art generator
-- **Search**: `rg` (ripgrep) - recursive regex search
+- **Search**: `rg` (ripgrep) - recursive regex search, `fd` (fd-find) - fast file finder
 - **Claude**: `claude` - Claude Code CLI commands
 - **Navigation**: `cd`, `Set-Location`, `sl`, `chdir` - directory completion with smart caching
 
