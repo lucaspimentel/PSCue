@@ -659,7 +659,7 @@ $env:PSCUE_METRICS_ENABLED = "true"  # Default: true
 **Status**: Backlog
 
 - [ ] Copy AI model scripts to `ai/` directory
-- [ ] Create Scoop manifest
+- [x] Create Scoop manifest (via lucaspimentel/scoop-bucket)
 - [ ] Publish to PowerShell Gallery
 - [ ] Add Homebrew formula (macOS/Linux)
 - [ ] Cloud sync (sync learned data across machines, opt-in)
@@ -669,7 +669,6 @@ $env:PSCUE_METRICS_ENABLED = "true"  # Default: true
 
 **Next Steps**:
 - [ ] Test v0.2.0 installation on fresh Windows and Linux systems
-- [ ] Create Scoop manifest (Windows package manager)
 - [ ] Publish to PowerShell Gallery
 - [ ] Optional: Enable dotnet format checking in CI (requires .editorconfig)
 - [ ] Optional: Automate release notes generation

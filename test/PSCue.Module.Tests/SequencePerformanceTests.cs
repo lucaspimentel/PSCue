@@ -23,13 +23,13 @@ public class SequencePerformanceTests
         // Arrange - Populate with realistic data
         var predictor = new SequencePredictor(ngramOrder: 2, minFrequency: 1);
         var sequences = new Dictionary<string, Dictionary<string, (int frequency, DateTime lastSeen)>>
-                        {
-                            ["git"] = Enumerable.Range(1, 10)
+        {
+            ["git"] = Enumerable.Range(1, 10)
                                                 .ToDictionary(
                                                      i => $"subcommand{i}",
                                                      i => (frequency: i * 10, lastSeen: DateTime.UtcNow)
                                                  )
-                        };
+        };
         predictor.Initialize(sequences);
 
         // Warm up (JIT compilation)
@@ -233,14 +233,14 @@ public class SequencePerformanceTests
         // Arrange
         var predictor = new SequencePredictor(ngramOrder: 2, minFrequency: 1);
         var sequences = new Dictionary<string, Dictionary<string, (int frequency, DateTime lastSeen)>>
-                        {
-                            ["git"] = new()
-                                      {
-                                          ["add"] = (10, DateTime.UtcNow),
-                                          ["commit"] = (8, DateTime.UtcNow),
-                                          ["push"] = (5, DateTime.UtcNow)
-                                      }
-                        };
+        {
+            ["git"] = new()
+            {
+                ["add"] = (10, DateTime.UtcNow),
+                ["commit"] = (8, DateTime.UtcNow),
+                ["push"] = (5, DateTime.UtcNow)
+            }
+        };
         predictor.Initialize(sequences);
 
         // Act - Multiple threads reading concurrently
