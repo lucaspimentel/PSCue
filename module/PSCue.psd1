@@ -3,7 +3,7 @@
     RootModule = 'PSCue.psm1'
 
     # Version number of this module.
-    ModuleVersion = '0.3.0'
+    ModuleVersion = '0.12.0'
 
     # Supported PSEditions
     CompatiblePSEditions = @('Core')
@@ -118,31 +118,23 @@
 
             # ReleaseNotes of this module
             ReleaseNotes = @'
-v0.3.0 - Major Feature Release
+v0.12.0-beta
 
 New Features:
-- Multi-word prediction suggestions (Phase 17.4): Shows common argument combinations like "git checkout master"
-- Dynamic workflow learning (Phase 18.1): Learns command sequences and predicts next command based on usage patterns
-- Smart directory navigation with pcd command (Phases 17.5-17.7):
-  * Fuzzy matching with Levenshtein distance
-  * Frecency scoring (frequency + recency + distance)
-  * Inline predictions with relative path display
-  * Best-match navigation without tab completion
-- PowerShell module functions for workflow management: Get/Clear/Export/Import-PSCueWorkflows
+- Tab completion for chafa (image-to-text converter) with full flag/option support
+- Tab completion for fd (fd-find) with all flags and common options
+- Tab completion for rg (ripgrep) with all flags and common options
+- Expanded claude CLI completions with additional subcommands and flags
 
 Improvements:
-- Enhanced path handling with cross-drive validation
-- Better directory existence filtering
-- Improved path normalization to prevent duplicates
-- Performance optimizations for directory navigation (<10ms)
-
-Database:
-- Extended SQLite schema to 8 tables (added workflow_transitions, argument_sequences)
-- Cross-session persistence for all learned data
+- PersistenceManager: additive merging for argument sequences and parameter values on load
+- FeedbackProvider: uses PowerShell $PWD for accurate path normalization in navigation tracking
+- ArgumentGraph: navigation timestamp tracking records absolute destination paths
+- Race condition fixes in tests for static mutation safety
 '@
 
             # Prerelease string of this module
-            # Prerelease = ''
+            Prerelease = 'beta'
 
             # Flag to indicate whether the module requires explicit user acceptance for install/update/save
             # RequireLicenseAcceptance = $false
