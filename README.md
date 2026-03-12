@@ -51,7 +51,7 @@ PSCue provides detailed completions for these commands:
 - **Git**: `git` - branches, tags, remotes, files, subcommands, aliases (dynamically loaded from git config)
 - **GitHub CLI**: `gh` - repos, PRs, issues, workflows
 - **Graphite CLI**: `gt` - stacked PRs, branch navigation, workflows
-- **Azure CLI**: `az` - resource groups, subscriptions, commands
+- **Azure CLI**: `az` - nested subcommands for account, aks, group, vm, webapp, storage, and more
 - **Azure Developer CLI**: `azd` - environments, services
 - **Azure Functions**: `func` - function apps, deployment
 - **VS Code**: `code` - workspaces, extensions, files
@@ -620,7 +620,6 @@ $env:PSCUE_IGNORE_PATTERNS = "aws *,*secret*,*password*"
 
 - **Distribution**
   - PowerShell Gallery publishing
-  - Scoop package manager (Windows)
   - .editorconfig + format checking in CI
 - **Advanced Features**
   - Error suggestions for more commands (gh, az, scoop)
