@@ -1,4 +1,6 @@
+using System.Collections.Concurrent;
 using PSCue.Shared.Completions;
+using PSCue.Shared.Completions.Json;
 using PSCue.Shared.KnownCompletions;
 using PSCue.Shared.KnownCompletions.Azure;
 
@@ -6,6 +8,31 @@ namespace PSCue.Shared;
 
 public static class CommandCompleter
 {
+    private static readonly HashSet<string> JsonEnabledCommands = GetJsonEnabledCommands();
+    private static readonly ConcurrentDictionary<string, Command?> JsonCache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly string CompletionsDirectory = Path.Combine(AppContext.BaseDirectory, "completions");
+
+    private static HashSet<string> GetJsonEnabledCommands()
+    {
+        var envVar = Environment.GetEnvironmentVariable("PSCUE_JSON_COMPLETIONS");
+
+        if (string.IsNullOrWhiteSpace(envVar))
+        {
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        return new HashSet<string>(envVar.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries), StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static Command? LoadJsonCommand(string commandName)
+    {
+        return JsonCache.GetOrAdd(commandName, static name =>
+        {
+            var path = Path.Combine(CompletionsDirectory, $"{name}.json");
+            return JsonCompletionLoader.LoadFromFile(path);
+        });
+    }
+
     // String-based overload for PowerShell compatibility (PowerShell can't use ReadOnlySpan)
     public static IEnumerable<ICompletion> GetCompletions(string commandLine, bool includeDynamicArguments = true) =>
         GetCompletions(commandLine.AsSpan(), default, includeDynamicArguments);
@@ -30,6 +57,20 @@ public static class CommandCompleter
         commandLine[..length].ToLowerInvariant(mainCommand);
 
         var isWindows = OperatingSystem.IsWindows();
+        var mainCommandStr = mainCommand.ToString();
+
+        // Try JSON-based completion if enabled for this command
+        if (JsonEnabledCommands.Contains(mainCommandStr))
+        {
+            var jsonCommand = LoadJsonCommand(mainCommandStr);
+
+            if (jsonCommand is not null)
+            {
+                Logger.Write($"Using JSON completion for {mainCommandStr}");
+                // Fall through to normal argument processing with jsonCommand as the root
+                return ProcessArguments(commandLine, jsonCommand, wordToComplete, includeDynamicArguments);
+            }
+        }
 
         ICompletion? currentCompletion = mainCommand switch
         {
@@ -64,6 +105,15 @@ public static class CommandCompleter
             return [];
         }
 
+        return ProcessArguments(commandLine, currentCompletion, wordToComplete, includeDynamicArguments);
+    }
+
+    private static IEnumerable<ICompletion> ProcessArguments(
+        ReadOnlySpan<char> commandLine,
+        ICompletion currentCompletion,
+        ReadOnlySpan<char> wordToComplete,
+        bool includeDynamicArguments)
+    {
         ReadOnlySpan<char> currentArgument = default;
 
         // Check if command line ends with a space (indicates completion of current token)
