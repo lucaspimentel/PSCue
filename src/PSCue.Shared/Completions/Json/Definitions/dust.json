@@ -1,0 +1,70 @@
+{
+  "completionText": "dust",
+  "tooltip": "Like du but more intuitive",
+  "parameters": [
+    { "completionText": "--depth", "tooltip": "Depth to show (-d)", "alias": "-d" },
+    { "completionText": "--threads", "tooltip": "Number of threads to use (-T)", "alias": "-T" },
+    { "completionText": "--config", "tooltip": "Specify a config file to use" },
+    { "completionText": "--number-of-lines", "tooltip": "Number of lines of output to show (-n)", "alias": "-n" },
+    { "completionText": "--full-paths", "tooltip": "Subdirectories will not have their path shortened (-p)", "alias": "-p" },
+    { "completionText": "--ignore-directory", "tooltip": "Exclude any file or directory with this path (-X)", "alias": "-X" },
+    { "completionText": "--ignore-all-in-file", "tooltip": "Exclude any file or directory with a regex matching that listed in this file (-I)", "alias": "-I" },
+    { "completionText": "--dereference-links", "tooltip": "dereference sym links - Treat sym links as directories and go into them (-L)", "alias": "-L" },
+    { "completionText": "--limit-filesystem", "tooltip": "Only count the files and directories on the same filesystem as the supplied directory (-x)", "alias": "-x" },
+    { "completionText": "--apparent-size", "tooltip": "Use file length instead of blocks (-s)", "alias": "-s" },
+    { "completionText": "--reverse", "tooltip": "Print tree upside down (biggest highest) (-r)", "alias": "-r" },
+    { "completionText": "--no-colors", "tooltip": "No colors will be printed (Useful for commands like: watch) (-c)", "alias": "-c" },
+    { "completionText": "--force-colors", "tooltip": "Force colors print (-C)", "alias": "-C" },
+    { "completionText": "--no-percent-bars", "tooltip": "No percent bars or percentages will be displayed (-b)", "alias": "-b" },
+    { "completionText": "--bars-on-right", "tooltip": "percent bars moved to right side of screen (-B)", "alias": "-B" },
+    { "completionText": "--min-size", "tooltip": "Minimum size file to include in output (-z)", "alias": "-z" },
+    { "completionText": "--screen-reader", "tooltip": "For screen readers. Removes bars. Adds new column: depth level (-R)", "alias": "-R" },
+    { "completionText": "--skip-total", "tooltip": "No total row will be displayed" },
+    { "completionText": "--filecount", "tooltip": "Directory 'size' is number of child files instead of disk size (-f)", "alias": "-f" },
+    { "completionText": "--ignore-hidden", "tooltip": "Do not display hidden files (-i)", "alias": "-i" },
+    { "completionText": "--invert-filter", "tooltip": "Exclude filepaths matching this regex (-v)", "alias": "-v" },
+    { "completionText": "--filter", "tooltip": "Only include filepaths matching this regex (-e)", "alias": "-e" },
+    { "completionText": "--file-types", "tooltip": "show only these file types (-t)", "alias": "-t" },
+    { "completionText": "--terminal-width", "tooltip": "Specify width of output overriding the auto detection of terminal width (-w)", "alias": "-w" },
+    { "completionText": "--no-progress", "tooltip": "Disable the progress indication (-P)", "alias": "-P" },
+    { "completionText": "--print-errors", "tooltip": "Print path with errors" },
+    { "completionText": "--only-dir", "tooltip": "Only directories will be displayed (-D)", "alias": "-D" },
+    { "completionText": "--only-file", "tooltip": "Only files will be displayed. (Finds your largest files) (-F)", "alias": "-F" },
+    {
+      "completionText": "--output-format",
+      "tooltip": "Changes output display size (-o)",
+      "alias": "-o",
+      "staticArguments": [
+        { "completionText": "si", "tooltip": "SI prefix (powers of 1000)" },
+        { "completionText": "b", "tooltip": "byte (B)" },
+        { "completionText": "k", "tooltip": "kibibyte (KiB)" },
+        { "completionText": "m", "tooltip": "mebibyte (MiB)" },
+        { "completionText": "g", "tooltip": "gibibyte (GiB)" },
+        { "completionText": "t", "tooltip": "tebibyte (TiB)" },
+        { "completionText": "kb", "tooltip": "kilobyte (kB)" },
+        { "completionText": "mb", "tooltip": "megabyte (MB)" },
+        { "completionText": "gb", "tooltip": "gigabyte (GB)" },
+        { "completionText": "tb", "tooltip": "terabyte (TB)" }
+      ]
+    },
+    { "completionText": "--stack-size", "tooltip": "Specify memory to use as stack size (-S)", "alias": "-S" },
+    { "completionText": "--output-json", "tooltip": "Output the directory tree as json to the current directory (-j)", "alias": "-j" },
+    { "completionText": "--mtime", "tooltip": "Matches files modified more/less than n days ago (-M)", "alias": "-M" },
+    { "completionText": "--atime", "tooltip": "just like -mtime, but based on file access time (-A)", "alias": "-A" },
+    { "completionText": "--ctime", "tooltip": "just like -mtime, but based on file change time (-y)", "alias": "-y" },
+    { "completionText": "--files0-from", "tooltip": "run dust on NUL-terminated file names specified in file" },
+    { "completionText": "--collapse", "tooltip": "Keep these directories collapsed" },
+    {
+      "completionText": "--filetime",
+      "tooltip": "Directory 'size' is max filetime of child files instead of disk size (-m)",
+      "alias": "-m",
+      "staticArguments": [
+        { "completionText": "a", "tooltip": "last accessed time" },
+        { "completionText": "c", "tooltip": "last changed time" },
+        { "completionText": "m", "tooltip": "last modified time" }
+      ]
+    },
+    { "completionText": "--help", "tooltip": "Print help (-h)", "alias": "-h" },
+    { "completionText": "--version", "tooltip": "Print version (-V)", "alias": "-V" }
+  ]
+}
