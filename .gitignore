@@ -1,10 +1,10 @@
 .idea/
 .vs/
 .vscode/
+.claude/*.local.*
 
 bin/
 obj/
 publish/
 artifacts/
-
-.claude/*.local.*
+BenchmarkDotNet.Artifacts/
