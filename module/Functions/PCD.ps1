@@ -104,8 +104,22 @@ function Invoke-PCD {
 
         [Parameter(Mandatory = $false)]
         [Alias('r')]
-        [switch]$Root
+        [switch]$Root,
+
+        [Parameter(Mandatory = $false)]
+        [Alias('v')]
+        [switch]$Version
     )
+
+    if ($Version) {
+        $moduleInfo = Get-Module PSCue
+        if ($moduleInfo) {
+            Write-Output "pcd (PSCue) $($moduleInfo.Version)"
+        } else {
+            Write-Output "pcd (PSCue) version unknown - module not loaded"
+        }
+        return
+    }
 
     # Root mode: navigate to git repository root (or filesystem root if not in a repo)
     if ($Root) {
