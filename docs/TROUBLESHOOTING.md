@@ -77,14 +77,14 @@ Or add this to your PowerShell profile for a permanent fix. Windows Terminal use
 
 **Problem**: The same directory appears twice in `pcd` suggestions with different paths (e.g., `C:\Users\lucas\source\...` and `D:\source\...`).
 
-**Cause**: One path is a symlink, junction, or directory link pointing to the other. Older versions of PSCue (before Phase 21.1) did not resolve symlinks before storing paths.
+**Cause**: One path is a symlink, junction, or directory link pointing to the other. Older versions of PSCue did not resolve symlinks before storing paths.
 
 **Solution** (PSCue v0.4.0+):
 - **Automatic**: PSCue now automatically resolves symlinks, junctions, and directory links to their real paths
 - All paths are normalized to their canonical real paths before storage
 - Duplicates are automatically prevented
 
-**For older versions** (before Phase 21.1):
+**For older versions**:
 1. Clear your learned data to remove duplicates:
    ```powershell
    Clear-PSCueLearning -Force

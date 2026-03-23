@@ -29,7 +29,7 @@ Unit test project for PSCue.Module using xUnit. Tests all module functionality i
 - Learning System Tests
 - Workflow Learning Tests (35+ tests)
 - Persistence Tests (Unit + Concurrency + Integration)
-- PCD Tests (Phase 17.5 + Enhanced Phase 17.6)
+- PCD Tests (smart directory navigation with fuzzy matching and frecency)
 - Module Function Tests
 - Edge Cases and Error Handling
 
