@@ -1149,8 +1149,10 @@ public class PersistenceManager : IDisposable
     {
         if (!_disposed)
         {
-            // SQLite connections are pooled and disposed when closed
-            // No cleanup needed here
+            // Clear the connection pool to release file handles on the database
+            // and native SQLite DLL. Without this, pooled connections keep handles
+            // open even after Remove-Module.
+            SqliteConnection.ClearAllPools();
             _disposed = true;
         }
     }
