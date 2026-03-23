@@ -1,13 +1,17 @@
 # Changelog
 
-## [Unreleased]
+## [0.13.0-beta] - 2026-03-23
 
 ### Added
 - Expand az CLI completions with nested subcommands
+- Add `--version` flag to pcd
+- Add checksum verification to install-remote.ps1
+- Add centralized Directory.Build.props
 
 ### Changed
 - Update GitHub Actions to latest versions, pinned to commit SHAs
 - Bump nuget references
+- Clean up release workflow: remove redundant flags, exclude .pdb files, flatten native SQLite lib
 
 ### Fixed
 - Add .NET 9.0 SDK to CI workflow
