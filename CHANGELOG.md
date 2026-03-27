@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Add git-wt (worktrunk) tab completion with subcommands, dynamic branch suggestions, and parameter aliases
+
 ## [0.14.0-beta] - 2026-03-23
 
 ### Fixed

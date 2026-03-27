@@ -39,6 +39,7 @@ public static class CommandCompleter
             "code" => VsCodeCommand.Create(),
             "chezmoi" => ChezmoiCommand.Create(),
             "git" => GitCommand.Create(),
+            "git-wt" => GitWtCommand.Create(),
             "gh" => GhCommand.Create(),
             "gt" => GtCommand.Create(),
             "claude" => ClaudeCommand.Create(),

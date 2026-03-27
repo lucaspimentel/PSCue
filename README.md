@@ -64,6 +64,7 @@ PSCue provides detailed completions for these commands:
 - **Character art**: `chafa` - terminal graphics/character art generator
 - **Search**: `rg` (ripgrep) - recursive regex search, `fd` (fd-find) - fast file finder
 - **Claude**: `claude` - Claude Code CLI commands
+- **Git Worktrees**: `git-wt` - worktree management (switch, list, remove, merge, step, hook, config)
 - **Navigation**: `cd`, `Set-Location`, `sl`, `chdir` - directory completion with smart caching
 
 ### Universal Learning

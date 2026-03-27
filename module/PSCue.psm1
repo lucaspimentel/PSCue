@@ -56,6 +56,7 @@ $CompleterScriptBlock = if ($CompleterExe) {
 $SupportedCommands = @(
     # Version Control
     'git'
+    'git-wt'
     'gh'
     'gt'
 
