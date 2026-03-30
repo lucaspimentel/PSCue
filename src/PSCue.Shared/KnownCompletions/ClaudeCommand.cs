@@ -1,14 +1,15 @@
 // Usage: claude [options] [command] [prompt]
 //
 // Commands:
+//   agents                      List configured agents
+//   auth                        Manage authentication
+//   auto-mode                   Inspect auto mode classifier configuration
+//   doctor                      Check the health of your Claude Code auto-updater
+//   install                     Install Claude Code native build
 //   mcp                         Configure and manage MCP servers
 //   plugin                      Manage Claude Code plugins
-//   auth                        Manage authentication
-//   agents                      List available agents
 //   setup-token                 Set up a long-lived authentication token
-//   doctor                      Check the health of your Claude Code auto-updater
 //   update                      Check for updates and install if available (alias: upgrade)
-//   install                     Install Claude Code native build
 
 using PSCue.Shared.Completions;
 
@@ -198,11 +199,25 @@ public static class ClaudeCommand
                         new("--help", "Display help for command") { Alias = "-h" },
                     ]
                 },
-                new("agents", "List available agents")
+                new("agents", "List configured agents")
                 {
                     Parameters =
                     [
                         new("--setting-sources", "Comma-separated list of setting sources"),
+                        new("--help", "Display help for command") { Alias = "-h" },
+                    ]
+                },
+                new("auto-mode", "Inspect auto mode classifier configuration")
+                {
+                    SubCommands =
+                    [
+                        new("config", "Print the effective auto mode config as JSON"),
+                        new("critique", "Get AI feedback on your custom auto mode rules"),
+                        new("defaults", "Print the default auto mode rules as JSON"),
+                        new("help", "Display help for command"),
+                    ],
+                    Parameters =
+                    [
                         new("--help", "Display help for command") { Alias = "-h" },
                     ]
                 },
@@ -213,7 +228,7 @@ public static class ClaudeCommand
                 {
                     Parameters =
                     [
-                        new("--force", "Force installation"),
+                        new("--force", "Force installation even if already installed"),
                         new("--help", "Display help for command") { Alias = "-h" },
                     ]
                 },
@@ -221,7 +236,9 @@ public static class ClaudeCommand
             Parameters =
             [
                 new("--agent", "Agent for the current session"),
+                new("--bare", "Minimal mode: skip hooks, LSP, plugins, auto-memory"),
                 new("--betas", "Beta headers"),
+                new("--brief", "Enable SendUserMessage tool for agent-to-user communication"),
                 new("--chrome", "Enable Chrome integration"),
                 new("--no-chrome", "Disable Chrome integration"),
                 new("--debug", "Enable debug mode with optional category filtering") { Alias = "-d" },
@@ -257,6 +274,7 @@ public static class ClaudeCommand
                         new("low", "Low effort"),
                         new("medium", "Medium effort"),
                         new("high", "High effort"),
+                        new("max", "Maximum effort"),
                     ]
                 },
                 new("--file", "File resources to download"),
@@ -271,11 +289,13 @@ public static class ClaudeCommand
                 new("--mcp-config", "Load MCP servers from JSON files or strings"),
                 new("--system-prompt", "System prompt to use for the session"),
                 new("--append-system-prompt", "Append a system prompt to the default"),
+                new("--name", "Set a display name for this session") { Alias = "-n" },
                 new("--permission-mode", "Permission mode")
                 {
                     StaticArguments =
                     [
                         new("acceptEdits", "Accept edit permissions"),
+                        new("auto", "Auto permission mode"),
                         new("bypassPermissions", "Bypass all permissions"),
                         new("default", "Default permission mode"),
                         new("dontAsk", "Don't ask for permissions"),
