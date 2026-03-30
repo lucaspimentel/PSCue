@@ -1,9 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## [0.15.0-beta] - 2026-03-30
 
 ### Added
 - Add git-wt (worktrunk) tab completion with subcommands, dynamic branch suggestions, and parameter aliases
+
+### Changed
+- Simplify .editorconfig for now
 
 ## [0.14.0-beta] - 2026-03-23
 

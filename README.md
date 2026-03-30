@@ -106,7 +106,7 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps
 Install a specific version:
 
 ```powershell
-$version = "0.12.0-beta"; irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps1 | iex
+$version = "0.15.0-beta"; irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps1 | iex
 ```
 
 ### From Source
