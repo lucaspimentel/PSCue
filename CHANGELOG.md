@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.16.0-beta] - 2026-03-30
+
+### Changed
+- Update claude CLI completions: add auto-mode subcommand, --bare, --brief, --name options, max effort level, and auto permission mode
+- Add PSCue.psd1 to ship version-files
+
 ## [0.15.0-beta] - 2026-03-30
 
 ### Added
