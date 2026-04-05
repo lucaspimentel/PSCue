@@ -7,7 +7,7 @@ This document tracks planned work for PSCue. For architectural details, see [TEC
 ## Planned Work
 
 ### PCD Fuzzy Matching: Adopt Subsequence Matching + Boundary Bonuses
-**Status**: In Progress
+**Status**: Complete
 **Priority**: Medium
 **Estimated Effort**: 15-20 hours
 
@@ -37,22 +37,23 @@ Both still feed into the existing frecency-weighted combined score (`matchScore 
 - Dropping typo tolerance — keep Levenshtein as fallback tier
 
 **Tasks**:
-1. [ ] Create `PcdSubsequenceScorer.cs` (~200 lines)
-   - [ ] Forward/backward subsequence matching (adapted from Wade's `FuzzyScorer`)
-   - [ ] Boundary detection (delimiters, camelCase, non-word transitions)
-   - [ ] Affine gap penalties and consecutive match bonuses
-   - [ ] Score normalization to 0.0-0.8 range (below exact/prefix matches)
-2. [ ] Update `PcdCompletionEngine.CalculateFuzzyMatchScore()` (~30 lines)
-   - [ ] Try subsequence match first
-   - [ ] Fall back to Levenshtein if no subsequence match (typo tolerance)
-3. [ ] Write tests (~20 test cases)
-   - [ ] Abbreviation matching: "ddt" → `dd-trace-dotnet`, "asc" → `AppServiceConfig`
-   - [ ] Boundary bonus ranking: "asc" prefers `AppServiceConfig` over `basicconfig`
-   - [ ] Gap penalty ranking: tighter matches score higher
-   - [ ] Typo fallback still works: "gti" → `git` (Levenshtein)
-   - [ ] No regressions in existing exact/prefix/substring matching
-   - [ ] Combined frecency + subsequence scoring produces sensible rankings
-4. [ ] Performance validation: PCD tab completion still <10ms, best-match <50ms
+1. [x] Create `PcdSubsequenceScorer.cs` (~200 lines)
+   - [x] Forward/backward subsequence matching (adapted from Wade's `FuzzyScorer`)
+   - [x] Boundary detection (delimiters, camelCase, non-word transitions)
+   - [x] Affine gap penalties and consecutive match bonuses
+   - [x] Score normalization to 0.0-0.8 range (below exact/prefix matches)
+2. [x] Update `PcdCompletionEngine.CalculateFuzzyMatchScore()` (~30 lines)
+   - [x] Try subsequence match first
+   - [x] Fall back to Levenshtein if no subsequence match (typo tolerance)
+3. [x] Write tests (~20 test cases)
+   - [x] Abbreviation matching: "ddt" → `dd-trace-dotnet`, "asc" → `AppServiceConfig`
+   - [x] Boundary bonus ranking: "asc" prefers `AppServiceConfig` over `basicconfig`
+   - [x] Gap penalty ranking: tighter matches score higher
+   - [x] Typo fallback still works: "gti" → `git` (Levenshtein)
+   - [x] No regressions in existing exact/prefix/substring matching
+   - [x] Combined frecency + subsequence scoring produces sensible rankings
+4. [x] Performance validation: PCD tab completion still <10ms, best-match <50ms
+5. [x] Apply subsequence matching to PCD interactive mode (`pcd -i <filter>`)
 
 **Example Behavior**:
 ```powershell

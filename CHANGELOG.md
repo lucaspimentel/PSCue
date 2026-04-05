@@ -4,6 +4,7 @@
 
 ### Changed
 - Upgrade PCD fuzzy matching to fzf-style subsequence matching with boundary bonuses, enabling abbreviation queries like `ddt` → `dd-trace-dotnet`. Levenshtein distance retained as typo-tolerance fallback.
+- Apply subsequence matching to PCD interactive mode (`pcd -i <filter>`), replacing simple substring filtering with the same fzf-style matching used by tab completion and best-match navigation
 
 ## [0.16.0-beta] - 2026-03-30
 

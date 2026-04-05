@@ -83,11 +83,21 @@ public class PcdInteractiveSelector
                             .Equals(normalizedCurrentDir, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        // Apply path filter if provided
+        // Apply path filter if provided (subsequence matching on dir name + full path)
         if (!string.IsNullOrWhiteSpace(filter))
         {
             validSuggestions = validSuggestions
-                .Where(s => s.DisplayPath.Contains(filter, StringComparison.OrdinalIgnoreCase))
+                .Select(s =>
+                {
+                    var trimmed = s.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                    var dirName = Path.GetFileName(trimmed);
+                    var dirScore = PcdSubsequenceScorer.Score(filter.AsSpan(), dirName.AsSpan());
+                    var pathScore = PcdSubsequenceScorer.Score(filter.AsSpan(), trimmed.AsSpan());
+                    return (suggestion: s, score: Math.Max(dirScore, pathScore));
+                })
+                .Where(x => x.score > 0.0)
+                .OrderByDescending(x => x.score)
+                .Select(x => x.suggestion)
                 .ToList();
         }
 

@@ -167,7 +167,7 @@ cd ~/<Tab>              # Shows home directory subdirectories
 pcd datadog<Tab>        # Shows learned directories with fuzzy matching
 pcd datadog             # Best-match navigation: finds "D:\source\datadog" even without Tab
 pcd -i                  # Interactive mode: browse and select from frequently visited directories
-pcd -i dotnet           # Interactive mode filtered to paths containing "dotnet"
+pcd -i dotnet           # Interactive mode with subsequence filter (e.g., "ddt" matches dd-trace-dotnet)
 pcd -i -Top 50          # Interactive mode with more entries
 pcd -Root               # Navigate to git repository root (or filesystem root if not in a repo)
 pcd -r                  # Alias for -Root
@@ -319,7 +319,7 @@ pcd --interactive -Top 30
 
 Features:
 - **Interactive menu**: Arrow keys to navigate, type to search, Enter to select, Cancel option to abort
-- **Path filtering**: Pass a string to pre-filter results (e.g., `pcd -i dotnet` shows only paths containing "dotnet")
+- **Path filtering**: Pass a string to pre-filter results using fzf-style subsequence matching (e.g., `pcd -i ddt` matches `dd-trace-dotnet`)
 - **Visual polish**: Color-coded usage indicators and timestamps for easy scanning; ASCII fallback for non-UTF-8 consoles
 - **Smart filtering**: Only shows existing directories, same frecency scoring as tab completion
 - **Configurable**: Show 5-100 entries with `-Top` parameter
