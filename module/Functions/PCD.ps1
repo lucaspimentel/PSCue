@@ -59,7 +59,11 @@ function Invoke-PCD {
 
     .EXAMPLE
     pcd -i dotnet
-    Shows an interactive menu filtered to directories containing "dotnet".
+    Shows an interactive menu filtered to directories matching "dotnet".
+
+    .EXAMPLE
+    pcdi dotnet
+    Shorthand for pcd -i dotnet.
 
     .EXAMPLE
     pcd -Root
@@ -89,7 +93,7 @@ function Invoke-PCD {
     - $env:PSCUE_PCD_MAX_DEPTH (default: 3)
     #>
     [CmdletBinding()]
-    [Alias('pcd')]
+    [Alias('pcd', 'pcdi')]
     param(
         [Parameter(Mandatory = $false, Position = 0)]
         [string]$Path,
@@ -119,6 +123,11 @@ function Invoke-PCD {
             Write-Output "pcd (PSCue) version unknown - module not loaded"
         }
         return
+    }
+
+    # When invoked as 'pcdi', implicitly enable interactive mode
+    if ($MyInvocation.InvocationName -eq 'pcdi') {
+        $Interactive = [switch]::new($true)
     }
 
     # Root mode: navigate to git repository root (or filesystem root if not in a repo)
@@ -276,7 +285,7 @@ function Invoke-PCD {
 }
 
 # Register tab completion for Invoke-PCD and pcd alias
-Register-ArgumentCompleter -CommandName 'Invoke-PCD', 'pcd' -ParameterName 'Path' -ScriptBlock {
+Register-ArgumentCompleter -CommandName 'Invoke-PCD', 'pcd', 'pcdi' -ParameterName 'Path' -ScriptBlock {
     param($commandName, $parameterName, $wordToComplete, $commandAst, $fakeBoundParameters)
 
     # Check if PSCue module is initialized

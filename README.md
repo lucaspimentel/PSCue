@@ -169,6 +169,8 @@ pcd datadog             # Best-match navigation: finds "D:\source\datadog" even 
 pcd -i                  # Interactive mode: browse and select from frequently visited directories
 pcd -i dotnet           # Interactive mode with subsequence filter (e.g., "ddt" matches dd-trace-dotnet)
 pcd -i -Top 50          # Interactive mode with more entries
+pcdi                    # Shorthand for pcd -i
+pcdi ddt                # Shorthand for pcd -i ddt
 pcd -Root               # Navigate to git repository root (or filesystem root if not in a repo)
 pcd -r                  # Alias for -Root
 pcd -                   # Navigate to previous directory (like cd - in bash)
@@ -301,7 +303,7 @@ Features:
 - **Filesystem fallback**: Outside a git repo, navigates to the drive/filesystem root
 - **Statistics tracked**: Navigation is recorded for frecency scoring like any other `pcd` use
 
-**Interactive Selection** (`pcd -i`):
+**Interactive Selection** (`pcd -i` / `pcdi`):
 
 Browse and select from your most frequently visited directories using an interactive menu:
 
@@ -309,12 +311,15 @@ Browse and select from your most frequently visited directories using an interac
 # Show interactive menu with your top 20 directories
 pcd -i
 
-# Filter to directories containing "dotnet"
+# Filter to directories matching "dotnet"
 pcd -i dotnet
+
+# Shorthand: pcdi = pcd -i
+pcdi dotnet
 
 # Show more directories
 pcd -i -Top 50
-pcd --interactive -Top 30
+pcdi -Top 30
 ```
 
 Features:
