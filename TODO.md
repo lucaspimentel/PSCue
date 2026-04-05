@@ -117,6 +117,19 @@ PS> pcd asc
 
 ---
 
+### Replace Spectre.Console with Custom Menu Renderer in PCD Interactive Mode
+**Status**: Backlog
+**Priority**: Low
+
+- [ ] Replace `SelectionPrompt` in `PcdInteractiveSelector` with custom console UI using `Console.ReadKey` + ANSI escape codes
+  - Current usage: `src/PSCue.Module/PcdInteractiveSelector.cs` — `AnsiConsole.Prompt(new SelectionPrompt<PcdSuggestion>())` plus `AnsiConsole.MarkupLine` / `Rule` for colored output
+  - Renders arrow-key menu, type-to-search, Enter/Escape handling, page scrolling
+  - Spectre.Console adds ~1.2MB of DLLs; custom renderer would eliminate this dependency
+  - Replace `AnsiConsole.MarkupLine` with `Console.Write` + ANSI codes (`\e[33m` yellow, `\e[31m` red, `\e[90m` dim)
+  - Replace `SelectionPrompt` with `Console.ReadKey(true)` loop + cursor repositioning (`\e[{n}A`) for redraw
+
+---
+
 ## Phase 18: Workflow Improvements
 
 ### Phase 18.3: Workflow Chains (3+ Commands)
