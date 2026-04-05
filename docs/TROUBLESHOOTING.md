@@ -41,17 +41,6 @@ Error: Cannot show interactive prompt in this terminal.
 Try running in Windows Terminal or use regular 'pcd' commands.
 ```
 
-### Interactive Mode: Spectre.Console.dll Not Found
-
-**Problem**: Missing DLL error when running `pcd -i`.
-
-**Solution**: Reinstall using the install script, which includes all dependencies:
-```powershell
-./install-local.ps1 -Force
-# or
-irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps1 | iex
-```
-
 ### Interactive Mode: Menu Not Showing
 
 Check that:

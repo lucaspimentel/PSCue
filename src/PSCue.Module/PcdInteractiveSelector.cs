@@ -1,6 +1,3 @@
-using Spectre.Console;
-using System.Diagnostics.CodeAnalysis;
-
 namespace PSCue.Module;
 
 public class PcdInteractiveSelector
@@ -28,14 +25,21 @@ public class PcdInteractiveSelector
 
     // Emoji/symbol helpers with ASCII fallbacks
     private static string SymbolFolder => s_supportsUnicode ? "\U0001f4c1" : "#";
-    private static string SymbolPrompt => s_supportsUnicode ? "\u2771" : ">";
-    private static string SymbolSearch => s_supportsUnicode ? "\U0001f50d" : "?";
     private static string SymbolError => s_supportsUnicode ? "\u2717" : "x";
     private static string SymbolWarning => s_supportsUnicode ? "\u26a0" : "!";
-    private static string SymbolBack => s_supportsUnicode ? "\u2190" : "<";
     private static string SymbolDotFilled => s_supportsUnicode ? "\u25cf" : "*";
     private static string SymbolDotEmpty => s_supportsUnicode ? "\u25cb" : "-";
     private static string SymbolSeparator => s_supportsUnicode ? "\u2022" : "|";
+
+    // ANSI escape codes for colored console output
+    private const string Reset = "\e[0m";
+    private const string Red = "\e[31m";
+    private const string BoldRed = "\e[1;31m";
+    private const string Yellow = "\e[33m";
+    private const string Green = "\e[32m";
+    private const string Grey = "\e[90m";
+    private const string Grey50 = "\e[37m";
+    private const string Dim = "\e[2m";
 
     public PcdInteractiveSelector(ArgumentGraph graph)
     {
@@ -58,7 +62,7 @@ public class PcdInteractiveSelector
     {
         if (string.IsNullOrEmpty(currentDirectory))
         {
-            AnsiConsole.MarkupLine($"[red]{SymbolError}[/] [bold red]Error:[/] Current directory is not available.");
+            WriteError("Current directory is not available.");
             return null;
         }
 
@@ -68,8 +72,8 @@ public class PcdInteractiveSelector
 
         if (suggestions.Count == 0)
         {
-            AnsiConsole.MarkupLine($"[yellow]{SymbolWarning}[/] No learned directories yet.");
-            AnsiConsole.MarkupLine("[dim]  Use 'pcd <path>' to navigate and build history.[/]");
+            WriteWarning("No learned directories yet.");
+            Console.WriteLine($"{Dim}  Use 'pcd <path>' to navigate and build history.{Reset}");
             return null;
         }
 
@@ -83,139 +87,49 @@ public class PcdInteractiveSelector
                             .Equals(normalizedCurrentDir, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        // Apply path filter if provided (subsequence matching on dir name + full path)
-        if (!string.IsNullOrWhiteSpace(filter))
-        {
-            validSuggestions = validSuggestions
-                .Select(s =>
-                {
-                    var trimmed = s.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                    var dirName = Path.GetFileName(trimmed);
-                    var dirScore = PcdSubsequenceScorer.Score(filter.AsSpan(), dirName.AsSpan());
-                    var pathScore = PcdSubsequenceScorer.Score(filter.AsSpan(), trimmed.AsSpan());
-                    return (suggestion: s, score: Math.Max(dirScore, pathScore));
-                })
-                .Where(x => x.score > 0.0)
-                .OrderByDescending(x => x.score)
-                .Select(x => x.suggestion)
-                .ToList();
-        }
-
         if (validSuggestions.Count == 0)
         {
-            if (!string.IsNullOrWhiteSpace(filter))
-            {
-                AnsiConsole.MarkupLine($"[yellow]{SymbolWarning}[/] No directories matching '{EscapeMarkup(filter)}' in history.");
-            }
-            else
-            {
-                AnsiConsole.MarkupLine($"[yellow]{SymbolWarning}[/] No valid directories in history.");
-                AnsiConsole.MarkupLine("[dim]  All learned paths have been deleted or moved.[/]");
-            }
+            WriteWarning("No valid directories in history.");
+            Console.WriteLine($"{Dim}  All learned paths have been deleted or moved.{Reset}");
             return null;
         }
 
         // Check if we're in a non-interactive terminal
-        if (!AnsiConsole.Profile.Capabilities.Interactive)
+        if (Console.IsInputRedirected || Console.IsOutputRedirected)
         {
-            AnsiConsole.MarkupLine($"[red]{SymbolError}[/] [bold red]Error:[/] Interactive mode requires a TTY terminal.");
-            AnsiConsole.MarkupLine("[dim]  Try running in Windows Terminal or a standard console.[/]");
+            WriteError("Interactive mode requires a TTY terminal.");
+            Console.WriteLine($"{Dim}  Try running in Windows Terminal or a standard console.{Reset}");
             return null;
         }
-
-        // Create cancel sentinel as the first choice
-        var cancelSentinel = new PcdSuggestion
-        {
-            Path = string.Empty,
-            DisplayPath = string.Empty,
-            Score = 0,
-            UsageCount = 0,
-            LastUsed = DateTime.MinValue,
-            MatchType = MatchType.WellKnown,
-            Tooltip = "Cancel selection"
-        };
-
-        // Add cancel sentinel as first choice, followed by valid directories
-        var choices = new List<PcdSuggestion> { cancelSentinel };
-        choices.AddRange(validSuggestions);
 
         try
         {
-            AnsiConsole.WriteLine();
+            Console.WriteLine();
 
-            var ruleTitle = string.IsNullOrWhiteSpace(filter)
-                ? $"[cyan]{SymbolFolder} Navigate to Directory[/]"
-                : $"[cyan]{SymbolFolder} Navigate to Directory[/] [dim](filter: {EscapeMarkup(filter)})[/]";
-            var rule = new Rule(ruleTitle)
-            {
-                Style = Style.Parse("cyan dim"),
-                Justification = Justify.Left
-            };
-            AnsiConsole.Write(rule);
-            AnsiConsole.WriteLine();
+            var menu = new ConsoleMenu(
+                formatPath: FormatDirectoryPath,
+                formatStats: FormatDirectoryStats,
+                title: $"{SymbolFolder} Navigate to Directory",
+                supportsUnicode: s_supportsUnicode,
+                initialQuery: filter ?? "");
 
-            // Create selection prompt
-            var selection = AnsiConsole.Prompt(
-                new SelectionPrompt<PcdSuggestion>()
-                    .Title($"[cyan]{SymbolPrompt}[/] [bold]Select a directory[/]")
-                    .PageSize(15)
-                    .MoreChoicesText(s_supportsUnicode
-                        ? "[grey]\u2193 Move up and down to reveal more directories \u2193[/]"
-                        : "[grey]Move up and down to reveal more directories[/]")
-                    .AddChoices(choices)
-                    .UseConverter(s => s == cancelSentinel ? FormatCancelEntry() : FormatDirectoryEntry(s))
-                    .EnableSearch()
-                    .SearchPlaceholderText($"{SymbolSearch} Type to search...")
-                    .WrapAround()
-                    .HighlightStyle(new Style(foreground: Color.Cyan1, background: Color.Grey15, decoration: Decoration.Bold))
-            );
+            var selection = menu.Show(validSuggestions);
 
-            AnsiConsole.WriteLine();
+            Console.WriteLine();
 
-            // Check if user selected cancel
-            if (selection == cancelSentinel)
-                return null;
-
-            return selection.DisplayPath;
+            return selection?.DisplayPath;
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("cannot read") || ex.Message.Contains("redirected"))
+        catch (InvalidOperationException)
         {
-            // Spectre.Console can't take over console (e.g., in VSCode integrated terminal)
-            AnsiConsole.MarkupLine($"[red]{SymbolError}[/] [bold red]Error:[/] Cannot show interactive prompt in this terminal.");
-            AnsiConsole.MarkupLine("[dim]  Try running in Windows Terminal or use regular 'pcd' commands.[/]");
+            WriteError("Cannot show interactive prompt in this terminal.");
+            Console.WriteLine($"{Dim}  Try running in Windows Terminal or use regular 'pcd' commands.{Reset}");
             return null;
         }
     }
 
-    private string FormatCancelEntry()
+    private string FormatDirectoryPath(PcdSuggestion suggestion)
     {
-        return $"[dim]{SymbolBack} Cancel[/]\n  [dim grey]Go back without selecting[/]";
-    }
-
-    private string FormatDirectoryEntry(PcdSuggestion suggestion)
-    {
-        // Get usage statistics from ArgumentGraph
         var normalizedPath = suggestion.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        var commandKnowledge = _graph.GetCommandKnowledge("cd");
-
-        int usageCount = 0;
-        DateTime lastUsed = DateTime.MinValue;
-
-        if (commandKnowledge != null)
-        {
-            // Try to find the argument stats for this directory path
-            var argStats = commandKnowledge.Arguments.Values
-                .FirstOrDefault(a => a.Argument.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                    .Equals(normalizedPath, StringComparison.OrdinalIgnoreCase));
-
-            if (argStats != null)
-            {
-                usageCount = argStats.UsageCount;
-                lastUsed = argStats.LastUsed;
-            }
-        }
-
-        // Shorten path for better display, ensure trailing separator
         var displayPath = ShortenPath(normalizedPath);
 
         // Ensure trailing separator for consistency (especially important for drive roots like "C:")
@@ -227,20 +141,41 @@ public class PcdInteractiveSelector
             displayPath += Path.DirectorySeparatorChar;
         }
 
-        var pathLine = $"[bold white]{EscapeMarkup(displayPath)}[/]";
+        return displayPath;
+    }
 
-        // Format the stats with color-coded usage indicators
-        var statsLine = "  ";
+    private string FormatDirectoryStats(PcdSuggestion suggestion)
+    {
+        var normalizedPath = suggestion.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var commandKnowledge = _graph.GetCommandKnowledge("cd");
 
-        // Usage count with visual indicator
+        int usageCount = 0;
+        DateTime lastUsed = DateTime.MinValue;
+
+        if (commandKnowledge != null)
+        {
+            var argStats = commandKnowledge.Arguments.Values
+                .FirstOrDefault(a => a.Argument.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .Equals(normalizedPath, StringComparison.OrdinalIgnoreCase));
+
+            if (argStats != null)
+            {
+                usageCount = argStats.UsageCount;
+                lastUsed = argStats.LastUsed;
+            }
+        }
+
+        var parts = new System.Text.StringBuilder();
+
+        // Usage count with color-coded indicator
         if (usageCount > 0)
         {
-            var usageColor = usageCount >= 10 ? "green" : usageCount >= 5 ? "yellow" : "grey";
-            statsLine += $"[{usageColor}]{SymbolDotFilled}[/] [dim]{usageCount} visit{(usageCount == 1 ? "" : "s")}[/]";
+            var usageColor = usageCount >= 10 ? Green : usageCount >= 5 ? Yellow : Grey;
+            parts.Append($"{usageColor}{SymbolDotFilled}{Reset} {Grey}{usageCount} visit{(usageCount == 1 ? "" : "s")}{Reset}");
         }
         else
         {
-            statsLine += $"[dim grey]{SymbolDotEmpty} no visits[/]";
+            parts.Append($"{Grey}{SymbolDotEmpty} no visits{Reset}");
         }
 
         // Last used time
@@ -248,15 +183,14 @@ public class PcdInteractiveSelector
         {
             var timeStr = FormatLastUsed(lastUsed);
             var timeColor = GetTimeColor(DateTime.UtcNow - lastUsed);
-            statsLine += $" [dim grey]{SymbolSeparator}[/] [dim {timeColor}]{timeStr}[/]";
+            parts.Append($" {Grey}{SymbolSeparator}{Reset} {timeColor}{timeStr}{Reset}");
         }
 
-        return $"{pathLine}\n{statsLine}";
+        return parts.ToString();
     }
 
     private string ShortenPath(string path)
     {
-        // Replace home directory with ~ for cleaner display
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
         if (!string.IsNullOrEmpty(home) && path.StartsWith(home, StringComparison.OrdinalIgnoreCase))
         {
@@ -268,10 +202,10 @@ public class PcdInteractiveSelector
 
     private string GetTimeColor(TimeSpan delta)
     {
-        if (delta.TotalHours < 1) return "green";
-        if (delta.TotalDays < 1) return "yellow";
-        if (delta.TotalDays < 7) return "grey";
-        return "grey50";
+        if (delta.TotalHours < 1) return Green;
+        if (delta.TotalDays < 1) return Yellow;
+        if (delta.TotalDays < 7) return Grey;
+        return Grey50;
     }
 
     private string FormatLastUsed(DateTime lastUsed)
@@ -294,11 +228,13 @@ public class PcdInteractiveSelector
         return $"{(int)(delta.TotalDays / 365)} year{((int)(delta.TotalDays / 365) == 1 ? "" : "s")} ago";
     }
 
-    private static string EscapeMarkup(string text)
+    private static void WriteError(string message)
     {
-        // Escape Spectre.Console markup characters
-        return text
-            .Replace("[", "[[")
-            .Replace("]", "]]");
+        Console.WriteLine($"{Red}{SymbolError}{Reset} {BoldRed}Error:{Reset} {message}");
+    }
+
+    private static void WriteWarning(string message)
+    {
+        Console.WriteLine($"{Yellow}{SymbolWarning}{Reset} {message}");
     }
 }

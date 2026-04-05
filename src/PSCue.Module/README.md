@@ -31,7 +31,6 @@ PowerShell module library (`PSCue.Module.dll`) that provides inline predictions 
 ### NuGet Packages
 - `Microsoft.PowerShell.SDK` (7.5.0) - PowerShell SDK for ICommandPredictor and IFeedbackProvider
 - `Microsoft.Data.Sqlite` (9.0.0) - SQLite database for persistence
-- `Spectre.Console` - Cross-platform interactive UI for `pcd -i`
 
 ### Internal Dependencies
 - `PSCue.Shared` - Shared completion logic
