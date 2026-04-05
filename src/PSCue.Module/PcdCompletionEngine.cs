@@ -596,27 +596,21 @@ public class PcdCompletionEngine
     }
 
     /// <summary>
-    /// Calculates fuzzy match score using substring matching and Levenshtein distance.
+    /// Calculates fuzzy match score using subsequence matching with boundary bonuses,
+    /// falling back to Levenshtein distance for typo tolerance.
     /// Returns 0.0-0.8 score (capped below exact/prefix matches).
-    /// Uses configurable minimum match percentage to prevent unrelated matches.
     /// </summary>
     private double CalculateFuzzyMatchScore(string target, string query)
     {
         if (string.IsNullOrWhiteSpace(query))
             return 0.0;
 
-        // Substring match (case-insensitive)
-        if (target.Contains(query, StringComparison.OrdinalIgnoreCase))
-        {
-            // For substring matches, 100% of the query is in the target
-            // This always passes the minimum match percentage requirement
-            // Score based on position (earlier is better)
-            var index = target.IndexOf(query, StringComparison.OrdinalIgnoreCase);
-            var positionScore = 1.0 - ((double)index / target.Length);
-            return 0.7 * positionScore;
-        }
+        // Tier 1: Subsequence match with boundary bonuses (handles substrings as high-scoring special case)
+        var subsequenceScore = PcdSubsequenceScorer.Score(query.AsSpan(), target.AsSpan());
+        if (subsequenceScore > 0.0)
+            return subsequenceScore;
 
-        // Levenshtein distance - only for typo tolerance
+        // Tier 2: Levenshtein distance fallback for typo tolerance ("gti" -> "git")
         var distance = CalculateLevenshteinDistance(target, query);
         var maxLength = Math.Max(target.Length, query.Length);
         var similarity = 1.0 - ((double)distance / maxLength);

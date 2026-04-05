@@ -186,7 +186,7 @@ The `pcd` (PowerShell Change Directory) command provides:
 - **Inline predictions**: See directory suggestions as you type (like other commands)
 - **Directory name matching**: Type just the directory name to navigate from anywhere (e.g., `pcd dd-trace-dotnet` finds `D:\source\datadog\dd-trace-dotnet` from any location)
 - **Exact match prioritization**: Exact directory name matches always rank first (100× boost by default)
-- **Smart fuzzy matching**: Find directories with typos while rejecting unrelated matches (70% minimum similarity, LCS check for long queries)
+- **Smart fuzzy matching**: Subsequence matching with boundary bonuses (fzf-style) for abbreviations like `ddt` → `dd-trace-dotnet`, plus Levenshtein fallback for typo tolerance
 - **Recursive filesystem search**: Always enabled for thorough discovery (depth-controlled for performance)
 - **Smart filtering**:
   - Excludes non-existent directories (both tab and predictor)
@@ -247,6 +247,7 @@ pcd dat<Tab>            # Completes: pcd ..\datadog\     (shown in list: "datado
 pcd src<Tab>            # Completes: pcd .\src\          (shown in list: "src")
 pcd 'dir with spaces'<Tab> # Completes: pcd '.\dir with spaces\' (single quotes, shown: "dir with spaces")
 pcd trace<Tab>          # Suggests: dd-trace-dotnet (substring match)
+pcd ddt<Tab>            # Suggests: dd-trace-dotnet (subsequence match at boundaries)
 pcd datdog<Tab>         # Suggests: ../datadog (fuzzy match, typo tolerant)
 
 # Filesystem discovery

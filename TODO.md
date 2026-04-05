@@ -7,7 +7,7 @@ This document tracks planned work for PSCue. For architectural details, see [TEC
 ## Planned Work
 
 ### PCD Fuzzy Matching: Adopt Subsequence Matching + Boundary Bonuses
-**Status**: Planned
+**Status**: In Progress
 **Priority**: Medium
 **Estimated Effort**: 15-20 hours
 

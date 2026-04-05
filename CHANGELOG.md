@@ -1,5 +1,10 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- Upgrade PCD fuzzy matching to fzf-style subsequence matching with boundary bonuses, enabling abbreviation queries like `ddt` → `dd-trace-dotnet`. Levenshtein distance retained as typo-tolerance fallback.
+
 ## [0.16.0-beta] - 2026-03-30
 
 ### Changed
