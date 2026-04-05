@@ -6,6 +6,79 @@ This document tracks planned work for PSCue. For architectural details, see [TEC
 
 ## Planned Work
 
+### PCD Fuzzy Matching: Adopt Subsequence Matching + Boundary Bonuses
+**Status**: Planned
+**Priority**: Medium
+**Estimated Effort**: 15-20 hours
+
+**Goal**: Replace PCD's flat fuzzy matching with subsequence matching and boundary-aware scoring, inspired by Wade's fzf-style `FuzzyScorer`. This improves matching for abbreviated directory names (e.g., "ddt" matching `dd-trace-dotnet`).
+
+**Motivation**: PCD currently requires contiguous substrings or close edit distance (Levenshtein). Subsequence matching is how people naturally abbreviate directory names. Wade's algorithm (in `../wade`) demonstrates this well with boundary bonuses for `-`, `_`, camelCase, and path separators.
+
+**Current fuzzy tier** (`PcdCompletionEngine.cs:603`):
+1. Substring match (contiguous) → score 0.0-0.7
+2. Levenshtein distance (typo tolerance) → score 0.0-0.5
+
+**Proposed fuzzy tier** (two-step fallback):
+1. **Subsequence match with boundary bonuses** (new, Wade-style) — catches abbreviations like "ddt" → `dd-trace-dotnet`, "asc" → `AppServiceConfig`
+2. **Levenshtein match** (existing) — catches typos like "gti" → `git`
+
+Both still feed into the existing frecency-weighted combined score (`matchScore * 0.1 * exactMatchMultiplier + frequency + recency + distance`).
+
+**Key features to port from Wade's `FuzzyScorer`**:
+1. **Greedy subsequence matching**: Forward scan to find match, backward scan to tighten span
+2. **Boundary bonuses**: Extra score for matches at word boundaries (`-`, `_`), camelCase transitions, path separators
+3. **Affine gap penalties**: -3 for starting a gap, -1 per extension (penalizes spread-out matches)
+4. **First character multiplier**: 2x bonus for matching the first character
+5. **Consecutive match bonus**: Reward adjacent matches
+
+**What NOT to port**:
+- Filename priority bonus (+1000) — PCD already separates directory-name vs full-path matching
+- Dropping typo tolerance — keep Levenshtein as fallback tier
+
+**Tasks**:
+1. [ ] Create `PcdSubsequenceScorer.cs` (~200 lines)
+   - [ ] Forward/backward subsequence matching (adapted from Wade's `FuzzyScorer`)
+   - [ ] Boundary detection (delimiters, camelCase, non-word transitions)
+   - [ ] Affine gap penalties and consecutive match bonuses
+   - [ ] Score normalization to 0.0-0.8 range (below exact/prefix matches)
+2. [ ] Update `PcdCompletionEngine.CalculateFuzzyMatchScore()` (~30 lines)
+   - [ ] Try subsequence match first
+   - [ ] Fall back to Levenshtein if no subsequence match (typo tolerance)
+3. [ ] Write tests (~20 test cases)
+   - [ ] Abbreviation matching: "ddt" → `dd-trace-dotnet`, "asc" → `AppServiceConfig`
+   - [ ] Boundary bonus ranking: "asc" prefers `AppServiceConfig` over `basicconfig`
+   - [ ] Gap penalty ranking: tighter matches score higher
+   - [ ] Typo fallback still works: "gti" → `git` (Levenshtein)
+   - [ ] No regressions in existing exact/prefix/substring matching
+   - [ ] Combined frecency + subsequence scoring produces sensible rankings
+4. [ ] Performance validation: PCD tab completion still <10ms, best-match <50ms
+
+**Example Behavior**:
+```powershell
+# Today: "ddt" does NOT match dd-trace-dotnet (no contiguous substring, Levenshtein too distant)
+# After: "ddt" matches dd-trace-dotnet via subsequence (d-d-t at boundaries)
+
+PS> pcd ddt
+  → D:\source\datadog\dd-trace-dotnet\
+
+# Boundary bonus ensures good ranking
+PS> pcd asc
+  → AppServiceConfig\  (boundaries: A-s-C)
+  → basicconfig\       (no boundaries, lower score)
+```
+
+**Dependencies**: None
+
+**Success Criteria**:
+- Abbreviated directory names match via subsequence
+- Boundary-aligned matches rank higher than mid-word matches
+- Levenshtein typo tolerance preserved as fallback
+- No performance regression
+- All existing PCD tests still pass
+
+---
+
 ### Phase 19.1: Tab Completion on Empty Input
 **Status**: Deferred (more complex than initially estimated)
 **Priority**: Low
