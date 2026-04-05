@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <UseArtifactsOutput>true</UseArtifactsOutput>
-    <Version>0.16.0-beta</Version>
+    <Version>0.17.0-beta</Version>
   </PropertyGroup>
 
 </Project>
