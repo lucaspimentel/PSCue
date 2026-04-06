@@ -324,6 +324,7 @@ pcdi -Top 30
 
 Features:
 - **Interactive menu**: fzf-style live filtering — typing updates results instantly, arrow keys navigate, Enter selects, Escape cancels
+- **Match highlighting**: Matched characters are highlighted in green so you can see exactly why each result matched your query
 - **Path filtering**: Pass a string to pre-filter results using fzf-style subsequence matching (e.g., `pcd -i ddt` matches `dd-trace-dotnet`)
 - **Visual polish**: Color-coded usage indicators and timestamps for easy scanning; ASCII fallback for non-UTF-8 consoles
 - **Smart filtering**: Only shows existing directories, same frecency scoring as tab completion

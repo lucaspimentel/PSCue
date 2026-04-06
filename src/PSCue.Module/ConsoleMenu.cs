@@ -21,6 +21,7 @@ internal sealed class ConsoleMenu
     private const string Grey = "\e[90m";
     private const string BoldCyan = "\e[1;36m";
     private const string BoldWhite = "\e[1;37m";
+    private const string BoldGreen = "\e[1;32m";
     private const string ClearToEndOfLine = "\e[K";
     private const string HideCursor = "\e[?25l";
     private const string ShowCursor = "\e[?25h";
@@ -72,7 +73,7 @@ internal sealed class ConsoleMenu
 
                     case ConsoleKey.Enter:
                         if (filtered.Count > 0 && _selectedIndex < filtered.Count)
-                            return filtered[_selectedIndex];
+                            return filtered[_selectedIndex].Suggestion;
                         return null;
 
                     case ConsoleKey.UpArrow:
@@ -150,7 +151,7 @@ internal sealed class ConsoleMenu
         }
     }
 
-    private void Render(List<PcdSuggestion> filtered, int totalCount, bool isInitial)
+    private void Render(List<FilteredItem> filtered, int totalCount, bool isInitial)
     {
         // Move cursor back to top of previous render
         if (!isInitial && _lastRenderedLineCount > 0)
@@ -171,8 +172,8 @@ internal sealed class ConsoleMenu
         Console.Write($"{Cyan}{ruleLine}{Reset}{BoldCyan}{ruleText}{Reset}{Cyan}{ruleLine}{Reset}{ClearToEndOfLine}\n");
         lineCount++;
 
-        // Search input
-        Console.Write($"\n  {Cyan}>{Reset} {(_query.Length > 0 ? _query : $"{Grey}Type to filter...{Reset}")}{ClearToEndOfLine}\n\n");
+        // Search input (ClearToEndOfLine on blank lines to erase stale content from previous renders)
+        Console.Write($"{ClearToEndOfLine}\n  {Cyan}>{Reset} {(_query.Length > 0 ? _query : $"{Grey}Type to filter...{Reset}")}{ClearToEndOfLine}\n{ClearToEndOfLine}\n");
         lineCount += 3;
 
         // Visible items
@@ -181,18 +182,19 @@ internal sealed class ConsoleMenu
 
         for (int i = _scrollOffset; i < visibleEnd; i++)
         {
-            var item = filtered[i];
+            var entry = filtered[i];
             bool selected = i == _selectedIndex;
 
-            // Path line
+            // Path line with highlighted match positions
             var pointer = selected ? $"{BoldCyan}{SymbolPointer}{Reset} " : "  ";
-            var pathText = _formatPath(item);
-            var pathStyle = selected ? BoldWhite : White;
-            Console.Write($"  {pointer}{pathStyle}{pathText}{Reset}{ClearToEndOfLine}\n");
+            var pathText = _formatPath(entry.Suggestion);
+            Console.Write($"  {pointer}");
+            WriteHighlightedPath(pathText, entry.MatchPositions, selected);
+            Console.Write($"{Reset}{ClearToEndOfLine}\n");
             lineCount++;
 
             // Stats line
-            var statsText = _formatStats(item);
+            var statsText = _formatStats(entry.Suggestion);
             Console.Write($"      {statsText}{Reset}{ClearToEndOfLine}\n");
             lineCount++;
         }
@@ -204,8 +206,8 @@ internal sealed class ConsoleMenu
             lineCount++;
         }
 
-        // Footer
-        Console.Write($"\n  {Grey}\u2191\u2193 navigate  Enter select  Esc cancel{Reset}{ClearToEndOfLine}\n");
+        // Footer (ClearToEndOfLine on blank line to erase stale content from previous renders)
+        Console.Write($"{ClearToEndOfLine}\n  {Grey}\u2191\u2193 navigate  Enter select  Esc cancel{Reset}{ClearToEndOfLine}\n");
         lineCount += 2;
 
         // Pad with blank lines if previous render was taller (clear leftover lines)
@@ -216,6 +218,35 @@ internal sealed class ConsoleMenu
         }
 
         _lastRenderedLineCount = lineCount;
+    }
+
+    private static void WriteHighlightedPath(string pathText, int[]? matchPositions, bool selected)
+    {
+        if (matchPositions == null || matchPositions.Length == 0)
+        {
+            // No match positions — write the whole path in one style
+            Console.Write($"{(selected ? BoldWhite : White)}{pathText}");
+            return;
+        }
+
+        var baseStyle = selected ? BoldWhite : White;
+        var matchStyle = selected ? BoldGreen : Green;
+        int mi = 0;
+
+        for (int ci = 0; ci < pathText.Length; ci++)
+        {
+            bool isMatch = mi < matchPositions.Length && matchPositions[mi] == ci;
+
+            if (isMatch)
+            {
+                Console.Write($"{matchStyle}{pathText[ci]}");
+                mi++;
+            }
+            else
+            {
+                Console.Write($"{baseStyle}{pathText[ci]}");
+            }
+        }
     }
 
     private void AdjustScroll(int itemCount)
@@ -230,23 +261,41 @@ internal sealed class ConsoleMenu
         }
     }
 
-    private List<PcdSuggestion> Filter(IReadOnlyList<PcdSuggestion> items)
+    private List<FilteredItem> Filter(IReadOnlyList<PcdSuggestion> items)
     {
         if (string.IsNullOrEmpty(_query))
-            return new List<PcdSuggestion>(items);
+            return items.Select(s => new FilteredItem(s, null)).ToList();
 
         return items
             .Select(s =>
             {
-                var trimmed = s.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                // Score against the formatted display path so match positions align with rendered text
+                var displayPath = _formatPath(s);
+                var trimmed = displayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 var dirName = Path.GetFileName(trimmed);
-                var dirScore = PcdSubsequenceScorer.Score(_query.AsSpan(), dirName.AsSpan());
-                var pathScore = PcdSubsequenceScorer.Score(_query.AsSpan(), trimmed.AsSpan());
-                return (suggestion: s, score: Math.Max(dirScore, pathScore));
+
+                var dirScore = PcdSubsequenceScorer.Score(_query.AsSpan(), dirName.AsSpan(), out var dirPositions);
+                var pathScore = PcdSubsequenceScorer.Score(_query.AsSpan(), trimmed.AsSpan(), out var pathPositions);
+
+                if (dirScore > pathScore)
+                {
+                    // Offset dir-name positions to be relative to the full display path
+                    int dirStart = trimmed.Length - dirName.Length;
+                    if (dirPositions != null && dirStart > 0)
+                    {
+                        for (int i = 0; i < dirPositions.Length; i++)
+                            dirPositions[i] += dirStart;
+                    }
+                    return (suggestion: s, score: dirScore, positions: dirPositions);
+                }
+
+                return (suggestion: s, score: pathScore, positions: pathPositions);
             })
             .Where(x => x.score > 0.0)
             .OrderByDescending(x => x.score)
-            .Select(x => x.suggestion)
+            .Select(x => new FilteredItem(x.suggestion, x.positions))
             .ToList();
     }
+
+    private readonly record struct FilteredItem(PcdSuggestion Suggestion, int[]? MatchPositions);
 }

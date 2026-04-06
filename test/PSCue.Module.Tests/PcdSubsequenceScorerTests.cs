@@ -8,6 +8,8 @@ namespace PSCue.Module.Tests;
 
 public class PcdSubsequenceScorerTests
 {
+    private static readonly int[] s_sequentialPositions012 = [0, 1, 2];
+
     #region ScoreRaw - Basic matching
 
     [Fact]
@@ -191,6 +193,93 @@ public class PcdSubsequenceScorerTests
     {
         var score = PcdSubsequenceScorer.Score("git".AsSpan(), "git".AsSpan());
         Assert.True(score >= 0.7, $"Exact match should score near 0.8, got {score}");
+    }
+
+    #endregion
+
+    #region ScoreRaw with match positions
+
+    [Theory]
+    [InlineData("xyz", "abc")]
+    [InlineData("cba", "abc")]
+    [InlineData("abcdef", "abc")]
+    public void ScoreRaw_WithPositions_NoMatch_ReturnsMinValueAndNullPositions(string query, string target)
+    {
+        var score = PcdSubsequenceScorer.ScoreRaw(query.AsSpan(), target.AsSpan(), out var positions);
+        Assert.Equal(int.MinValue, score);
+        Assert.Null(positions);
+    }
+
+    [Fact]
+    public void ScoreRaw_WithPositions_EmptyQuery_Returns0AndEmptyPositions()
+    {
+        var score = PcdSubsequenceScorer.ScoreRaw("".AsSpan(), "abc".AsSpan(), out var positions);
+        Assert.Equal(0, score);
+        Assert.NotNull(positions);
+        Assert.Empty(positions);
+    }
+
+    [Fact]
+    public void ScoreRaw_WithPositions_ExactMatch_ReturnsSequentialPositions()
+    {
+        var score = PcdSubsequenceScorer.ScoreRaw("git".AsSpan(), "git".AsSpan(), out var positions);
+        Assert.True(score > 0);
+        Assert.NotNull(positions);
+        Assert.Equal(s_sequentialPositions012, positions);
+    }
+
+    [Fact]
+    public void ScoreRaw_WithPositions_SubsequenceMatch_ReturnsValidPositions()
+    {
+        var score = PcdSubsequenceScorer.ScoreRaw("ddt".AsSpan(), "dd-trace-dotnet".AsSpan(), out var positions);
+        Assert.True(score > 0);
+        Assert.NotNull(positions);
+        Assert.Equal(3, positions!.Length);
+
+        // Positions must be strictly increasing
+        Assert.True(positions[0] < positions[1]);
+        Assert.True(positions[1] < positions[2]);
+
+        // Matched characters must correspond to the query (case-insensitive)
+        string target = "dd-trace-dotnet";
+        Assert.Equal('d', char.ToLowerInvariant(target[positions[0]]));
+        Assert.Equal('d', char.ToLowerInvariant(target[positions[1]]));
+        Assert.Equal('t', char.ToLowerInvariant(target[positions[2]]));
+    }
+
+    [Theory]
+    [InlineData("git", "git")]
+    [InlineData("ddt", "dd-trace-dotnet")]
+    [InlineData("mp", "my_project")]
+    [InlineData("src", "source")]
+    public void ScoreRaw_WithPositions_PositionsAlignWithQueryChars(string query, string target)
+    {
+        var score = PcdSubsequenceScorer.ScoreRaw(query.AsSpan(), target.AsSpan(), out var positions);
+        Assert.True(score > 0);
+        Assert.NotNull(positions);
+        Assert.Equal(query.Length, positions!.Length);
+
+        for (int i = 0; i < query.Length; i++)
+        {
+            Assert.True(positions[i] >= 0 && positions[i] < target.Length,
+                $"Position {positions[i]} out of range for target '{target}'");
+            Assert.True(
+                char.ToLowerInvariant(query[i]) == char.ToLowerInvariant(target[positions[i]]),
+                $"Mismatch at query index {i}: expected '{query[i]}' at target[{positions[i]}]='{target[positions[i]]}'");
+        }
+    }
+
+    [Theory]
+    [InlineData("git", "git")]
+    [InlineData("ddt", "dd-trace-dotnet")]
+    [InlineData("mp", "my_project")]
+    [InlineData("fb", "FooBar")]
+    [InlineData("src", "source")]
+    public void ScoreRaw_WithPositions_SameScoreAsWithoutPositions(string query, string target)
+    {
+        var scoreWithout = PcdSubsequenceScorer.ScoreRaw(query.AsSpan(), target.AsSpan());
+        var scoreWith = PcdSubsequenceScorer.ScoreRaw(query.AsSpan(), target.AsSpan(), out _);
+        Assert.Equal(scoreWithout, scoreWith);
     }
 
     #endregion

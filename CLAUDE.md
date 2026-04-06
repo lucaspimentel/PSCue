@@ -17,7 +17,7 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
   - **WorkflowLearner**: Learns command → next command transitions with timing data
   - **GenericPredictor**: Generates context-aware suggestions (values only after parameters, flags otherwise)
   - **Hybrid CommandPredictor**: Blends known completions + generic learning + ML predictions + workflow patterns
-  - **PcdSubsequenceScorer**: fzf-style subsequence matching with boundary bonuses (adapted from Wade's FuzzyScorer)
+  - **PcdSubsequenceScorer**: fzf-style subsequence matching with boundary bonuses and match position output for highlighting (adapted from Wade's FuzzyScorer)
   - **PcdCompletionEngine**: Enhanced directory navigation with subsequence matching, frecency scoring, distance awareness
 - **Persistence**:
   - **PersistenceManager**: SQLite-based cross-session storage

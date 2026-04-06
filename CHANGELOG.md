@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+- Add matched character highlighting in interactive menu (`pcd -i`): query matches are shown in green
+
+### Fixed
+- Fix stale lines not being cleared in interactive menu when filtering reduces results
+
 ## [0.17.0-beta] - 2026-04-05
 
 ### Added

@@ -23,6 +23,7 @@ PowerShell module library (`PSCue.Module.dll`) that provides inline predictions 
 - **SequencePredictor**: ML-based n-gram prediction for command sequences
 - **WorkflowLearner**: Dynamic workflow learning with timing-aware predictions
 - **PcdCompletionEngine**: Enhanced directory navigation with fuzzy matching and frecency
+- **ConsoleMenu**: fzf-style interactive menu with live filtering and match highlighting
 - **PersistenceManager**: SQLite-based cross-session persistence
 - **PSCue Functions**: PowerShell module functions (Learning, Database, Workflow, Navigation, Debugging)
 

@@ -39,19 +39,49 @@ internal static class PcdSubsequenceScorer
     }
 
     /// <summary>
+    /// Score a query against a target and return match positions for highlighting.
+    /// Returns 0.0 if no match; matchPositions will be null on no match.
+    /// </summary>
+    internal static double Score(ReadOnlySpan<char> query, ReadOnlySpan<char> target, out int[]? matchPositions)
+    {
+        int rawScore = ScoreRaw(query, target, out matchPositions);
+
+        if (rawScore == int.MinValue)
+            return 0.0;
+
+        return Normalize(rawScore, query.Length, target.Length);
+    }
+
+    /// <summary>
     /// Raw integer score for testing/debugging.
     /// Returns int.MinValue if no subsequence match found.
     /// </summary>
     internal static int ScoreRaw(ReadOnlySpan<char> query, ReadOnlySpan<char> target)
     {
+        return ScoreRaw(query, target, out _);
+    }
+
+    /// <summary>
+    /// Raw integer score with match positions output.
+    /// Returns int.MinValue if no subsequence match found; matchPositions will be null on no match.
+    /// On empty query, returns 0 with an empty positions array.
+    /// </summary>
+    internal static int ScoreRaw(ReadOnlySpan<char> query, ReadOnlySpan<char> target, out int[]? matchPositions)
+    {
         int queryLen = query.Length;
         int targetLen = target.Length;
 
         if (queryLen == 0)
+        {
+            matchPositions = Array.Empty<int>();
             return 0;
+        }
 
         if (queryLen > targetLen)
+        {
+            matchPositions = null;
             return int.MinValue;
+        }
 
         // Pre-lowercase the query once, normalizing path separators.
         Span<char> queryLower = queryLen <= 64 ? stackalloc char[queryLen] : new char[queryLen];
@@ -77,10 +107,13 @@ internal static class PcdSubsequenceScorer
         }
 
         if (qi < queryLen)
+        {
+            matchPositions = null;
             return int.MinValue; // Not all query chars found.
+        }
 
         // Backward scan: from the last forward match, walk backward to tighten the match span.
-        Span<int> matchPositions = queryLen <= 64 ? stackalloc int[queryLen] : new int[queryLen];
+        Span<int> positions = queryLen <= 64 ? stackalloc int[queryLen] : new int[queryLen];
         int lastForwardPos = forwardPositions[queryLen - 1];
         qi = queryLen - 1;
 
@@ -88,12 +121,13 @@ internal static class PcdSubsequenceScorer
         {
             if (char.ToLowerInvariant(target[ti]) == queryLower[qi])
             {
-                matchPositions[qi] = ti;
+                positions[qi] = ti;
                 qi--;
             }
         }
 
-        return ComputeScore(query, target, matchPositions);
+        matchPositions = positions[..queryLen].ToArray();
+        return ComputeScore(query, target, positions);
     }
 
     private static int ComputeScore(ReadOnlySpan<char> query, ReadOnlySpan<char> target, ReadOnlySpan<int> matchPositions)
