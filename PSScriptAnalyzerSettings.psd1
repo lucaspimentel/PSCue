@@ -1,0 +1,7 @@
+@{
+    ExcludeRules = @(
+        'PSAvoidUsingWriteHost'
+        'PSBOMForUnicodeEncodedFile'
+        'PSReviewUnusedParameter'
+    )
+}
