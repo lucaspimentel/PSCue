@@ -107,8 +107,6 @@ public class PcdInteractiveSelector
 
         try
         {
-            Console.WriteLine();
-
             var menu = new ConsoleMenu(
                 formatPath: FormatDirectoryPath,
                 formatStats: FormatDirectoryStats,
@@ -117,8 +115,6 @@ public class PcdInteractiveSelector
                 initialQuery: filter ?? "");
 
             var selection = menu.Show(validSuggestions);
-
-            Console.WriteLine();
 
             return selection?.DisplayPath;
         }

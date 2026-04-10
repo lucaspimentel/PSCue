@@ -350,7 +350,7 @@ pcdi -Top 30
 ```
 
 Features:
-- **Interactive menu**: fzf-style live filtering — typing updates results instantly, arrow keys navigate, Enter selects, Escape cancels
+- **Full-screen interactive menu**: fzf-style live filtering in an alternate screen buffer — typing updates results instantly, arrow keys navigate, Enter selects, Escape cancels. Uses the full terminal height and restores previous content on exit
 - **Match highlighting**: Matched characters are highlighted in green so you can see exactly why each result matched your query
 - **Path filtering**: Pass a string to pre-filter results using fzf-style subsequence matching (e.g., `pcd -i ddt` matches `dd-trace-dotnet`)
 - **Visual polish**: Color-coded usage indicators and timestamps for easy scanning; ASCII fallback for non-UTF-8 consoles

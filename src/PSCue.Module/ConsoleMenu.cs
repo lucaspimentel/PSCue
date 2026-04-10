@@ -7,7 +7,8 @@ namespace PSCue.Module;
 /// </summary>
 internal sealed class ConsoleMenu
 {
-    private const int PageSize = 15;
+    private const int ChromeLines = 6; // header (1) + search bar (3) + footer (2)
+    private const int LinesPerItem = 2; // path line + stats line
 
     // ANSI escape codes
     private const string Reset = "\e[0m";
@@ -25,11 +26,13 @@ internal sealed class ConsoleMenu
     private const string ClearToEndOfLine = "\e[K";
     private const string HideCursor = "\e[?25l";
     private const string ShowCursor = "\e[?25h";
+    private const string EnterAlternateScreen = "\e[?1049h";
+    private const string LeaveAlternateScreen = "\e[?1049l";
+    private const string CursorHome = "\e[H";
 
     private string _query;
     private int _selectedIndex;
     private int _scrollOffset;
-    private int _lastRenderedLineCount;
 
     private readonly Func<PcdSuggestion, string> _formatPath;
     private readonly Func<PcdSuggestion, string> _formatStats;
@@ -57,10 +60,10 @@ internal sealed class ConsoleMenu
     {
         var filtered = Filter(allItems);
 
-        Console.Write(HideCursor);
+        Console.Write(EnterAlternateScreen + HideCursor);
         try
         {
-            Render(filtered, allItems.Count, isInitial: true);
+            Render(filtered, allItems.Count);
 
             while (true)
             {
@@ -78,33 +81,27 @@ internal sealed class ConsoleMenu
 
                     case ConsoleKey.UpArrow:
                         if (filtered.Count > 0)
-                        {
                             _selectedIndex = _selectedIndex > 0 ? _selectedIndex - 1 : filtered.Count - 1;
-                            AdjustScroll(filtered.Count);
-                        }
                         break;
 
                     case ConsoleKey.DownArrow:
                         if (filtered.Count > 0)
-                        {
                             _selectedIndex = _selectedIndex < filtered.Count - 1 ? _selectedIndex + 1 : 0;
-                            AdjustScroll(filtered.Count);
-                        }
                         break;
 
                     case ConsoleKey.PageUp:
                         if (filtered.Count > 0)
                         {
-                            _selectedIndex = Math.Max(0, _selectedIndex - PageSize);
-                            AdjustScroll(filtered.Count);
+                            int jump = Math.Max(1, (Console.WindowHeight - ChromeLines) / LinesPerItem);
+                            _selectedIndex = Math.Max(0, _selectedIndex - jump);
                         }
                         break;
 
                     case ConsoleKey.PageDown:
                         if (filtered.Count > 0)
                         {
-                            _selectedIndex = Math.Min(filtered.Count - 1, _selectedIndex + PageSize);
-                            AdjustScroll(filtered.Count);
+                            int jump = Math.Max(1, (Console.WindowHeight - ChromeLines) / LinesPerItem);
+                            _selectedIndex = Math.Min(filtered.Count - 1, _selectedIndex + jump);
                         }
                         break;
 
@@ -115,10 +112,7 @@ internal sealed class ConsoleMenu
 
                     case ConsoleKey.End:
                         if (filtered.Count > 0)
-                        {
                             _selectedIndex = filtered.Count - 1;
-                            AdjustScroll(filtered.Count);
-                        }
                         break;
 
                     case ConsoleKey.Backspace:
@@ -142,22 +136,21 @@ internal sealed class ConsoleMenu
                         break;
                 }
 
-                Render(filtered, allItems.Count, isInitial: false);
+                Render(filtered, allItems.Count);
             }
         }
         finally
         {
-            Console.Write(ShowCursor);
+            Console.Write(ShowCursor + LeaveAlternateScreen);
         }
     }
 
-    private void Render(List<FilteredItem> filtered, int totalCount, bool isInitial)
+    private void Render(List<FilteredItem> filtered, int totalCount)
     {
-        // Move cursor back to top of previous render
-        if (!isInitial && _lastRenderedLineCount > 0)
-        {
-            Console.Write($"\e[{_lastRenderedLineCount}A\r");
-        }
+        int screenHeight = Console.WindowHeight;
+        int pageSize = Math.Max(1, (screenHeight - ChromeLines) / LinesPerItem);
+
+        Console.Write(CursorHome);
 
         int lineCount = 0;
 
@@ -172,12 +165,13 @@ internal sealed class ConsoleMenu
         Console.Write($"{Cyan}{ruleLine}{Reset}{BoldCyan}{ruleText}{Reset}{Cyan}{ruleLine}{Reset}{ClearToEndOfLine}\n");
         lineCount++;
 
-        // Search input (ClearToEndOfLine on blank lines to erase stale content from previous renders)
+        // Search input
         Console.Write($"{ClearToEndOfLine}\n  {Cyan}>{Reset} {(_query.Length > 0 ? _query : $"{Grey}Type to filter...{Reset}")}{ClearToEndOfLine}\n{ClearToEndOfLine}\n");
         lineCount += 3;
 
         // Visible items
-        int visibleCount = Math.Min(PageSize, filtered.Count);
+        AdjustScroll(filtered.Count, pageSize);
+        int visibleCount = Math.Min(pageSize, filtered.Count - _scrollOffset);
         int visibleEnd = _scrollOffset + visibleCount;
 
         for (int i = _scrollOffset; i < visibleEnd; i++)
@@ -206,18 +200,14 @@ internal sealed class ConsoleMenu
             lineCount++;
         }
 
-        // Footer (ClearToEndOfLine on blank line to erase stale content from previous renders)
-        Console.Write($"{ClearToEndOfLine}\n  {Grey}\u2191\u2193 navigate  Enter select  Esc cancel{Reset}{ClearToEndOfLine}\n");
-        lineCount += 2;
-
-        // Pad with blank lines if previous render was taller (clear leftover lines)
-        for (int i = lineCount; i < _lastRenderedLineCount; i++)
+        // Fill remaining lines to clear stale content
+        for (int i = lineCount; i < screenHeight - 2; i++)
         {
             Console.Write($"{ClearToEndOfLine}\n");
-            lineCount++;
         }
 
-        _lastRenderedLineCount = lineCount;
+        // Footer pinned to bottom
+        Console.Write($"{ClearToEndOfLine}\n  {Grey}\u2191\u2193 navigate  Enter select  Esc cancel{Reset}{ClearToEndOfLine}");
     }
 
     private static void WriteHighlightedPath(string pathText, int[]? matchPositions, bool selected)
@@ -249,15 +239,15 @@ internal sealed class ConsoleMenu
         }
     }
 
-    private void AdjustScroll(int itemCount)
+    private void AdjustScroll(int itemCount, int pageSize)
     {
         if (_selectedIndex < _scrollOffset)
         {
             _scrollOffset = _selectedIndex;
         }
-        else if (_selectedIndex >= _scrollOffset + PageSize)
+        else if (_selectedIndex >= _scrollOffset + pageSize)
         {
-            _scrollOffset = _selectedIndex - PageSize + 1;
+            _scrollOffset = _selectedIndex - pageSize + 1;
         }
     }
 

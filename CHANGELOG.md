@@ -6,6 +6,9 @@
 - Add directory bookmarking for `pcd`: toggle with `pcd -b`, list with `pcd -lb`, bookmarks appear at top of tab completions and interactive mode with star indicator
 - Add matched character highlighting in interactive menu (`pcd -i`): query matches are shown in green
 
+### Changed
+- Switch `pcd -i` interactive mode to full-screen alternate buffer: uses entire terminal height, restores previous content on exit
+
 ### Fixed
 - Fix stale lines not being cleared in interactive menu when filtering reduces results
 
