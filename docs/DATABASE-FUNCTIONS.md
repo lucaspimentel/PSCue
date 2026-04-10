@@ -223,14 +223,8 @@ These functions use `Microsoft.Data.Sqlite` directly to query the database:
 - No impact on in-memory learning system
 - Can run anytime without disrupting predictions
 
-## Files Added
+## Key Files
 
-- `module/Functions/DatabaseManagement.ps1` - New database query functions (332 lines)
-- `test-database-functions.ps1` - Test script demonstrating usage
-
-## Files Modified
-
-- `module/PSCue.psm1:101` - Added `. $PSScriptRoot/Functions/DatabaseManagement.ps1`
-- `module/PSCue.psd1:74-76` - Added function exports:
-  - `Get-PSCueDatabaseStats`
-  - `Get-PSCueDatabaseHistory`
+- `module/Functions/DatabaseManagement.ps1` - Database query functions
+- `module/PSCue.psm1` - Dot-sources DatabaseManagement.ps1
+- `module/PSCue.psd1` - Exports `Get-PSCueDatabaseStats` and `Get-PSCueDatabaseHistory`

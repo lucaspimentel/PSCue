@@ -118,6 +118,8 @@ public void TestLearningAccess()
 17. **FeedbackProvider uses PowerShell `$PWD` for path normalization**: The `FeedbackProvider` uses the PowerShell `$PWD` variable (not `System.Environment.CurrentDirectory`) to get the current working directory for path normalization. This is important because `Set-Location` in PowerShell does not update the process CWD. Always use `PSCmdlet.SessionState.Path.CurrentLocation` or invoke `$PWD` via PowerShell when you need the true PowerShell working directory.
 18. **Navigation timestamp tracking**: For navigation commands (cd, Set-Location, sl, chdir), the FeedbackProvider records the absolute destination path (from context.CurrentLocation after navigation) with trailing separator, not the relative path typed. The `pcd` function manually records navigations under the 'cd' command since FeedbackProvider only sees the 'pcd' command, not the internal Set-Location calls. Without this, pcd navigations wouldn't update learned directory timestamps.
 
+19. **C# ValueTuple named elements inaccessible from PowerShell**: When a C# method returns a named ValueTuple like `(bool WasAdded, string NormalizedPath)`, PowerShell cannot resolve the named elements. Use `.Item1`, `.Item2` etc. instead of `.WasAdded`, `.NormalizedPath`. Named elements are compile-time metadata via `TupleElementNamesAttribute` and PowerShell does not read them. Accessing a named element returns `$null`, which can cause silent logic bugs (e.g., `if ($result.WasAdded)` always evaluates to `$false`).
+
 ## Documentation
 - Active work: `TODO.md` | Completed work: `docs/COMPLETED.md`
 - Database functions: `docs/DATABASE-FUNCTIONS.md`

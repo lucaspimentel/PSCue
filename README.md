@@ -676,7 +676,7 @@ Contributions are welcome! Please feel free to:
 
 To add completions for a new command:
 
-1. Create a new file in `src/PSCue.Shared/KnownCompletions/YourCommand.cs`
+1. Create a new file in `src/PSCue.Shared/KnownCompletions/YourCommand.cs` (or a subdirectory for related commands, e.g., `Azure/`)
 2. Implement the `ICompletion` interface
 3. Add the command to `CommandCompleter.cs` switch statement
 4. Add tests in `test/PSCue.ArgumentCompleter.Tests/`

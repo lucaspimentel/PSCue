@@ -6,80 +6,6 @@ This document tracks planned work for PSCue. For architectural details, see [TEC
 
 ## Planned Work
 
-### PCD Fuzzy Matching: Adopt Subsequence Matching + Boundary Bonuses
-**Status**: Complete
-**Priority**: Medium
-**Estimated Effort**: 15-20 hours
-
-**Goal**: Replace PCD's flat fuzzy matching with subsequence matching and boundary-aware scoring, inspired by Wade's fzf-style `FuzzyScorer`. This improves matching for abbreviated directory names (e.g., "ddt" matching `dd-trace-dotnet`).
-
-**Motivation**: PCD currently requires contiguous substrings or close edit distance (Levenshtein). Subsequence matching is how people naturally abbreviate directory names. Wade's algorithm (in `../wade`) demonstrates this well with boundary bonuses for `-`, `_`, camelCase, and path separators.
-
-**Current fuzzy tier** (`PcdCompletionEngine.cs:603`):
-1. Substring match (contiguous) → score 0.0-0.7
-2. Levenshtein distance (typo tolerance) → score 0.0-0.5
-
-**Proposed fuzzy tier** (two-step fallback):
-1. **Subsequence match with boundary bonuses** (new, Wade-style) — catches abbreviations like "ddt" → `dd-trace-dotnet`, "asc" → `AppServiceConfig`
-2. **Levenshtein match** (existing) — catches typos like "gti" → `git`
-
-Both still feed into the existing frecency-weighted combined score (`matchScore * 0.1 * exactMatchMultiplier + frequency + recency + distance`).
-
-**Key features to port from Wade's `FuzzyScorer`**:
-1. **Greedy subsequence matching**: Forward scan to find match, backward scan to tighten span
-2. **Boundary bonuses**: Extra score for matches at word boundaries (`-`, `_`), camelCase transitions, path separators
-3. **Affine gap penalties**: -3 for starting a gap, -1 per extension (penalizes spread-out matches)
-4. **First character multiplier**: 2x bonus for matching the first character
-5. **Consecutive match bonus**: Reward adjacent matches
-
-**What NOT to port**:
-- Filename priority bonus (+1000) — PCD already separates directory-name vs full-path matching
-- Dropping typo tolerance — keep Levenshtein as fallback tier
-
-**Tasks**:
-1. [x] Create `PcdSubsequenceScorer.cs` (~200 lines)
-   - [x] Forward/backward subsequence matching (adapted from Wade's `FuzzyScorer`)
-   - [x] Boundary detection (delimiters, camelCase, non-word transitions)
-   - [x] Affine gap penalties and consecutive match bonuses
-   - [x] Score normalization to 0.0-0.8 range (below exact/prefix matches)
-2. [x] Update `PcdCompletionEngine.CalculateFuzzyMatchScore()` (~30 lines)
-   - [x] Try subsequence match first
-   - [x] Fall back to Levenshtein if no subsequence match (typo tolerance)
-3. [x] Write tests (~20 test cases)
-   - [x] Abbreviation matching: "ddt" → `dd-trace-dotnet`, "asc" → `AppServiceConfig`
-   - [x] Boundary bonus ranking: "asc" prefers `AppServiceConfig` over `basicconfig`
-   - [x] Gap penalty ranking: tighter matches score higher
-   - [x] Typo fallback still works: "gti" → `git` (Levenshtein)
-   - [x] No regressions in existing exact/prefix/substring matching
-   - [x] Combined frecency + subsequence scoring produces sensible rankings
-4. [x] Performance validation: PCD tab completion still <10ms, best-match <50ms
-5. [x] Apply subsequence matching to PCD interactive mode (`pcd -i <filter>`)
-
-**Example Behavior**:
-```powershell
-# Today: "ddt" does NOT match dd-trace-dotnet (no contiguous substring, Levenshtein too distant)
-# After: "ddt" matches dd-trace-dotnet via subsequence (d-d-t at boundaries)
-
-PS> pcd ddt
-  → D:\source\datadog\dd-trace-dotnet\
-
-# Boundary bonus ensures good ranking
-PS> pcd asc
-  → AppServiceConfig\  (boundaries: A-s-C)
-  → basicconfig\       (no boundaries, lower score)
-```
-
-**Dependencies**: None
-
-**Success Criteria**:
-- Abbreviated directory names match via subsequence
-- Boundary-aligned matches rank higher than mid-word matches
-- Levenshtein typo tolerance preserved as fallback
-- No performance regression
-- All existing PCD tests still pass
-
----
-
 ### Phase 19.1: Tab Completion on Empty Input
 **Status**: Deferred (more complex than initially estimated)
 **Priority**: Low
@@ -114,17 +40,6 @@ PS> pcd asc
 - [ ] Pre-trained or user-trained models
 - [ ] Background pre-computation for heavy ML
 - [ ] Research ONNX Runtime + NativeAOT compatibility
-
----
-
-### Replace Spectre.Console with Custom Menu Renderer in PCD Interactive Mode
-**Status**: Complete
-**Priority**: Low
-
-- [x] Replace `SelectionPrompt` in `PcdInteractiveSelector` with custom fzf-style `ConsoleMenu` using `Console.ReadKey` + ANSI escape codes
-  - Removed Spectre.Console dependency (~1.2MB of DLLs)
-  - Live filtering: typing updates results instantly using `PcdSubsequenceScorer`
-  - Arrow keys navigate, Enter selects, Escape cancels, PageUp/Down/Home/End supported
 
 ---
 
