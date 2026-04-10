@@ -13,7 +13,7 @@ Pre-built binaries support Windows and Linux. macOS is supported when built from
 - **🎯 Multi-Word Suggestions**: Shows common argument combinations (e.g., `git checkout master`)
 - **🤖 ML-Based Predictions**: N-gram sequence learning predicts your next command (e.g., `git add` → `git commit`)
 - **🔄 Workflow Learning**: Automatically learns command sequences and predicts next command based on your usage patterns
-- **📁 Smart Directory Navigation**: `pcd` command with intelligent tab completion, fuzzy matching, and exact match prioritization
+- **📁 Smart Directory Navigation**: `pcd` command with intelligent tab completion, fuzzy matching, exact match prioritization, and directory bookmarks
 - **🔗 Symlink Resolution**: Automatically resolves symlinks, junctions, and directory links to prevent duplicate suggestions
 - **🧹 Smart Filtering**: Filters cache/metadata directories (`.codeium`, `node_modules`, `bin`, etc.) for cleaner suggestions
 - **⚡ PowerShell Module Functions**: Native PowerShell functions for learning, database, workflow, and navigation management
@@ -173,6 +173,9 @@ pcdi                    # Shorthand for pcd -i
 pcdi ddt                # Shorthand for pcd -i ddt
 pcd -Root               # Navigate to git repository root (or filesystem root if not in a repo)
 pcd -r                  # Alias for -Root
+pcd -b                  # Bookmark current directory (toggle: run again to remove)
+pcd -b D:\source\myproj # Bookmark an explicit path
+pcd -lb                 # List all bookmarks
 pcd -                   # Navigate to previous directory (like cd - in bash)
 pcd ~                   # Home directory (well-known shortcut)
 pcd ..                  # Parent directory (well-known shortcut)
@@ -302,6 +305,30 @@ Features:
 - **Worktree aware**: Detects both `.git` directories and `.git` files (used by worktrees)
 - **Filesystem fallback**: Outside a git repo, navigates to the drive/filesystem root
 - **Statistics tracked**: Navigation is recorded for frecency scoring like any other `pcd` use
+
+**Directory Bookmarks** (`pcd -b` / `pcd -lb`):
+
+Pin frequently accessed directories so they always appear at the top of completions:
+
+```powershell
+# Bookmark current directory
+pcd -b                  # "Bookmarked: D:\source\myproject"
+
+# Remove bookmark (toggle)
+pcd -b                  # "Removed bookmark: D:\source\myproject"
+
+# Bookmark an explicit path
+pcd -b D:\source\datadog\dd-trace-dotnet
+
+# List all bookmarks
+pcd -lb
+```
+
+Features:
+- **Always on top**: Bookmarked directories appear above all other suggestions in tab completion and interactive mode
+- **Visual indicators**: `[bookmark]` tag in tab completion tooltips, `★` prefix in interactive mode
+- **Toggle semantics**: Running `pcd -b` on a bookmarked directory removes it
+- **Persistent**: Bookmarks are saved immediately to SQLite and survive session restarts
 
 **Interactive Selection** (`pcd -i` / `pcdi`):
 

@@ -204,6 +204,12 @@ public class PersistenceManager : IDisposable
                 PRIMARY KEY (command, parameter, value)
             );
 
+            -- Bookmarks table: user-managed directory bookmarks for pcd
+            CREATE TABLE IF NOT EXISTS bookmarks (
+                path TEXT PRIMARY KEY COLLATE NOCASE,
+                created_at TEXT NOT NULL
+            );
+
             -- Indexes for performance
             CREATE INDEX IF NOT EXISTS idx_arguments_command ON arguments(command);
             CREATE INDEX IF NOT EXISTS idx_co_occurrences_command_arg ON co_occurrences(command, argument);
@@ -1138,6 +1144,57 @@ public class PersistenceManager : IDisposable
         }
 
         return stalePaths.Count;
+    }
+
+    /// <summary>
+    /// Loads all bookmarked paths from the database.
+    /// </summary>
+    public List<(string Path, DateTime CreatedAt)> LoadBookmarks()
+    {
+        var bookmarks = new List<(string, DateTime)>();
+
+        using var connection = CreateConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT path, created_at FROM bookmarks ORDER BY path";
+
+        using var reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            var path = reader.GetString(0);
+            var createdAt = DateTime.TryParse(reader.GetString(1), null, System.Globalization.DateTimeStyles.RoundtripKind, out var dt)
+                ? dt
+                : DateTime.UtcNow;
+            bookmarks.Add((path, createdAt));
+        }
+
+        return bookmarks;
+    }
+
+    /// <summary>
+    /// Persists a bookmark immediately (write-through, no delta tracking).
+    /// </summary>
+    public void SaveBookmark(string path)
+    {
+        using var connection = CreateConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = @"
+            INSERT OR REPLACE INTO bookmarks (path, created_at)
+            VALUES (@path, @created_at)";
+        command.Parameters.AddWithValue("@path", path);
+        command.Parameters.AddWithValue("@created_at", DateTime.UtcNow.ToString("o"));
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Removes a bookmark immediately (write-through, no delta tracking).
+    /// </summary>
+    public void DeleteBookmark(string path)
+    {
+        using var connection = CreateConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM bookmarks WHERE path = @path";
+        command.Parameters.AddWithValue("@path", path);
+        command.ExecuteNonQuery();
     }
 
     /// <summary>

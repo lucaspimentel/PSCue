@@ -12,6 +12,7 @@ namespace PSCue.Module;
 public class PcdCompletionEngine
 {
     private readonly ArgumentGraph _graph;
+    private readonly BookmarkManager? _bookmarks;
     private readonly int _scoreDecayDays;
     private readonly double _frequencyWeight;
     private readonly double _recencyWeight;
@@ -35,6 +36,7 @@ public class PcdCompletionEngine
     /// Creates a new PCD completion engine.
     /// </summary>
     /// <param name="graph">The ArgumentGraph with learned directory data.</param>
+    /// <param name="bookmarks">Optional bookmark manager for user-pinned directories.</param>
     /// <param name="scoreDecayDays">Days for recency decay (default: 30).</param>
     /// <param name="frequencyWeight">Weight for frequency scoring (default: 0.5).</param>
     /// <param name="recencyWeight">Weight for recency scoring (default: 0.3).</param>
@@ -45,6 +47,7 @@ public class PcdCompletionEngine
     /// <param name="fuzzyMinMatchPct">Minimum match percentage for fuzzy matching (default: 0.7).</param>
     public PcdCompletionEngine(
         ArgumentGraph graph,
+        BookmarkManager? bookmarks = null,
         int scoreDecayDays = 30,
         double frequencyWeight = 0.5,
         double recencyWeight = 0.3,
@@ -55,6 +58,7 @@ public class PcdCompletionEngine
         double fuzzyMinMatchPct = 0.7)
     {
         _graph = graph ?? throw new ArgumentNullException(nameof(graph));
+        _bookmarks = bookmarks;
         _scoreDecayDays = scoreDecayDays;
         _frequencyWeight = frequencyWeight;
         _recencyWeight = recencyWeight;
@@ -77,6 +81,10 @@ public class PcdCompletionEngine
     {
         wordToComplete ??= string.Empty;
         var suggestions = new List<PcdSuggestion>();
+
+        // Stage 0: Bookmarked directories (highest priority, score 2000)
+        var bookmarkSuggestions = GetBookmarkedDirectories(wordToComplete, currentDirectory, skipExistenceCheck);
+        suggestions.AddRange(bookmarkSuggestions);
 
         // Stage 1: Check for well-known shortcuts
         var shortcutSuggestions = GetWellKnownShortcuts(wordToComplete, currentDirectory);
@@ -125,6 +133,75 @@ public class PcdCompletionEngine
             .ThenByDescending(s => s.UsageCount)
             .Take(maxResults)
             .ToList();
+    }
+
+    /// <summary>
+    /// Stage 0: Gets bookmarked directories with highest priority.
+    /// Bookmarks always appear above all other suggestions.
+    /// </summary>
+    private List<PcdSuggestion> GetBookmarkedDirectories(string wordToComplete, string currentDirectory, bool skipExistenceCheck)
+    {
+        if (_bookmarks == null)
+            return [];
+
+        var suggestions = new List<PcdSuggestion>();
+        var normalizedCurrent = currentDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        foreach (var path in _bookmarks.GetAll())
+        {
+            // Skip current directory
+            if (path.Equals(normalizedCurrent, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            // Skip paths that don't exist on the filesystem (unless testing)
+            if (!skipExistenceCheck && !Directory.Exists(path))
+                continue;
+
+            // Filter by wordToComplete if non-empty
+            if (!string.IsNullOrEmpty(wordToComplete))
+            {
+                var dirName = Path.GetFileName(path);
+
+                // Check prefix match on directory name
+                bool matches = dirName.StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase);
+
+                // Check prefix match on full path (for absolute path typing)
+                if (!matches)
+                    matches = path.StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase);
+
+                // Check fuzzy match on directory name
+                if (!matches)
+                {
+                    var fuzzyScore = PcdSubsequenceScorer.Score(wordToComplete, dirName);
+                    matches = fuzzyScore > 0;
+                }
+
+                // Check fuzzy match on full path
+                if (!matches)
+                {
+                    var fuzzyScore = PcdSubsequenceScorer.Score(wordToComplete, path);
+                    matches = fuzzyScore > 0;
+                }
+
+                if (!matches)
+                    continue;
+            }
+
+            var relativePath = ToRelativePath(path, currentDirectory);
+
+            suggestions.Add(new PcdSuggestion
+            {
+                Path = relativePath,
+                DisplayPath = path,
+                Score = 2000.0,
+                UsageCount = 0,
+                LastUsed = DateTime.MinValue,
+                MatchType = MatchType.Bookmark,
+                Tooltip = $"Bookmarked: {path}"
+            });
+        }
+
+        return suggestions;
     }
 
     /// <summary>
@@ -1034,6 +1111,8 @@ public class PcdSuggestion
 /// </summary>
 public enum MatchType
 {
+    /// <summary>User-bookmarked directory.</summary>
+    Bookmark,
     /// <summary>Well-known shortcut like ~, .., or .</summary>
     WellKnown,
     /// <summary>Exact match to input.</summary>

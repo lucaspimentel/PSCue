@@ -30,6 +30,7 @@ public class PcdInteractiveSelector
     private static string SymbolDotFilled => s_supportsUnicode ? "\u25cf" : "*";
     private static string SymbolDotEmpty => s_supportsUnicode ? "\u25cb" : "-";
     private static string SymbolSeparator => s_supportsUnicode ? "\u2022" : "|";
+    private static string SymbolBookmark => s_supportsUnicode ? "\u2605" : "*";
 
     // ANSI escape codes for colored console output
     private const string Reset = "\e[0m";
@@ -40,13 +41,15 @@ public class PcdInteractiveSelector
     private const string Grey = "\e[90m";
     private const string Grey50 = "\e[37m";
     private const string Dim = "\e[2m";
+    private const string Cyan = "\e[36m";
 
-    public PcdInteractiveSelector(ArgumentGraph graph)
+    public PcdInteractiveSelector(ArgumentGraph graph, BookmarkManager? bookmarks = null)
     {
         _graph = graph ?? throw new ArgumentNullException(nameof(graph));
 
         _engine = new PcdCompletionEngine(
             graph,
+            bookmarks,
             PcdConfiguration.ScoreDecayDays,
             PcdConfiguration.FrequencyWeight,
             PcdConfiguration.RecencyWeight,
@@ -141,7 +144,12 @@ public class PcdInteractiveSelector
             displayPath += Path.DirectorySeparatorChar;
         }
 
-        return displayPath;
+        // Prefix bookmarked entries with a star symbol, align others with spaces
+        var prefix = suggestion.MatchType == MatchType.Bookmark
+            ? $"{SymbolBookmark} "
+            : "  ";
+
+        return prefix + displayPath;
     }
 
     private string FormatDirectoryStats(PcdSuggestion suggestion)
@@ -166,6 +174,12 @@ public class PcdInteractiveSelector
         }
 
         var parts = new System.Text.StringBuilder();
+
+        // Tag bookmarked entries
+        if (suggestion.MatchType == MatchType.Bookmark)
+        {
+            parts.Append($"{Cyan}bookmark{Reset} {Grey}{SymbolSeparator}{Reset} ");
+        }
 
         // Usage count with color-coded indicator
         if (usageCount > 0)

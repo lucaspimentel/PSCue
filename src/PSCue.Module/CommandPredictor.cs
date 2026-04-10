@@ -177,6 +177,7 @@ public class CommandPredictor : ICommandPredictor
             // Create PcdCompletionEngine using shared configuration
             var engine = new PcdCompletionEngine(
                 knowledgeGraph,
+                PSCueModule.Bookmarks,
                 PcdConfiguration.ScoreDecayDays,
                 PcdConfiguration.FrequencyWeight,
                 PcdConfiguration.RecencyWeight,

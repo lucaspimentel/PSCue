@@ -123,6 +123,7 @@ public class PcdInteractiveSelectorTests
 
             var engine = new PcdCompletionEngine(
                 graph,
+                null,
                 PcdConfiguration.ScoreDecayDays,
                 PcdConfiguration.FrequencyWeight,
                 PcdConfiguration.RecencyWeight,
@@ -269,6 +270,7 @@ public class PcdInteractiveSelectorTests
             // Build the engine to verify filtering logic directly
             var engine = new PcdCompletionEngine(
                 graph,
+                null,
                 PcdConfiguration.ScoreDecayDays,
                 PcdConfiguration.FrequencyWeight,
                 PcdConfiguration.RecencyWeight,

@@ -25,6 +25,12 @@ public static class PSCueModule
     public static PersistenceManager? Persistence { get; internal set; }
 
     /// <summary>
+    /// Gets the bookmark manager instance.
+    /// Manages user-bookmarked directories for quick access via pcd.
+    /// </summary>
+    public static BookmarkManager? Bookmarks { get; internal set; }
+
+    /// <summary>
     /// Gets the sequence predictor instance.
     /// Learns command sequences (n-grams) for ML-based next-command prediction.
     /// </summary>

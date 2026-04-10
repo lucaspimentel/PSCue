@@ -60,6 +60,10 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                 PSCueModule.KnowledgeGraph = PSCueModule.Persistence.LoadArgumentGraph(maxCommands, maxArgs, decayDays);
                 PSCueModule.CommandHistory = PSCueModule.Persistence.LoadCommandHistory(historySize);
 
+                // Initialize bookmarks
+                PSCueModule.Bookmarks = new BookmarkManager();
+                PSCueModule.Bookmarks.Initialize(PSCueModule.Persistence.LoadBookmarks());
+
                 // Initialize ML sequence predictor if enabled
                 if (mlEnabled)
                 {
@@ -270,6 +274,7 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
         // Clear module state
         PSCueModule.KnowledgeGraph = null;
         PSCueModule.CommandHistory = null;
+        PSCueModule.Bookmarks = null;
 
         // Unregister all subsystems (predictors and feedback providers)
         foreach (var (kind, id) in _subsystems)

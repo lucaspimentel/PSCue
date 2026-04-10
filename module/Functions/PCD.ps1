@@ -41,6 +41,16 @@ function Invoke-PCD {
     directory or file (supports worktrees). If not inside a git repo, navigates to the filesystem root.
     Alias: -r
 
+    .PARAMETER Bookmark
+    Toggle a bookmark on the current directory (or explicit path). If the directory is already
+    bookmarked, removes it. Bookmarked directories appear at the top of tab completions and
+    interactive mode with a star indicator.
+    Alias: -b
+
+    .PARAMETER ListBookmarks
+    List all bookmarked directories.
+    Alias: -lb
+
     .EXAMPLE
     pcd D:\source\datadog
     Changes to the specified directory.
@@ -78,6 +88,18 @@ function Invoke-PCD {
     Shows an interactive menu with up to 50 learned directories.
 
     .EXAMPLE
+    pcd -b
+    Bookmarks the current directory. Run again to remove the bookmark.
+
+    .EXAMPLE
+    pcd -b D:\source\myproject
+    Bookmarks an explicit path.
+
+    .EXAMPLE
+    pcd -lb
+    Lists all bookmarked directories.
+
+    .EXAMPLE
     pcd dat<TAB>
     Tab completion shows learned directories matching "dat" with fuzzy matching.
 
@@ -112,7 +134,15 @@ function Invoke-PCD {
 
         [Parameter(Mandatory = $false)]
         [Alias('v')]
-        [switch]$Version
+        [switch]$Version,
+
+        [Parameter(Mandatory = $false)]
+        [Alias('b')]
+        [switch]$Bookmark,
+
+        [Parameter(Mandatory = $false)]
+        [Alias('lb')]
+        [switch]$ListBookmarks
     )
 
     if ($Version) {
@@ -121,6 +151,54 @@ function Invoke-PCD {
             Write-Output "pcd (PSCue) $($moduleInfo.Version)"
         } else {
             Write-Output "pcd (PSCue) version unknown - module not loaded"
+        }
+        return
+    }
+
+    # List all bookmarks
+    if ($ListBookmarks) {
+        $bm = [PSCue.Module.PSCueModule]::Bookmarks
+        if ($null -eq $bm) {
+            Write-Error "PSCue module not initialized."
+            return
+        }
+        $all = $bm.GetAll()
+        if ($all.Count -eq 0) {
+            Write-Host "No bookmarks yet. Use 'pcd -b' to bookmark the current directory." -ForegroundColor Yellow
+            return
+        }
+        Write-Host "Bookmarks ($($all.Count)):" -ForegroundColor Cyan
+        foreach ($bmPath in $all) {
+            Write-Host "  $bmPath"
+        }
+        return
+    }
+
+    # Toggle bookmark on current directory or explicit path
+    if ($Bookmark) {
+        $bm = [PSCue.Module.PSCueModule]::Bookmarks
+        $persistence = [PSCue.Module.PSCueModule]::Persistence
+        if ($null -eq $bm -or $null -eq $persistence) {
+            Write-Error "PSCue module not initialized."
+            return
+        }
+
+        # Resolve target path: explicit argument or $PWD
+        $targetPath = if (-not [string]::IsNullOrWhiteSpace($Path)) {
+            (Resolve-Path -LiteralPath $Path -ErrorAction Stop).Path
+        } else {
+            $PWD.Path
+        }
+
+        # Toggle returns (WasAdded, NormalizedPath) — use the normalized path for persistence
+        $result = $bm.Toggle($targetPath)
+
+        if ($result.WasAdded) {
+            $persistence.SaveBookmark($result.NormalizedPath)
+            Write-Host "Bookmarked: $($result.NormalizedPath)" -ForegroundColor Green
+        } else {
+            $persistence.DeleteBookmark($result.NormalizedPath)
+            Write-Host "Removed bookmark: $($result.NormalizedPath)" -ForegroundColor Yellow
         }
         return
     }
@@ -165,7 +243,8 @@ function Invoke-PCD {
 
         try {
             $selector = [PSCue.Module.PcdInteractiveSelector]::new(
-                [PSCue.Module.PSCueModule]::KnowledgeGraph
+                [PSCue.Module.PSCueModule]::KnowledgeGraph,
+                [PSCue.Module.PSCueModule]::Bookmarks
             )
 
             $selectedPath = $selector.ShowSelectionPrompt($PWD.Path, $Top, $Path)
@@ -235,6 +314,7 @@ function Invoke-PCD {
         # Create PcdCompletionEngine using shared configuration
         $engine = [PSCue.Module.PcdCompletionEngine]::new(
             [PSCue.Module.PSCueModule]::KnowledgeGraph,
+            [PSCue.Module.PSCueModule]::Bookmarks,
             [PSCue.Module.PcdConfiguration]::ScoreDecayDays,
             [PSCue.Module.PcdConfiguration]::FrequencyWeight,
             [PSCue.Module.PcdConfiguration]::RecencyWeight,
@@ -302,6 +382,7 @@ Register-ArgumentCompleter -CommandName 'Invoke-PCD', 'pcd', 'pcdi' -ParameterNa
         # Create PcdCompletionEngine using shared configuration
         $engine = [PSCue.Module.PcdCompletionEngine]::new(
             [PSCue.Module.PSCueModule]::KnowledgeGraph,
+            [PSCue.Module.PSCueModule]::Bookmarks,
             [PSCue.Module.PcdConfiguration]::ScoreDecayDays,
             [PSCue.Module.PcdConfiguration]::FrequencyWeight,
             [PSCue.Module.PcdConfiguration]::RecencyWeight,
@@ -325,6 +406,7 @@ Register-ArgumentCompleter -CommandName 'Invoke-PCD', 'pcd', 'pcdi' -ParameterNa
 
             # Add match type indicator to tooltip
             $matchIndicator = switch ($matchType) {
+                'Bookmark' { '[bookmark]' }
                 'WellKnown' { '[shortcut]' }
                 'Exact' { '[exact]' }
                 'Prefix' { '[prefix]' }
