@@ -43,6 +43,26 @@ This document tracks planned work for PSCue. For architectural details, see [TEC
 
 ---
 
+### CWD-Scoped Path Argument Suggestions
+**Status**: Backlog
+
+**Goal**: Detect path-like arguments in learned CLI commands and scope their suggestions to the working directory where they were recorded.
+
+**Current Limitation**: `ArgumentGraph.RecordUsage()` (`src/PSCue.Module/ArgumentGraph.cs:273`) only uses `workingDirectory` for navigation command normalization (cd/sl/etc). For other commands (e.g., `dotnet build`), path arguments like `tracer\src\Datadog.Trace\Datadog.Trace.csproj` are stored and suggested globally — meaning they appear as suggestions even when in an unrelated directory.
+
+**Solution**:
+- Detect path-like arguments (contains `\`, `/`, `.csproj`, `.sln`, etc.) during `RecordUsage`
+- Tag them with the CWD where they were recorded
+- In `GetSuggestions()` (`src/PSCue.Module/ArgumentGraph.cs:638`), filter or de-prioritize path arguments that don't match the current CWD
+
+- [ ] Decide on detection heuristic: path separators, known file extensions, rooted vs relative
+- [ ] Store `workingDirectory` per `ArgumentStats` (or a separate path-scoped index)
+- [ ] Update `GetSuggestions()` to accept optional `currentDirectory` and filter path args by origin CWD
+- [ ] Update `FeedbackProvider` and `CommandPredictor` to pass current directory when querying suggestions
+- [ ] Write tests for path detection, scoped suggestion filtering, and non-path args unaffected
+
+---
+
 ## Phase 18: Workflow Improvements
 
 ### Phase 18.3: Workflow Chains (3+ Commands)
