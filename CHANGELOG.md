@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.18.0-beta] - 2026-04-10
+
 ### Added
 - Add directory bookmarking for `pcd`: toggle with `pcd -b`, list with `pcd -lb`, bookmarks appear at top of tab completions and interactive mode with star indicator
 - Add matched character highlighting in interactive menu (`pcd -i`): query matches are shown in green
