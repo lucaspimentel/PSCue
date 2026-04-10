@@ -190,15 +190,18 @@ function Invoke-PCD {
             $PWD.Path
         }
 
-        # Toggle returns (WasAdded, NormalizedPath) — use the normalized path for persistence
+        # Toggle returns ValueTuple<bool, string> (WasAdded, NormalizedPath)
+        # PowerShell can't resolve named tuple elements, use Item1/Item2
         $result = $bm.Toggle($targetPath)
+        $wasAdded = $result.Item1
+        $normalizedPath = $result.Item2
 
-        if ($result.WasAdded) {
-            $persistence.SaveBookmark($result.NormalizedPath)
-            Write-Host "Bookmarked: $($result.NormalizedPath)" -ForegroundColor Green
+        if ($wasAdded) {
+            $persistence.SaveBookmark($normalizedPath)
+            Write-Host "Bookmarked: $normalizedPath" -ForegroundColor Green
         } else {
-            $persistence.DeleteBookmark($result.NormalizedPath)
-            Write-Host "Removed bookmark: $($result.NormalizedPath)" -ForegroundColor Yellow
+            $persistence.DeleteBookmark($normalizedPath)
+            Write-Host "Removed bookmark: $normalizedPath" -ForegroundColor Yellow
         }
         return
     }
