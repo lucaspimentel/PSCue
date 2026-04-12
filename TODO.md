@@ -675,6 +675,42 @@ $env:PSCUE_METRICS_ENABLED = "true"  # Default: true
 
 ---
 
+### Module Load Time Optimization
+**Status**: Backlog
+**Priority**: High (user-facing latency, currently 2-4 seconds)
+
+**Context**: Module import (`OnImport` in `src/PSCue.Module/ModuleInitializer.cs:27`) takes 2-4 seconds. The bottleneck is database I/O during `OnImport`: 6 separate SQLite connections are opened, and `LoadArgumentGraph` (`src/PSCue.Module/PersistenceManager.cs:698`) alone runs 7 sequential queries reading ~5,600 rows with `DateTime.Parse()` on every row.
+
+**Database stats** (as of 2026-04-12): 1.5 MB, 99 commands, 1,414 arguments, 3,362 co-occurrences, 627 argument sequences, 751 command sequences, 824 workflow transitions.
+
+**Key insight**: The only thing PowerShell requires synchronously from `OnImport` is subsystem registration (`SubsystemManager.RegisterSubsystem` at :121 and :127). Both `CommandPredictor` and `FeedbackProvider` already handle null data gracefully -- `CommandPredictor.GetSuggestion` checks `_enableGenericLearning` and `_genericPredictor != null`; `FeedbackProvider.GetFeedback` reads `PSCueModule.*` statics and returns null when they're null. This means **all database loading can be moved off the critical path**.
+
+**Approach**: Register subsystems immediately, fire `Task.Run()` for all data loading. The predictor/feedback provider return empty results for the first ~1-2s until loading completes. In practice, the user stares at the prompt longer than that before typing.
+
+#### Deferred/async loading (biggest win)
+
+- [ ] **Move all database loading to background `Task.Run()`** -- Register `CommandPredictor` and `FeedbackProvider` with null/empty data immediately, then load everything in a background task. All consumers already null-check `PSCueModule.*` statics.
+  - Components to defer: `PersistenceManager` init (:54-59), `LoadArgumentGraph` (:60), `LoadCommandHistory` (:61), `LoadBookmarks` (:63-65), `LoadCommandSequences` (:71), `LoadWorkflowTransitions` (:79), `CommandParser` (:84-87), `ContextAnalyzer` (:89), `GenericPredictor` (:90)
+  - **Impact**: Very High (moves ~2s of work off the critical path entirely; perceived load time drops to near-zero)
+  - **Complexity**: Medium (need to ensure thread-safe assignment of `PSCueModule.*` statics; consumers already null-check; auto-save timer must wait for init to complete)
+
+#### Database I/O optimizations (reduces total background load time)
+
+- [ ] **Use a single connection for all load operations** -- Currently each Load method (`LoadArgumentGraph` :702, `LoadCommandHistory` :866, `LoadBookmarks` :1156, `LoadCommandSequences` :575, `LoadWorkflowTransitions` :659) plus `InitializeDatabase` (:96) each call `CreateConnection()` independently, each running `PRAGMA busy_timeout=5000`. Keep one connection open for the entire init sequence, or add a persistent connection field to PersistenceManager.
+  - **Impact**: High (eliminates 5 redundant connection open + PRAGMA cycles)
+  - **Complexity**: Low (pass connection parameter or use instance field)
+- [ ] **Combine ArgumentGraph queries into fewer round-trips** -- `LoadArgumentGraph` runs 7 sequential SELECTs (commands, arguments, co_occurrences, flag_combinations, argument_sequences, parameters, parameter_values). These could be batched or combined.
+  - **Impact**: High (~5,600 rows across 7 queries is the biggest single cost)
+  - **Complexity**: Low-Medium
+- [ ] **Skip schema creation on existing databases** -- `InitializeDatabase()` (:94) runs 12 `CREATE TABLE IF NOT EXISTS` + 8 `CREATE INDEX IF NOT EXISTS` every startup. Check if database file already exists before running DDL, or store a schema version in a user_version pragma.
+  - **Impact**: Low-Medium (~100-200ms saved)
+  - **Complexity**: Low
+- [ ] **Replace `DateTime.Parse()` with integer timestamps** -- Every row calls `DateTime.Parse(reader.GetString(N)).ToUniversalTime()` -- ~12,000+ parse calls during load. Storing as Unix epoch integers (`reader.GetInt64`) would be much faster.
+  - **Impact**: Medium (significant CPU reduction during deserialization)
+  - **Complexity**: High (schema migration, backwards compatibility, update all read/write paths)
+
+---
+
 ### Phase 19.3: Distribution & Packaging
 **Status**: Backlog
 
