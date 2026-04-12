@@ -5,6 +5,7 @@ PowerShell completion module combining Tab completion (NativeAOT) + inline predi
 ## Architecture Internals
 - **ArgumentCompleter** (`pscue-completer.exe`): NativeAOT exe, <10ms startup, computes completions locally with full dynamic arguments support
 - **Module** (`PSCue.Module.dll`): Long-lived, implements `ICommandPredictor` + `IFeedbackProvider` (7.4+), provides PowerShell module functions
+- **Background Initialization**: `OnImport` registers subsystems synchronously (required by PowerShell), then loads all learned data via `Task.Run()` so `Import-Module` returns instantly. All `PSCueModule.*` consumers null-check and return empty results until loading completes.
 - **Learning System**:
   - **CommandHistory**: Ring buffer tracking last 100 commands
   - **CommandParser**: Parses commands into typed arguments (Verb, Flag, Parameter, ParameterValue, Standalone)
@@ -62,6 +63,7 @@ dotnet test --filter "FullyQualifiedName~WorkflowLearner"
 4. **NestedModules in manifest**: Required for `IModuleAssemblyInitializer` to trigger
 5. **Concurrent logging**: `FileShare.ReadWrite` + `AutoFlush` for multi-process debug logging
 6. **PowerShell module functions**: Direct in-process access, no IPC overhead
+7. **Background init via Task.Run()**: `OnImport` only registers subsystems synchronously; all DB loading is async. `CommandPredictor` and `FeedbackProvider` read `PSCueModule.*` statics dynamically and null-check on every call, so they gracefully return empty until data loads. Auto-save timer starts only after init completes. `OnRemove` cancels+waits on the background task before cleanup.
 
 ## Performance Targets
 - ArgumentCompleter startup: <10ms
@@ -118,7 +120,8 @@ public void TestLearningAccess()
 17. **FeedbackProvider uses PowerShell `$PWD` for path normalization**: The `FeedbackProvider` uses the PowerShell `$PWD` variable (not `System.Environment.CurrentDirectory`) to get the current working directory for path normalization. This is important because `Set-Location` in PowerShell does not update the process CWD. Always use `PSCmdlet.SessionState.Path.CurrentLocation` or invoke `$PWD` via PowerShell when you need the true PowerShell working directory.
 18. **Navigation timestamp tracking**: For navigation commands (cd, Set-Location, sl, chdir), the FeedbackProvider records the absolute destination path (from context.CurrentLocation after navigation) with trailing separator, not the relative path typed. The `pcd` function manually records navigations under the 'cd' command since FeedbackProvider only sees the 'pcd' command, not the internal Set-Location calls. Without this, pcd navigations wouldn't update learned directory timestamps.
 
-19. **C# ValueTuple named elements inaccessible from PowerShell**: When a C# method returns a named ValueTuple like `(bool WasAdded, string NormalizedPath)`, PowerShell cannot resolve the named elements. Use `.Item1`, `.Item2` etc. instead of `.WasAdded`, `.NormalizedPath`. Named elements are compile-time metadata via `TupleElementNamesAttribute` and PowerShell does not read them. Accessing a named element returns `$null`, which can cause silent logic bugs (e.g., `if ($result.WasAdded)` always evaluates to `$false`).
+19. **Background init and PSCueModule statics**: `OnImport` loads data in a background `Task.Run()`. All `PSCueModule.*` statics are null until loading completes. Every consumer (CommandPredictor, FeedbackProvider, PowerShell functions, PCD) must null-check before use -- this is already the established pattern. When adding new statics or consumers, always follow the "capture to local, null-check, return early" pattern. The `GenericPredictor` is also a `PSCueModule` static (not a constructor parameter on `CommandPredictor`).
+20. **C# ValueTuple named elements inaccessible from PowerShell**: When a C# method returns a named ValueTuple like `(bool WasAdded, string NormalizedPath)`, PowerShell cannot resolve the named elements. Use `.Item1`, `.Item2` etc. instead of `.WasAdded`, `.NormalizedPath`. Named elements are compile-time metadata via `TupleElementNamesAttribute` and PowerShell does not read them. Accessing a named element returns `$null`, which can cause silent logic bugs (e.g., `if ($result.WasAdded)` always evaluates to `$false`).
 
 ## Documentation
 - Active work: `TODO.md` | Completed work: `docs/COMPLETED.md`

@@ -9,12 +9,11 @@ namespace PSCue.Module;
 /// Hybrid predictor that combines known completions with generic learning.
 /// - For supported commands: Blends explicit completions with learned patterns
 /// - For unsupported commands: Uses generic learning only
+/// Reads GenericPredictor from PSCueModule at call time so it works with
+/// background initialization (returns empty results until loading completes).
 /// </summary>
 public class CommandPredictor : ICommandPredictor
 {
-    private readonly GenericPredictor? _genericPredictor;
-    private readonly bool _enableGenericLearning;
-
     /// <summary>
     /// Gets the unique identifier for a subsystem implementation.
     /// </summary>
@@ -30,20 +29,10 @@ public class CommandPredictor : ICommandPredictor
     /// </summary>
     public string Description => "A PowerShell predictor that combines explicit completions with generic learning.";
 
-    /// <summary>
-    /// Creates a new CommandPredictor.
-    /// </summary>
-    /// <param name="genericPredictor">Optional generic predictor for learning-based suggestions.</param>
-    /// <param name="enableGenericLearning">Whether to enable generic learning (default: true).</param>
-    public CommandPredictor(GenericPredictor? genericPredictor = null, bool enableGenericLearning = true)
-    {
-        _genericPredictor = genericPredictor;
-        _enableGenericLearning = enableGenericLearning && genericPredictor != null;
-    }
-
     public SuggestionPackage GetSuggestion(PredictionClient client, PredictionContext context, CancellationToken cancellationToken)
     {
         var input = context.InputAst.Extent.Text.AsSpan().TrimEnd();
+        var genericPredictor = PSCueModule.GenericPredictor;
 
         if (input.Length == 0)
         {
@@ -76,7 +65,7 @@ public class CommandPredictor : ICommandPredictor
         List<WorkflowSuggestion>? workflowSuggestions = null;
         List<PredictionSuggestion>? partialCommandSuggestions = null;
 
-        if (!hasArguments && _enableGenericLearning)
+        if (!hasArguments && genericPredictor != null)
         {
             workflowSuggestions = GetWorkflowSuggestionsForCommand(inputString);
 
@@ -93,11 +82,11 @@ public class CommandPredictor : ICommandPredictor
 
         // Get generic learned suggestions if enabled
         List<PredictionSuggestion>? genericSuggestions = null;
-        if (_enableGenericLearning && _genericPredictor != null)
+        if (genericPredictor != null)
         {
             try
             {
-                genericSuggestions = _genericPredictor.GetSuggestions(inputString, maxResults: 10);
+                genericSuggestions = genericPredictor.GetSuggestions(inputString, maxResults: 10);
             }
             catch
             {
@@ -232,11 +221,6 @@ public class CommandPredictor : ICommandPredictor
     /// </summary>
     private SuggestionPackage GetWorkflowPredictions()
     {
-        if (!_enableGenericLearning)
-        {
-            return default;
-        }
-
         try
         {
             var workflowLearner = PSCueModule.WorkflowLearner;

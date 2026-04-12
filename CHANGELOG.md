@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- Move all database loading to background thread so `Import-Module` returns instantly instead of blocking for 2-4 seconds
+
 ## [0.18.0-beta] - 2026-04-10
 
 ### Added

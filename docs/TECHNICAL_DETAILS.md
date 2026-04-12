@@ -395,31 +395,42 @@ private void LearnFromCommand(...)
 
 ### Module Integration (`PSCue.Module/ModuleInitializer.cs`)
 
-Module initialization registers subsystems automatically:
+Module initialization uses background loading so `Import-Module` returns instantly:
 
 ```csharp
 public void OnImport()
 {
-    // Initialize module state
-    PSCueModule.KnowledgeGraph = new ArgumentGraph(...);
-    PSCueModule.CommandHistory = new CommandHistory(...);
-    PSCueModule.Persistence = new PersistenceManager(...);
+    // Register subsystems synchronously (required by PowerShell)
+    RegisterCommandPredictor(new CommandPredictor());
+    RegisterFeedbackProvider(new FeedbackProvider());
 
-    // Register predictors
-    RegisterSubsystem(new CommandPredictor());
-    RegisterSubsystem(new FeedbackProvider());
+    // Load all learned data in the background
+    _initCts = new CancellationTokenSource();
+    _initTask = Task.Run(() => InitializeInBackground(config, _initCts.Token));
+}
+
+// Background task: loads DB, builds components, publishes to PSCueModule statics.
+// All consumers null-check PSCueModule.* and return empty results until ready.
+private static void InitializeInBackground(InitConfiguration config, CancellationToken ct)
+{
+    PSCueModule.Persistence = new PersistenceManager(dbPath);
+    PSCueModule.KnowledgeGraph = persistence.LoadArgumentGraph(...);
+    PSCueModule.CommandHistory = persistence.LoadCommandHistory(...);
+    // ... more components ...
+    PSCueModule.GenericPredictor = new GenericPredictor(...);
+
+    // Auto-save timer starts only after init completes
+    _autoSaveTimer = new Timer(AutoSave, null, interval, interval);
 }
 
 public void OnRemove(PSModuleInfo psModuleInfo)
 {
-    // Save learned data
-    PSCueModule.Persistence?.SaveAsync().Wait();
+    // Cancel background init if still running, wait for completion
+    _initCts?.Cancel();
+    _initTask?.Wait(TimeSpan.FromSeconds(5));
 
-    // Unregister subsystems
-    foreach (var (kind, id) in _subsystems)
-    {
-        SubsystemManager.UnregisterSubsystem(kind, id);
-    }
+    // Save learned data, dispose resources, unregister subsystems
+    // ...
 }
 ```
 

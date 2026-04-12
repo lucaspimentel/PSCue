@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Management.Automation;
 using System.Management.Automation.Subsystem;
 using System.Management.Automation.Subsystem.Prediction;
 using System.Management.Automation.Subsystem.Feedback;
+using System.Threading;
 
 namespace PSCue.Module;
 
@@ -17,114 +19,162 @@ namespace PSCue.Module;
 public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyCleanup
 {
     private readonly List<(SubsystemKind Kind, Guid Id)> _subsystems = [];
-    private static ContextAnalyzer? _contextAnalyzer;
-    private static GenericPredictor? _genericPredictor;
     private static System.Threading.Timer? _autoSaveTimer;
+    private static CancellationTokenSource? _initCts;
+    private static Task? _initTask;
 
     /// <summary>
     /// Gets called when assembly is loaded.
+    /// Registers subsystems synchronously (required by PowerShell), then loads
+    /// learned data in the background so the module returns to the prompt instantly.
     /// </summary>
     public void OnImport()
     {
-        // Initialize generic learning system
+        // Register command predictor immediately (reads GenericPredictor from PSCueModule dynamically)
+        RegisterCommandPredictor(new CommandPredictor());
+
+        // Register feedback provider (reads all dependencies from PSCueModule dynamically)
+        RegisterFeedbackProvider(new FeedbackProvider());
+
         // Check if generic learning is enabled (default: true, can be disabled via env var)
         var enableGenericLearning = Environment.GetEnvironmentVariable("PSCUE_DISABLE_LEARNING")?.Equals("true", StringComparison.OrdinalIgnoreCase) != true;
 
         if (enableGenericLearning)
         {
-            try
+            // Read all configuration on the main thread (env var reads are fast)
+            var config = ReadConfiguration();
+
+            // Load learned data in the background so Import-Module returns quickly
+            _initCts = new CancellationTokenSource();
+            _initTask = Task.Run(() => InitializeInBackground(config, _initCts.Token));
+        }
+    }
+
+    /// <summary>
+    /// Reads all configuration from environment variables. Fast (no I/O), runs on the main thread
+    /// so env vars are captured at import time.
+    /// </summary>
+    private static InitConfiguration ReadConfiguration()
+    {
+        return new InitConfiguration
+        {
+            HistorySize = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_HISTORY_SIZE"), out var hs) ? hs : 100,
+            MaxCommands = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_MAX_COMMANDS"), out var mc) ? mc : 500,
+            MaxArgs = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_MAX_ARGS_PER_CMD"), out var ma) ? ma : 100,
+            DecayDays = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_DECAY_DAYS"), out var dd) ? dd : 30,
+            MlEnabled = Environment.GetEnvironmentVariable("PSCUE_ML_ENABLED")?.Equals("false", StringComparison.OrdinalIgnoreCase) != true,
+            NgramOrder = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_ML_NGRAM_ORDER"), out var no) ? no : 2,
+            NgramMinFreq = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_ML_NGRAM_MIN_FREQ"), out var mf) ? mf : 3,
+            WorkflowEnabled = Environment.GetEnvironmentVariable("PSCUE_WORKFLOW_LEARNING")?.Equals("false", StringComparison.OrdinalIgnoreCase) != true,
+            WorkflowMinFreq = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_WORKFLOW_MIN_FREQUENCY"), out var wf) ? wf : 5,
+            WorkflowMaxTime = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_WORKFLOW_MAX_TIME_DELTA"), out var wt) ? wt : 15,
+            WorkflowMinConf = double.TryParse(Environment.GetEnvironmentVariable("PSCUE_WORKFLOW_MIN_CONFIDENCE"), out var wc) ? wc : 0.6,
+            CustomDataDir = Environment.GetEnvironmentVariable("PSCUE_DATA_DIR"),
+        };
+    }
+
+    /// <summary>
+    /// Loads all learned data from the database and wires up the prediction components.
+    /// Runs on a background thread so the module returns to the prompt immediately.
+    /// All PSCueModule statics are null-checked by consumers, so they gracefully return
+    /// empty results until this method completes.
+    /// </summary>
+    private static void InitializeInBackground(InitConfiguration config, CancellationToken cancellationToken)
+    {
+        var debug = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("PSCUE_DEBUG"));
+
+        try
+        {
+            if (debug)
             {
-                // Read configuration from environment variables (with defaults)
-                var historySize = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_HISTORY_SIZE"), out var hs) ? hs : 100;
-                var maxCommands = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_MAX_COMMANDS"), out var mc) ? mc : 500;
-                var maxArgs = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_MAX_ARGS_PER_CMD"), out var ma) ? ma : 100;
-                var decayDays = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_DECAY_DAYS"), out var dd) ? dd : 30;
-
-                // ML configuration (Phase 17.1: N-gram predictor)
-                var mlEnabled = Environment.GetEnvironmentVariable("PSCUE_ML_ENABLED")?.Equals("false", StringComparison.OrdinalIgnoreCase) != true; // Default: true
-                var ngramOrder = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_ML_NGRAM_ORDER"), out var no) ? no : 2; // Default: bigrams
-                var ngramMinFreq = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_ML_NGRAM_MIN_FREQ"), out var mf) ? mf : 3; // Default: 3 occurrences
-
-                // Workflow learning configuration (Phase 18.1: Dynamic workflow learning)
-                var workflowEnabled = Environment.GetEnvironmentVariable("PSCUE_WORKFLOW_LEARNING")?.Equals("false", StringComparison.OrdinalIgnoreCase) != true; // Default: true
-                var workflowMinFreq = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_WORKFLOW_MIN_FREQUENCY"), out var wf) ? wf : 5; // Default: 5 occurrences
-                var workflowMaxTime = int.TryParse(Environment.GetEnvironmentVariable("PSCUE_WORKFLOW_MAX_TIME_DELTA"), out var wt) ? wt : 15; // Default: 15 minutes
-                var workflowMinConf = double.TryParse(Environment.GetEnvironmentVariable("PSCUE_WORKFLOW_MIN_CONFIDENCE"), out var wc) ? wc : 0.6; // Default: 0.6
-
-                // Initialize persistence manager and load learned data
-                var customDataDir = Environment.GetEnvironmentVariable("PSCUE_DATA_DIR");
-                var dbPath = !string.IsNullOrWhiteSpace(customDataDir)
-                    ? Path.Combine(customDataDir, "learned-data.db")
-                    : null;
-                PSCueModule.Persistence = new PersistenceManager(dbPath);
-                PSCueModule.KnowledgeGraph = PSCueModule.Persistence.LoadArgumentGraph(maxCommands, maxArgs, decayDays);
-                PSCueModule.CommandHistory = PSCueModule.Persistence.LoadCommandHistory(historySize);
-
-                // Initialize bookmarks
-                PSCueModule.Bookmarks = new BookmarkManager();
-                PSCueModule.Bookmarks.Initialize(PSCueModule.Persistence.LoadBookmarks());
-
-                // Initialize ML sequence predictor if enabled
-                if (mlEnabled)
-                {
-                    PSCueModule.SequencePredictor = new SequencePredictor(ngramOrder, ngramMinFreq);
-                    var sequences = PSCueModule.Persistence.LoadCommandSequences();
-                    PSCueModule.SequencePredictor.Initialize(sequences);
-                }
-
-                // Initialize workflow learner if enabled
-                if (workflowEnabled)
-                {
-                    PSCueModule.WorkflowLearner = new WorkflowLearner(workflowMinFreq, workflowMaxTime, workflowMinConf, decayDays);
-                    var workflows = PSCueModule.Persistence.LoadWorkflowTransitions();
-                    PSCueModule.WorkflowLearner.Initialize(workflows);
-                }
-
-                // Initialize command parser
-                PSCueModule.CommandParser = new CommandParser();
-
-                // Register known parameters from KnownCompletions
-                RegisterKnownParameters(PSCueModule.CommandParser);
-
-                _contextAnalyzer = new ContextAnalyzer();
-                _genericPredictor = new GenericPredictor(PSCueModule.CommandHistory, PSCueModule.KnowledgeGraph, _contextAnalyzer, PSCueModule.SequencePredictor);
-
-                // Set up auto-save timer (every 5 minutes)
-                var autoSaveInterval = TimeSpan.FromMinutes(5);
-                _autoSaveTimer = new System.Threading.Timer(AutoSave, null, autoSaveInterval, autoSaveInterval);
+                PSCue.Shared.Logger.Write("Background initialization starting...");
             }
-            catch (Exception ex)
+
+            var sw = Stopwatch.StartNew();
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Initialize persistence manager and load learned data
+            var dbPath = !string.IsNullOrWhiteSpace(config.CustomDataDir)
+                ? Path.Combine(config.CustomDataDir, "learned-data.db")
+                : null;
+            var persistence = new PersistenceManager(dbPath);
+            PSCueModule.Persistence = persistence;
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            PSCueModule.KnowledgeGraph = persistence.LoadArgumentGraph(config.MaxCommands, config.MaxArgs, config.DecayDays);
+            PSCueModule.CommandHistory = persistence.LoadCommandHistory(config.HistorySize);
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // Initialize bookmarks
+            var bookmarks = new BookmarkManager();
+            bookmarks.Initialize(persistence.LoadBookmarks());
+            PSCueModule.Bookmarks = bookmarks;
+
+            // Initialize ML sequence predictor if enabled
+            if (config.MlEnabled)
             {
-                var errorMessage = $"Warning: Failed to initialize generic learning: {ex.Message}";
-                Console.Error.WriteLine(errorMessage);
+                cancellationToken.ThrowIfCancellationRequested();
+                var sequencePredictor = new SequencePredictor(config.NgramOrder, config.NgramMinFreq);
+                sequencePredictor.Initialize(persistence.LoadCommandSequences());
+                PSCueModule.SequencePredictor = sequencePredictor;
+            }
 
-                // Log detailed exception information (always logged, regardless of PSCUE_DEBUG)
-                PSCue.Shared.Logger.WriteError($"Generic learning initialization failed: {ex.GetType().Name}: {ex.Message}");
-                PSCue.Shared.Logger.WriteError($"Stack trace: {ex.StackTrace}");
+            // Initialize workflow learner if enabled
+            if (config.WorkflowEnabled)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var workflowLearner = new WorkflowLearner(config.WorkflowMinFreq, config.WorkflowMaxTime, config.WorkflowMinConf, config.DecayDays);
+                workflowLearner.Initialize(persistence.LoadWorkflowTransitions());
+                PSCueModule.WorkflowLearner = workflowLearner;
+            }
 
-                // Log all inner exceptions recursively
-                var innerEx = ex.InnerException;
-                var depth = 1;
-                while (innerEx != null)
-                {
-                    PSCue.Shared.Logger.WriteError($"Inner exception (level {depth}): {innerEx.GetType().Name}: {innerEx.Message}");
-                    PSCue.Shared.Logger.WriteError($"Inner stack trace (level {depth}): {innerEx.StackTrace}");
-                    innerEx = innerEx.InnerException;
-                    depth++;
-                }
+            cancellationToken.ThrowIfCancellationRequested();
 
-                enableGenericLearning = false;
+            // Initialize command parser
+            var commandParser = new CommandParser();
+            RegisterKnownParameters(commandParser);
+            PSCueModule.CommandParser = commandParser;
+
+            // Build and publish the generic predictor (CommandPredictor reads this dynamically)
+            var contextAnalyzer = new ContextAnalyzer();
+            PSCueModule.GenericPredictor = new GenericPredictor(
+                PSCueModule.CommandHistory, PSCueModule.KnowledgeGraph, contextAnalyzer, PSCueModule.SequencePredictor);
+
+            // Start auto-save timer now that all data is loaded
+            var autoSaveInterval = TimeSpan.FromMinutes(5);
+            _autoSaveTimer = new System.Threading.Timer(AutoSave, null, autoSaveInterval, autoSaveInterval);
+
+            sw.Stop();
+
+            if (debug)
+            {
+                PSCue.Shared.Logger.Write($"Background initialization completed in {sw.ElapsedMilliseconds}ms");
             }
         }
+        catch (OperationCanceledException)
+        {
+            // Module was unloaded before init completed -- expected, not an error
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Warning: Failed to initialize generic learning: {ex.Message}");
 
-        // Register command predictor with generic learning support
-        RegisterCommandPredictor(new CommandPredictor(_genericPredictor, enableGenericLearning));
-        //RegisterCommandPredictor(new SamplePredictor());
+            PSCue.Shared.Logger.WriteError($"Generic learning initialization failed: {ex.GetType().Name}: {ex.Message}");
+            PSCue.Shared.Logger.WriteError($"Stack trace: {ex.StackTrace}");
 
-        // Register feedback provider (requires PowerShell 7.4+ with PSFeedbackProvider experimental feature)
-        // This will fail gracefully on older PowerShell versions
-        // Note: FeedbackProvider gets instances dynamically from PSCueModule to handle module reloads
-        RegisterFeedbackProvider(new FeedbackProvider());
+            var innerEx = ex.InnerException;
+            var depth = 1;
+            while (innerEx != null)
+            {
+                PSCue.Shared.Logger.WriteError($"Inner exception (level {depth}): {innerEx.GetType().Name}: {innerEx.Message}");
+                PSCue.Shared.Logger.WriteError($"Inner stack trace (level {depth}): {innerEx.StackTrace}");
+                innerEx = innerEx.InnerException;
+                depth++;
+            }
+        }
     }
 
     private void RegisterCommandPredictor(ICommandPredictor commandPredictor)
@@ -218,6 +268,24 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
     /// </summary>
     public void OnRemove(PSModuleInfo psModuleInfo)
     {
+        // Cancel background init if still running, then wait for it to finish
+        // so we don't race with statics being assigned after we null them
+        try
+        {
+            _initCts?.Cancel();
+            _initTask?.Wait(TimeSpan.FromSeconds(5));
+        }
+        catch
+        {
+            // Ignore cancellation/timeout exceptions during shutdown
+        }
+        finally
+        {
+            _initCts?.Dispose();
+            _initCts = null;
+            _initTask = null;
+        }
+
         // Save learned data before unloading
         try
         {
@@ -272,6 +340,7 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
         PSCueModule.Persistence = null;
 
         // Clear module state
+        PSCueModule.GenericPredictor = null;
         PSCueModule.KnowledgeGraph = null;
         PSCueModule.CommandHistory = null;
         PSCueModule.Bookmarks = null;
@@ -288,15 +357,12 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
                 // Ignore unregistration errors
             }
         }
-
-        // Cleanup AI resources
-        // AiPredictor.Cleanup();
     }
 
     /// <summary>
     /// Get the generic predictor instance for testing or debugging.
     /// </summary>
-    internal static GenericPredictor? GetGenericPredictor() => _genericPredictor;
+    internal static GenericPredictor? GetGenericPredictor() => PSCueModule.GenericPredictor;
 
     /// <summary>
     /// Registers known parameters from KnownCompletions with the CommandParser.
@@ -347,4 +413,24 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
             }
         }
     }
+}
+
+/// <summary>
+/// Captures all environment-variable configuration at import time
+/// so it can be passed to the background initialization thread.
+/// </summary>
+internal sealed record InitConfiguration
+{
+    public int HistorySize { get; init; }
+    public int MaxCommands { get; init; }
+    public int MaxArgs { get; init; }
+    public int DecayDays { get; init; }
+    public bool MlEnabled { get; init; }
+    public int NgramOrder { get; init; }
+    public int NgramMinFreq { get; init; }
+    public bool WorkflowEnabled { get; init; }
+    public int WorkflowMinFreq { get; init; }
+    public int WorkflowMaxTime { get; init; }
+    public double WorkflowMinConf { get; init; }
+    public string? CustomDataDir { get; init; }
 }

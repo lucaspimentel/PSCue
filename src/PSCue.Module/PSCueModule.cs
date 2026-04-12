@@ -47,4 +47,10 @@ public static class PSCueModule
     /// Parses command lines into structured ParsedCommand objects with typed arguments.
     /// </summary>
     public static CommandParser? CommandParser { get; internal set; }
+
+    /// <summary>
+    /// Gets the generic predictor instance.
+    /// Generates context-aware suggestions by blending learned patterns, ML predictions, and workflows.
+    /// </summary>
+    public static GenericPredictor? GenericPredictor { get; internal set; }
 }
