@@ -3,7 +3,7 @@
     RootModule = 'PSCue.psm1'
 
     # Version number of this module.
-    ModuleVersion = '0.18.0'
+    ModuleVersion = '0.19.0'
 
     # Supported PSEditions
     CompatiblePSEditions = @('Core')
@@ -134,7 +134,7 @@ Improvements:
 '@
 
             # Prerelease string of this module
-            Prerelease = 'beta'
+            # Prerelease = ''
 
             # Flag to indicate whether the module requires explicit user acceptance for install/update/save
             # RequireLicenseAcceptance = $false
