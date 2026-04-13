@@ -3,7 +3,7 @@
     RootModule = 'PSCue.psm1'
 
     # Version number of this module.
-    ModuleVersion = '0.19.1'
+    ModuleVersion = '0.19.2'
 
     # Supported PSEditions
     CompatiblePSEditions = @('Core')

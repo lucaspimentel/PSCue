@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.19.2] - 2026-04-13
+
 ### Fixed
 - Overhaul `gh` completer: add missing parameters across all subcommands, add missing commands (cache, gpg-key, ssh-key, variable, attestation, release edit/delete-asset, repo archive/edit/unarchive, run delete), add `--json` field suggestions for pr, issue, run, and release subcommands
 
