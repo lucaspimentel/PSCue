@@ -16,7 +16,17 @@ public static class GitWtCommand
         var automationParameters = new CommandParameter[]
         {
             new("--yes", "Skip approval prompts (-y)") { Alias = "-y" },
-            new("--no-verify", "Skip hooks"),
+            new("--no-hooks", "Skip hooks"),
+        };
+
+        var formatTextJson = new CommandParameter("--format", "Output format")
+        {
+            RequiresValue = true,
+            StaticArguments =
+            [
+                new("text", "Human-readable text output"),
+                new("json", "JSON output"),
+            ],
         };
 
         var switchCommand = new Command("switch", "Switch to a worktree; create if needed")
@@ -30,16 +40,52 @@ public static class GitWtCommand
                 new("--no-cd", "Skip directory change after switching"),
                 new("--branches", "Include branches without worktrees"),
                 new("--remotes", "Include remote branches"),
+                formatTextJson,
                 .. automationParameters,
                 .. globalParameters,
             ],
             DynamicArguments = GetBranches,
         };
 
-        var listCommand = new Command("list", "List worktrees and their status")
+        var statuslineCommand = new Command("statusline", "Single-line status for shell prompts")
         {
             Parameters =
             [
+                new("--format", "Output format")
+                {
+                    RequiresValue = true,
+                    StaticArguments =
+                    [
+                        new("table", "Table output"),
+                        new("json", "JSON output"),
+                        new("claude-code", "Claude Code output"),
+                    ],
+                },
+                .. globalParameters,
+            ],
+        };
+
+        var listCommand = new Command("list", "List worktrees and their status")
+        {
+            SubCommands =
+            [
+                statuslineCommand,
+            ],
+            Parameters =
+            [
+                new("--format", "Output format")
+                {
+                    RequiresValue = true,
+                    StaticArguments =
+                    [
+                        new("table", "Table output"),
+                        new("json", "JSON output"),
+                    ],
+                },
+                new("--branches", "Include branches without worktrees"),
+                new("--remotes", "Include remote branches"),
+                new("--full", "Show CI, diff analysis, and LLM summaries"),
+                new("--progressive", "Show fast info immediately, update with slow info"),
                 .. globalParameters,
             ],
         };
@@ -52,10 +98,22 @@ public static class GitWtCommand
                 new("--force-delete", "Delete unmerged branches (-D)") { Alias = "-D" },
                 new("--foreground", "Run removal in foreground"),
                 new("--force", "Force worktree removal (-f)") { Alias = "-f" },
+                formatTextJson,
                 .. automationParameters,
                 .. globalParameters,
             ],
             DynamicArguments = GetBranches,
+        };
+
+        var stageParameter = new CommandParameter("--stage", "What to stage before committing")
+        {
+            RequiresValue = true,
+            StaticArguments =
+            [
+                new("all", "Stage everything: untracked files + unstaged tracked changes"),
+                new("tracked", "Stage tracked changes only"),
+                new("none", "Stage nothing, commit only what's already in the index"),
+            ],
         };
 
         var mergeCommand = new Command("merge", "Merge current branch into target")
@@ -67,36 +125,84 @@ public static class GitWtCommand
                 new("--no-rebase", "Skip rebase"),
                 new("--no-remove", "Keep worktree after merge"),
                 new("--no-ff", "Create a merge commit (no fast-forward)"),
-                new("--stage", "What to stage before committing")
-                {
-                    RequiresValue = true,
-                    StaticArguments =
-                    [
-                        new("all", "Stage everything: untracked files + unstaged tracked changes"),
-                        new("tracked", "Stage tracked changes only"),
-                        new("none", "Stage nothing, commit only what's already in the index"),
-                    ],
-                },
+                stageParameter,
+                formatTextJson,
                 .. automationParameters,
                 .. globalParameters,
             ],
             DynamicArguments = GetBranches,
         };
 
+        var commitCommand = new Command("commit", "Stage and commit with LLM-generated message")
+        {
+            Parameters =
+            [
+                new("--branch", "Branch to operate on (-b)") { Alias = "-b", RequiresValue = true, DynamicArguments = GetBranches },
+                stageParameter,
+                new("--show-prompt", "Show prompt without running LLM"),
+                .. automationParameters,
+                .. globalParameters,
+            ],
+        };
+
+        var squashCommand = new Command("squash", "Squash commits since branching")
+        {
+            Parameters =
+            [
+                stageParameter,
+                new("--show-prompt", "Show prompt without running LLM"),
+                .. automationParameters,
+                .. globalParameters,
+            ],
+            DynamicArguments = GetBranches,
+        };
+
+        var pushCommand = new Command("push", "Fast-forward target to current branch")
+        {
+            Parameters =
+            [
+                new("--no-ff", "Create a merge commit (no fast-forward)"),
+                .. globalParameters,
+            ],
+            DynamicArguments = GetBranches,
+        };
+
+        var pruneCommand = new Command("prune", "Remove worktrees merged into the default branch")
+        {
+            Parameters =
+            [
+                new("--dry-run", "Show what would be removed"),
+                new("--min-age", "Skip worktrees younger than this") { RequiresValue = true },
+                new("--foreground", "Run removal in foreground"),
+                formatTextJson,
+                new("--yes", "Skip approval prompts (-y)") { Alias = "-y" },
+                .. globalParameters,
+            ],
+        };
+
+        var forEachCommand = new Command("for-each", "Run command in each worktree")
+        {
+            Parameters =
+            [
+                formatTextJson,
+                .. globalParameters,
+            ],
+        };
+
         var stepCommand = new Command("step", "Run individual operations")
         {
             SubCommands =
             [
-                new("commit", "Stage and commit with LLM-generated message"),
-                new("squash", "Squash commits since branching"),
-                new("push", "Fast-forward target to current branch"),
-                new("rebase", "Rebase onto target"),
+                commitCommand,
+                squashCommand,
+                pushCommand,
+                new("rebase", "Rebase onto target") { DynamicArguments = GetBranches },
                 new("diff", "Show all changes since branching"),
                 new("copy-ignored", "Copy gitignored files to another worktree"),
                 new("eval", "Evaluate a template expression"),
-                new("for-each", "Run command in each worktree"),
+                forEachCommand,
                 new("promote", "Swap a branch into the main worktree"),
-                new("prune", "Remove worktrees merged into the default branch"),
+                pruneCommand,
                 new("relocate", "Move worktrees to expected paths"),
             ],
             Parameters =
@@ -126,7 +232,6 @@ public static class GitWtCommand
             ],
             Parameters =
             [
-                new("--var", "Override template variable (KEY=VALUE)") { RequiresValue = true },
                 .. automationParameters,
                 .. globalParameters,
             ],
@@ -152,6 +257,14 @@ public static class GitWtCommand
                 },
                 new("show", "Show configuration files & locations"),
                 new("update", "Update deprecated config settings"),
+                new("plugins", "Plugin management")
+                {
+                    SubCommands =
+                    [
+                        new("claude", "Claude Code plugin"),
+                        new("opencode", "OpenCode plugin"),
+                    ],
+                },
                 new("state", "Manage internal data and cache")
                 {
                     SubCommands =
