@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.19.1] - 2026-04-13
+
 ### Fixed
 - Fix git-wt completer: rename `--no-verify` to `--no-hooks`, add missing `--format` to switch/list/remove/merge, add `list statusline` subcommand, add parameters to step subcommands (commit, squash, push, prune, for-each), add `config plugins` subcommand, remove non-existent `--var` from hook
 
