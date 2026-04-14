@@ -709,6 +709,23 @@ $env:PSCUE_METRICS_ENABLED = "true"  # Default: true
   - **Impact**: Medium (significant CPU reduction during deserialization)
   - **Complexity**: High (schema migration, backwards compatibility, update all read/write paths)
 
+#### Cold-start load time (identified after 2e9691b moved data loading to background)
+
+**Context**: After background init landed, *warm* import measured ~78ms via the `PSCUE_DEBUG` phase timers (`IMPORT [phase]` lines in `%LOCALAPPDATA%\PSCue\log.txt`). But cold morning imports still take ~5.5s. The 5.4s delta happens *before* `ModuleInitializer`'s static ctor runs — invisible to our instrumentation. Almost certainly cold-disk DLL I/O, Windows Defender real-time scans on first touch, and JIT compilation. See commit `0c6ae97` for the instrumentation and the discussion that preceded it.
+
+- [ ] **ReadyToRun-compile `PSCue.Module.dll` and `PSCue.Shared.dll`** -- Add `<PublishReadyToRun>true</PublishReadyToRun>` to both csprojs (or pass `-p:PublishReadyToRun=true` in the release workflow). Kills JIT cost on cold import. The ArgumentCompleter is already NativeAOT so doesn't need this.
+  - **Impact**: High (expected to eliminate hundreds of ms of JIT on cold import)
+  - **Complexity**: Low (one csproj flag + update `.github/workflows/release.yml` to use `dotnet publish` with R2R)
+- [ ] **Add Windows Defender exclusion guidance to README/install script** -- Cold DLL loads trigger Defender real-time scans; exclusion of the install path (`$HOME\.local\pwsh-modules\PSCue` or `$env:USERPROFILE\Documents\PowerShell\Modules\PSCue`) can shave seconds off first-run load. Document the `Add-MpPreference -ExclusionPath` command in README; optionally prompt in `install-local.ps1`.
+  - **Impact**: High on cold-boot (Defender scan-on-access is often the dominant cost)
+  - **Complexity**: Low (docs + optional installer prompt). Admin required for the cmdlet.
+- [ ] **Audit and reduce runtime dependency count** -- SQLitePCLRaw pulls multiple DLLs (`SQLitePCLRaw.core`, `.provider.e_sqlite3`, `.batteries_v2`, native `e_sqlite3.dll`). Each DLL is an independent cold-disk + Defender-scan hit. Check if any can be dropped, consolidated, or lazy-loaded — e.g., defer SQLite DLL resolution until the background init actually touches the database.
+  - **Impact**: Medium (each eliminated DLL saves cold-disk + scan time)
+  - **Complexity**: Medium (may require reflection-based lazy load or wrapping SQLite init)
+- [ ] **Investigate measuring pre-static-ctor time** -- Current `IMPORT [marker] assembly_ctor_utc=...` log line is the earliest we can observe from inside the module. To attribute the cold-start 5.4s gap, either (a) document a user-side bracket recipe (`$before = [DateTime]::UtcNow; Import-Module PSCue; diff against the log marker`), or (b) have the psm1 capture a pre-import timestamp via a wrapper loaded earlier in the profile. Low value once R2R + Defender exclusion land, since the gap should shrink considerably.
+  - **Impact**: Low (diagnostic only)
+  - **Complexity**: Low
+
 ---
 
 ### Phase 19.3: Distribution & Packaging
