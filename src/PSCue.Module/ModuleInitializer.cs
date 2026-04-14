@@ -18,6 +18,9 @@ namespace PSCue.Module;
 /// </summary>
 public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyCleanup
 {
+    // Captured when the type is first touched (just before OnImport runs) — upper bound on JIT + assembly load.
+    public static readonly DateTime AssemblyLoadedUtc = DateTime.UtcNow;
+
     private readonly List<(SubsystemKind Kind, Guid Id)> _subsystems = [];
     private static System.Threading.Timer? _autoSaveTimer;
     private static CancellationTokenSource? _initCts;
@@ -30,24 +33,33 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
     /// </summary>
     public void OnImport()
     {
-        // Register command predictor immediately (reads GenericPredictor from PSCueModule dynamically)
+        var total = Stopwatch.StartNew();
+        var sw = Stopwatch.StartNew();
+
+        PSCue.Shared.Logger.Write($"IMPORT [marker] assembly_ctor_utc={AssemblyLoadedUtc:HH:mm:ss.ffff}");
+
         RegisterCommandPredictor(new CommandPredictor());
+        PSCue.Shared.Logger.Write($"IMPORT [phase] RegisterCommandPredictor={sw.ElapsedMilliseconds}ms");
+        sw.Restart();
 
-        // Register feedback provider (reads all dependencies from PSCueModule dynamically)
         RegisterFeedbackProvider(new FeedbackProvider());
+        PSCue.Shared.Logger.Write($"IMPORT [phase] RegisterFeedbackProvider={sw.ElapsedMilliseconds}ms");
+        sw.Restart();
 
-        // Check if generic learning is enabled (default: true, can be disabled via env var)
         var enableGenericLearning = Environment.GetEnvironmentVariable("PSCUE_DISABLE_LEARNING")?.Equals("true", StringComparison.OrdinalIgnoreCase) != true;
 
         if (enableGenericLearning)
         {
-            // Read all configuration on the main thread (env var reads are fast)
             var config = ReadConfiguration();
+            PSCue.Shared.Logger.Write($"IMPORT [phase] ReadConfiguration={sw.ElapsedMilliseconds}ms");
+            sw.Restart();
 
-            // Load learned data in the background so Import-Module returns quickly
             _initCts = new CancellationTokenSource();
             _initTask = Task.Run(() => InitializeInBackground(config, _initCts.Token));
+            PSCue.Shared.Logger.Write($"IMPORT [phase] BackgroundTaskSpawn={sw.ElapsedMilliseconds}ms");
         }
+
+        PSCue.Shared.Logger.Write($"IMPORT [total-sync] OnImport={total.ElapsedMilliseconds}ms");
     }
 
     /// <summary>

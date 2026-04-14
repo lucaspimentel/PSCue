@@ -4,6 +4,16 @@
 
 #Requires -Version 7.2
 
+$psm1Start = [DateTime]::UtcNow
+$debug = $env:PSCUE_DEBUG -eq '1'
+
+if ($debug) {
+    $gap = ($psm1Start - [PSCue.Module.ModuleInitializer]::AssemblyLoadedUtc).TotalMilliseconds
+    [PSCue.Shared.Logger]::Write("IMPORT [gap] assembly_ctor_to_psm1_start=$([int]$gap)ms")
+}
+
+$sw = [System.Diagnostics.Stopwatch]::StartNew()
+
 # Get the module directory
 $ModuleRoot = $PSScriptRoot
 
@@ -20,6 +30,8 @@ if (-not (Test-Path $CompleterExe)) {
     Write-Warning "PSCue: Tab completion will not be available. Please ensure the module is properly installed."
     $CompleterExe = $null
 }
+
+if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] CompleterExeResolution=$($sw.ElapsedMilliseconds)ms") }
 
 # Define the script block for argument completion
 $CompleterScriptBlock = if ($CompleterExe) {
@@ -82,31 +94,36 @@ $SupportedCommands = @(
     'wt'
 )
 
-# Debug: Log registration
-if ($env:PSCUE_DEBUG) {
-    Write-Host "PSCue: Registering argument completers for $($SupportedCommands.Count) commands" -ForegroundColor Gray
-}
-
+$sw.Restart()
 foreach ($command in $SupportedCommands) {
     Register-ArgumentCompleter -Native -CommandName $command -ScriptBlock $CompleterScriptBlock
-    if ($env:PSCUE_DEBUG) {
-        Write-Host "PSCue: Registered completer for '$command'" -ForegroundColor DarkGray
-    }
 }
+if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] Register-ArgumentCompleter-loop=$($sw.ElapsedMilliseconds)ms ($($SupportedCommands.Count) commands)") }
 
 # CommandPredictor is loaded as a nested module from the PSD1
 # It auto-registers via IModuleAssemblyInitializer.OnImport()
 
 # Load PowerShell functions for learning, database, workflow, navigation, and debugging
-. $PSScriptRoot/Functions/LearningManagement.ps1
-. $PSScriptRoot/Functions/DatabaseManagement.ps1
-. $PSScriptRoot/Functions/WorkflowManagement.ps1
-. $PSScriptRoot/Functions/PCD.ps1
-. $PSScriptRoot/Functions/Debugging.ps1
+$sw.Restart(); . $PSScriptRoot/Functions/LearningManagement.ps1
+if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] Dotsource-LearningManagement=$($sw.ElapsedMilliseconds)ms") }
+$sw.Restart(); . $PSScriptRoot/Functions/DatabaseManagement.ps1
+if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] Dotsource-DatabaseManagement=$($sw.ElapsedMilliseconds)ms") }
+$sw.Restart(); . $PSScriptRoot/Functions/WorkflowManagement.ps1
+if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] Dotsource-WorkflowManagement=$($sw.ElapsedMilliseconds)ms") }
+$sw.Restart(); . $PSScriptRoot/Functions/PCD.ps1
+if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] Dotsource-PCD=$($sw.ElapsedMilliseconds)ms") }
+$sw.Restart(); . $PSScriptRoot/Functions/Debugging.ps1
+if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] Dotsource-Debugging=$($sw.ElapsedMilliseconds)ms") }
 
-# Suggest enabling predictions if not already enabled
+$sw.Restart()
 $predictionSource = (Get-PSReadLineOption).PredictionSource
+if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] Get-PSReadLineOption=$($sw.ElapsedMilliseconds)ms") }
 if ($predictionSource -eq 'None' -or $predictionSource -eq 'History') {
     Write-Host "PSCue: To enable inline predictions, run:" -ForegroundColor Cyan
     Write-Host "  Set-PSReadLineOption -PredictionSource HistoryAndPlugin" -ForegroundColor Yellow
+}
+
+if ($debug) {
+    $psm1Total = ([DateTime]::UtcNow - $psm1Start).TotalMilliseconds
+    [PSCue.Shared.Logger]::Write("IMPORT [total-sync] psm1=$([int]$psm1Total)ms")
 }
