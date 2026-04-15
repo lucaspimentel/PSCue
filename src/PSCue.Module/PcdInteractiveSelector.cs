@@ -4,6 +4,7 @@ public class PcdInteractiveSelector
 {
     private readonly ArgumentGraph _graph;
     private readonly PcdCompletionEngine _engine;
+    private readonly BookmarkManager? _bookmarks;
 
     // Detect whether the console supports Unicode (UTF-8) output
     private static readonly bool s_supportsUnicode = DetectUnicodeSupport();
@@ -46,6 +47,7 @@ public class PcdInteractiveSelector
     public PcdInteractiveSelector(ArgumentGraph graph, BookmarkManager? bookmarks = null)
     {
         _graph = graph ?? throw new ArgumentNullException(nameof(graph));
+        _bookmarks = bookmarks;
 
         _engine = new PcdCompletionEngine(
             graph,
@@ -112,7 +114,8 @@ public class PcdInteractiveSelector
                 formatStats: FormatDirectoryStats,
                 title: $"{SymbolFolder} Navigate to Directory",
                 supportsUnicode: s_supportsUnicode,
-                initialQuery: filter ?? "");
+                initialQuery: filter ?? "",
+                bookmarks: _bookmarks);
 
             var selection = menu.Show(validSuggestions);
 
@@ -140,13 +143,19 @@ public class PcdInteractiveSelector
             displayPath += Path.DirectorySeparatorChar;
         }
 
-        // Prefix bookmarked entries with a star symbol, align others with spaces
-        var prefix = suggestion.MatchType == MatchType.Bookmark
+        // Prefix bookmarked entries with a star symbol, align others with spaces.
+        // Check live bookmark state so Ctrl+B toggles update the indicator immediately.
+        var prefix = IsBookmarked(suggestion)
             ? $"{SymbolBookmark} "
             : "  ";
 
         return prefix + displayPath;
     }
+
+    // Pass the original DisplayPath (with trailing separator) to BookmarkManager so
+    // drive roots like "C:\" aren't interpreted as drive-relative by Path.GetFullPath.
+    private bool IsBookmarked(PcdSuggestion suggestion) =>
+        _bookmarks?.IsBookmarked(suggestion.DisplayPath) == true;
 
     private string FormatDirectoryStats(PcdSuggestion suggestion)
     {
@@ -171,8 +180,8 @@ public class PcdInteractiveSelector
 
         var parts = new System.Text.StringBuilder();
 
-        // Tag bookmarked entries
-        if (suggestion.MatchType == MatchType.Bookmark)
+        // Tag bookmarked entries (live state so Ctrl+B toggles update the tag immediately)
+        if (IsBookmarked(suggestion))
         {
             parts.Append($"{Cyan}bookmark{Reset} {Grey}{SymbolSeparator}{Reset} ");
         }

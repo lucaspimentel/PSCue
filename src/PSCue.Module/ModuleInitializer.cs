@@ -121,7 +121,7 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
             cancellationToken.ThrowIfCancellationRequested();
 
             // Initialize bookmarks
-            var bookmarks = new BookmarkManager();
+            var bookmarks = new BookmarkManager(persistence);
             bookmarks.Initialize(persistence.LoadBookmarks());
             PSCueModule.Bookmarks = bookmarks;
 

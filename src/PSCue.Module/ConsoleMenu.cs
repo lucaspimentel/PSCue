@@ -33,11 +33,13 @@ internal sealed class ConsoleMenu
     private string _query;
     private int _selectedIndex;
     private int _scrollOffset;
+    private string? _statusMessage;
 
     private readonly Func<PcdSuggestion, string> _formatPath;
     private readonly Func<PcdSuggestion, string> _formatStats;
     private readonly string _title;
     private readonly bool _supportsUnicode;
+    private readonly BookmarkManager? _bookmarks;
 
     private string SymbolPointer => _supportsUnicode ? "\u276f" : ">";
     private string SymbolRule => _supportsUnicode ? "\u2500" : "-";
@@ -47,13 +49,15 @@ internal sealed class ConsoleMenu
         Func<PcdSuggestion, string> formatStats,
         string title,
         bool supportsUnicode,
-        string initialQuery = "")
+        string initialQuery = "",
+        BookmarkManager? bookmarks = null)
     {
         _formatPath = formatPath;
         _formatStats = formatStats;
         _title = title;
         _supportsUnicode = supportsUnicode;
         _query = initialQuery;
+        _bookmarks = bookmarks;
     }
 
     public PcdSuggestion? Show(IReadOnlyList<PcdSuggestion> allItems)
@@ -69,6 +73,10 @@ internal sealed class ConsoleMenu
             {
                 var key = Console.ReadKey(intercept: true);
 
+                // Status message lives for exactly one keypress. Clear it before handling;
+                // the Ctrl+B case below may set a fresh one.
+                _statusMessage = null;
+
                 switch (key.Key)
                 {
                     case ConsoleKey.Escape:
@@ -78,6 +86,17 @@ internal sealed class ConsoleMenu
                         if (filtered.Count > 0 && _selectedIndex < filtered.Count)
                             return filtered[_selectedIndex].Suggestion;
                         return null;
+
+                    case ConsoleKey.B when (key.Modifiers & ConsoleModifiers.Control) != 0:
+                        if (_bookmarks != null && filtered.Count > 0 && _selectedIndex < filtered.Count)
+                        {
+                            var selected = filtered[_selectedIndex].Suggestion;
+                            var result = _bookmarks.ToggleAndPersist(selected.DisplayPath);
+                            _statusMessage = result.WasAdded
+                                ? $"Bookmarked: {result.NormalizedPath}"
+                                : $"Removed bookmark: {result.NormalizedPath}";
+                        }
+                        break;
 
                     case ConsoleKey.UpArrow:
                         if (filtered.Count > 0)
@@ -200,14 +219,23 @@ internal sealed class ConsoleMenu
             lineCount++;
         }
 
+        // Reserve an extra line for the optional status message so the footer stays pinned
+        int reservedTail = _statusMessage != null ? 3 : 2;
+
         // Fill remaining lines to clear stale content
-        for (int i = lineCount; i < screenHeight - 2; i++)
+        for (int i = lineCount; i < screenHeight - reservedTail; i++)
         {
             Console.Write($"{ClearToEndOfLine}\n");
         }
 
+        // Optional status message directly above the footer
+        if (_statusMessage != null)
+        {
+            Console.Write($"{ClearToEndOfLine}\n  {Green}{_statusMessage}{Reset}{ClearToEndOfLine}");
+        }
+
         // Footer pinned to bottom
-        Console.Write($"{ClearToEndOfLine}\n  {Grey}\u2191\u2193 navigate  Enter select  Esc cancel{Reset}{ClearToEndOfLine}");
+        Console.Write($"{ClearToEndOfLine}\n  {Grey}\u2191\u2193 navigate  Enter select  Ctrl+B (un)bookmark  Esc cancel{Reset}{ClearToEndOfLine}");
     }
 
     private static void WriteHighlightedPath(string pathText, int[]? matchPositions, bool selected)

@@ -177,8 +177,7 @@ function Invoke-PCD {
     # Toggle bookmark on current directory or explicit path
     if ($Bookmark) {
         $bm = [PSCue.Module.PSCueModule]::Bookmarks
-        $persistence = [PSCue.Module.PSCueModule]::Persistence
-        if ($null -eq $bm -or $null -eq $persistence) {
+        if ($null -eq $bm) {
             Write-Error "PSCue module not initialized."
             return
         }
@@ -190,17 +189,15 @@ function Invoke-PCD {
             $PWD.Path
         }
 
-        # Toggle returns ValueTuple<bool, string> (WasAdded, NormalizedPath)
+        # ToggleAndPersist returns ValueTuple<bool, string> (WasAdded, NormalizedPath)
         # PowerShell can't resolve named tuple elements, use Item1/Item2
-        $result = $bm.Toggle($targetPath)
+        $result = $bm.ToggleAndPersist($targetPath)
         $wasAdded = $result.Item1
         $normalizedPath = $result.Item2
 
         if ($wasAdded) {
-            $persistence.SaveBookmark($normalizedPath)
             Write-Host "Bookmarked: $normalizedPath" -ForegroundColor Green
         } else {
-            $persistence.DeleteBookmark($normalizedPath)
             Write-Host "Removed bookmark: $normalizedPath" -ForegroundColor Yellow
         }
         return

@@ -11,6 +11,12 @@ public class BookmarkManager
 {
     private readonly ConcurrentDictionary<string, DateTime> _bookmarks = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _toggleLock = new();
+    private readonly PersistenceManager? _persistence;
+
+    public BookmarkManager(PersistenceManager? persistence = null)
+    {
+        _persistence = persistence;
+    }
 
     /// <summary>
     /// Initializes the bookmark set from persisted data.
@@ -43,6 +49,29 @@ public class BookmarkManager
             _bookmarks[normalized] = DateTime.UtcNow;
             return (true, normalized);
         }
+    }
+
+    /// <summary>
+    /// Toggles a bookmark and writes the change through to persistence in one step.
+    /// If no PersistenceManager was supplied, behaves like <see cref="Toggle"/>.
+    /// </summary>
+    public (bool WasAdded, string NormalizedPath) ToggleAndPersist(string path)
+    {
+        var (wasAdded, normalized) = Toggle(path);
+
+        if (_persistence != null)
+        {
+            if (wasAdded)
+            {
+                _persistence.SaveBookmark(normalized);
+            }
+            else
+            {
+                _persistence.DeleteBookmark(normalized);
+            }
+        }
+
+        return (wasAdded, normalized);
     }
 
     /// <summary>
