@@ -328,6 +328,7 @@ Features:
 - **Always on top**: Bookmarked directories appear above all other suggestions in tab completion and interactive mode
 - **Visual indicators**: `[bookmark]` tag in tab completion tooltips, `★` prefix in interactive mode
 - **Toggle semantics**: Running `pcd -b` on a bookmarked directory removes it
+- **Interactive toggle**: Press `Ctrl+B` in `pcd -i` to toggle a bookmark on the highlighted directory without leaving the menu
 - **Persistent**: Bookmarks are saved immediately to SQLite and survive session restarts
 
 **Interactive Selection** (`pcd -i` / `pcdi`):
@@ -350,7 +351,7 @@ pcdi -Top 30
 ```
 
 Features:
-- **Full-screen interactive menu**: fzf-style live filtering in an alternate screen buffer — typing updates results instantly, arrow keys navigate, Enter selects, Escape cancels. Uses the full terminal height and restores previous content on exit
+- **Full-screen interactive menu**: fzf-style live filtering in an alternate screen buffer — typing updates results instantly, arrow keys navigate, Enter selects, Escape cancels, Ctrl+B toggles a bookmark on the highlighted directory. Uses the full terminal height and restores previous content on exit
 - **Match highlighting**: Matched characters are highlighted in green so you can see exactly why each result matched your query
 - **Path filtering**: Pass a string to pre-filter results using fzf-style subsequence matching (e.g., `pcd -i ddt` matches `dd-trace-dotnet`)
 - **Visual polish**: Color-coded usage indicators and timestamps for easy scanning; ASCII fallback for non-UTF-8 consoles
@@ -825,6 +826,7 @@ For comprehensive troubleshooting guidance, see [TROUBLESHOOTING.md](docs/TROUBL
    $env:PSCUE_DEBUG = "1"
    # Trigger a completion, then check the log
    # Log location: $env:LOCALAPPDATA/PSCue/log.txt (Windows)
+   # Import-Module also emits per-phase timing lines (IMPORT [phase] <name>=<N>ms) to help diagnose slow load times
    ```
 5. Check the log for completion activity - Tab completion always uses local computation
 

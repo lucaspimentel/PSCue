@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-04-17
+
+### Added
+- Add Ctrl+B bookmark toggle in `pcd -i` interactive selector
+- Add phase-by-phase import timing logs under `PSCUE_DEBUG`
+
+### Changed
+- Bump Microsoft.NET.Test.Sdk from 18.3.0 to 18.4.0
+
 ## [0.19.2] - 2026-04-13
 
 ### Fixed
