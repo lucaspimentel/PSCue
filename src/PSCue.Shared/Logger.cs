@@ -11,6 +11,8 @@ public static class Logger
 
     static Logger()
     {
+        var loadedUtc = DateTime.UtcNow;
+
         // Only initialize file logging when PSCUE_DEBUG=1
         IsDebugMode = Environment.GetEnvironmentVariable("PSCUE_DEBUG") == "1";
 
@@ -49,6 +51,8 @@ public static class Logger
             // FileShare.ReadWrite allows multiple processes to write to the same log file
             var fileStream = File.Open(path, FileMode.Append, FileAccess.Write, FileShare.ReadWrite);
             StreamWriter = new StreamWriter(fileStream, Encoding.UTF8) { AutoFlush = true };
+
+            StreamWriter.WriteLine($"{loadedUtc:yyyy-MM-dd HH:mm:ss.ffff} [{ComponentName}] IMPORT [marker] shared_logger_ctor_utc={loadedUtc:HH:mm:ss.ffff}");
         }
         catch
         {
