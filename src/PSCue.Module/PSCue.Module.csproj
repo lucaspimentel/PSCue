@@ -28,6 +28,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.Xml" Version="9.0.15" />
     <ProjectReference Include="..\PSCue.Shared\PSCue.Shared.csproj" />
   </ItemGroup>
 
