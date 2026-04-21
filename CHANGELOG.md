@@ -6,6 +6,7 @@
 - Enable ReadyToRun compilation for `PSCue.Module` and `PSCue.Shared` to reduce first-touch JIT cost on cold module imports
 - Consolidate `Functions/*.ps1` into a single `module/Functions.ps1` to reduce cold-disk dot-sourcing time on module import
 - Share a single SQLite connection across background load operations, avoiding redundant connection open and `PRAGMA busy_timeout` cycles
+- Batch the `ArgumentGraph` load into a single multi-statement SQLite query, collapsing seven round-trips into one
 - Skip redundant schema DDL on module import when the learning database is already at the current schema version
 
 ## [0.20.0] - 2026-04-17

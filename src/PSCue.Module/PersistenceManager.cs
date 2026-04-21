@@ -720,156 +720,113 @@ public class PersistenceManager : IDisposable
     {
         var graph = new ArgumentGraph(maxCommands, maxArgumentsPerCommand, scoreDecayDays);
 
-        // Load commands
-        using (var cmd = connection.CreateCommand())
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = @"
+            SELECT command, total_usage_count, first_seen, last_used FROM commands;
+            SELECT command, argument, usage_count, first_seen, last_used, is_flag FROM arguments;
+            SELECT command, argument, co_occurred_with, count FROM co_occurrences;
+            SELECT command, flags, count FROM flag_combinations;
+            SELECT command, first_argument, second_argument, usage_count, first_seen, last_used FROM argument_sequences;
+            SELECT command, parameter, usage_count, first_seen, last_used FROM parameters;
+            SELECT command, parameter, value, usage_count, first_seen, last_used FROM parameter_values;
+        ";
+        using var reader = cmd.ExecuteReader();
+
+        // 1. commands
+        while (reader.Read())
         {
-            cmd.CommandText = "SELECT command, total_usage_count, first_seen, last_used FROM commands";
-            using var reader = cmd.ExecuteReader();
+            var command = reader.GetString(0);
+            var totalUsage = reader.GetInt32(1);
+            var firstSeen = DateTime.Parse(reader.GetString(2)).ToUniversalTime();
+            var lastUsed = DateTime.Parse(reader.GetString(3)).ToUniversalTime();
 
-            while (reader.Read())
-            {
-                var command = reader.GetString(0);
-                var totalUsage = reader.GetInt32(1);
-                var firstSeen = DateTime.Parse(reader.GetString(2)).ToUniversalTime();
-                var lastUsed = DateTime.Parse(reader.GetString(3)).ToUniversalTime();
-
-                // Initialize command in graph with stored metadata
-                graph.InitializeCommand(command, totalUsage, firstSeen, lastUsed);
-            }
+            graph.InitializeCommand(command, totalUsage, firstSeen, lastUsed);
         }
+        if (!reader.NextResult()) return graph;
 
-        // Load arguments
-        using (var cmd = connection.CreateCommand())
+        // 2. arguments
+        while (reader.Read())
         {
-            cmd.CommandText = @"
-                SELECT command, argument, usage_count, first_seen, last_used, is_flag
-                FROM arguments
-            ";
-            using var reader = cmd.ExecuteReader();
+            var command = reader.GetString(0);
+            var argument = reader.GetString(1);
+            var usageCount = reader.GetInt32(2);
+            var firstSeen = DateTime.Parse(reader.GetString(3)).ToUniversalTime();
+            var lastUsed = DateTime.Parse(reader.GetString(4)).ToUniversalTime();
+            var isFlag = reader.GetInt32(5) == 1;
 
-            while (reader.Read())
-            {
-                var command = reader.GetString(0);
-                var argument = reader.GetString(1);
-                var usageCount = reader.GetInt32(2);
-                var firstSeen = DateTime.Parse(reader.GetString(3)).ToUniversalTime();
-                var lastUsed = DateTime.Parse(reader.GetString(4)).ToUniversalTime();
-                var isFlag = reader.GetInt32(5) == 1;
-
-                graph.InitializeArgument(command, argument, usageCount, firstSeen, lastUsed, isFlag);
-            }
+            graph.InitializeArgument(command, argument, usageCount, firstSeen, lastUsed, isFlag);
         }
+        if (!reader.NextResult()) return graph;
 
-        // Load co-occurrences
-        using (var cmd = connection.CreateCommand())
+        // 3. co_occurrences
+        while (reader.Read())
         {
-            cmd.CommandText = @"
-                SELECT command, argument, co_occurred_with, count
-                FROM co_occurrences
-            ";
-            using var reader = cmd.ExecuteReader();
+            var command = reader.GetString(0);
+            var argument = reader.GetString(1);
+            var coOccurredWith = reader.GetString(2);
 
-            while (reader.Read())
+            // Use GetInt64 to safely handle large values, then clamp to Int32 range
+            var countLong = reader.GetInt64(3);
+            var count = countLong > int.MaxValue ? int.MaxValue : (int)countLong;
+
+            if (countLong > int.MaxValue)
             {
-                var command = reader.GetString(0);
-                var argument = reader.GetString(1);
-                var coOccurredWith = reader.GetString(2);
-
-                // Use GetInt64 to safely handle large values, then clamp to Int32 range
-                var countLong = reader.GetInt64(3);
-                var count = countLong > int.MaxValue ? int.MaxValue : (int)countLong;
-
-                if (countLong > int.MaxValue)
-                {
-                    PSCue.Shared.Logger.WriteError($"Co-occurrence count overflow detected for '{command}' '{argument}' <-> '{coOccurredWith}': {countLong} exceeds Int32.MaxValue, clamping to {int.MaxValue}");
-                }
-
-                graph.InitializeCoOccurrence(command, argument, coOccurredWith, count);
+                PSCue.Shared.Logger.WriteError($"Co-occurrence count overflow detected for '{command}' '{argument}' <-> '{coOccurredWith}': {countLong} exceeds Int32.MaxValue, clamping to {int.MaxValue}");
             }
+
+            graph.InitializeCoOccurrence(command, argument, coOccurredWith, count);
         }
+        if (!reader.NextResult()) return graph;
 
-        // Load flag combinations
-        using (var cmd = connection.CreateCommand())
+        // 4. flag_combinations
+        while (reader.Read())
         {
-            cmd.CommandText = @"
-                SELECT command, flags, count
-                FROM flag_combinations
-            ";
-            using var reader = cmd.ExecuteReader();
+            var command = reader.GetString(0);
+            var flags = reader.GetString(1);
+            var count = reader.GetInt32(2);
 
-            while (reader.Read())
-            {
-                var command = reader.GetString(0);
-                var flags = reader.GetString(1);
-                var count = reader.GetInt32(2);
-
-                graph.InitializeFlagCombination(command, flags, count);
-            }
+            graph.InitializeFlagCombination(command, flags, count);
         }
+        if (!reader.NextResult()) return graph;
 
-        // Load argument sequences
-        using (var cmd = connection.CreateCommand())
+        // 5. argument_sequences
+        while (reader.Read())
         {
-            cmd.CommandText = @"
-                SELECT command, first_argument, second_argument, usage_count, first_seen, last_used
-                FROM argument_sequences
-            ";
-            using var reader = cmd.ExecuteReader();
+            var command = reader.GetString(0);
+            var firstArg = reader.GetString(1);
+            var secondArg = reader.GetString(2);
+            var usageCount = reader.GetInt32(3);
+            var firstSeen = DateTime.Parse(reader.GetString(4)).ToUniversalTime();
+            var lastUsed = DateTime.Parse(reader.GetString(5)).ToUniversalTime();
 
-            while (reader.Read())
-            {
-                var command = reader.GetString(0);
-                var firstArg = reader.GetString(1);
-                var secondArg = reader.GetString(2);
-                var usageCount = reader.GetInt32(3);
-                var firstSeen = DateTime.Parse(reader.GetString(4)).ToUniversalTime();
-                var lastUsed = DateTime.Parse(reader.GetString(5)).ToUniversalTime();
-
-                graph.InitializeArgumentSequence(command, firstArg, secondArg, usageCount, firstSeen, lastUsed);
-            }
+            graph.InitializeArgumentSequence(command, firstArg, secondArg, usageCount, firstSeen, lastUsed);
         }
+        if (!reader.NextResult()) return graph;
 
-        // Load parameters
-        using (var cmd = connection.CreateCommand())
+        // 6. parameters
+        while (reader.Read())
         {
-            cmd.CommandText = @"
-                SELECT command, parameter, usage_count, first_seen, last_used
-                FROM parameters
-            ";
-            using var reader = cmd.ExecuteReader();
+            var command = reader.GetString(0);
+            var parameter = reader.GetString(1);
+            var usageCount = reader.GetInt32(2);
+            var firstSeen = DateTime.Parse(reader.GetString(3)).ToUniversalTime();
+            var lastUsed = DateTime.Parse(reader.GetString(4)).ToUniversalTime();
 
-            while (reader.Read())
-            {
-                var command = reader.GetString(0);
-                var parameter = reader.GetString(1);
-                var usageCount = reader.GetInt32(2);
-                var firstSeen = DateTime.Parse(reader.GetString(3)).ToUniversalTime();
-                var lastUsed = DateTime.Parse(reader.GetString(4)).ToUniversalTime();
-
-                graph.InitializeParameter(command, parameter, usageCount, firstSeen, lastUsed);
-            }
+            graph.InitializeParameter(command, parameter, usageCount, firstSeen, lastUsed);
         }
+        if (!reader.NextResult()) return graph;
 
-        // Load parameter-value pairs
-        using (var cmd = connection.CreateCommand())
+        // 7. parameter_values
+        while (reader.Read())
         {
-            cmd.CommandText = @"
-                SELECT command, parameter, value, usage_count, first_seen, last_used
-                FROM parameter_values
-            ";
-            using var reader = cmd.ExecuteReader();
+            var command = reader.GetString(0);
+            var parameter = reader.GetString(1);
+            var value = reader.GetString(2);
+            var usageCount = reader.GetInt32(3);
+            var firstSeen = DateTime.Parse(reader.GetString(4)).ToUniversalTime();
+            var lastUsed = DateTime.Parse(reader.GetString(5)).ToUniversalTime();
 
-            while (reader.Read())
-            {
-                var command = reader.GetString(0);
-                var parameter = reader.GetString(1);
-                var value = reader.GetString(2);
-                var usageCount = reader.GetInt32(3);
-                var firstSeen = DateTime.Parse(reader.GetString(4)).ToUniversalTime();
-                var lastUsed = DateTime.Parse(reader.GetString(5)).ToUniversalTime();
-
-                graph.InitializeParameterValue(command, parameter, value, usageCount, firstSeen, lastUsed);
-            }
+            graph.InitializeParameterValue(command, parameter, value, usageCount, firstSeen, lastUsed);
         }
 
         return graph;

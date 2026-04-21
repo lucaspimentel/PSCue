@@ -235,6 +235,38 @@ public class PersistenceManagerTests : IDisposable
     }
 
     [Fact]
+    public void LoadArgumentGraph_RoundTripsAllSevenTables()
+    {
+        // Populate enough variety to write rows into every table:
+        //   commands / arguments / co_occurrences / argument_sequences: multi-arg RecordUsage
+        //   flag_combinations: multiple flags in one invocation
+        //   parameters / parameter_values: --key=value via RecordParsedUsage
+        var graph = new ArgumentGraph();
+        graph.RecordUsage("git", new[] { "commit", "-a", "-m", "message" });
+        graph.RecordUsage("git", new[] { "checkout", "master" });
+
+        var parser = new CommandParser();
+        graph.RecordParsedUsage(parser.Parse("dotnet build --configuration=Release"));
+        graph.RecordParsedUsage(parser.Parse("dotnet build --configuration=Debug"));
+
+        _persistence.SaveArgumentGraph(graph);
+        var loaded = _persistence.LoadArgumentGraph(_connection);
+
+        var gitKnowledge = loaded.GetCommandKnowledge("git");
+        Assert.NotNull(gitKnowledge);
+        Assert.NotEmpty(gitKnowledge.Arguments);                                      // arguments table
+        Assert.NotEmpty(gitKnowledge.Arguments["commit"].CoOccurrences);              // co_occurrences table
+        Assert.NotEmpty(gitKnowledge.FlagCombinations);                               // flag_combinations table
+        Assert.Contains("checkout|master", gitKnowledge.ArgumentSequences.Keys);      // argument_sequences table
+
+        var dotnetKnowledge = loaded.GetCommandKnowledge("dotnet");
+        Assert.NotNull(dotnetKnowledge);
+        Assert.Contains("--configuration", dotnetKnowledge.Parameters.Keys);          // parameters table
+        Assert.Contains("--configuration|Release", dotnetKnowledge.ParameterValues.Keys);  // parameter_values table
+        Assert.Contains("--configuration|Debug", dotnetKnowledge.ParameterValues.Keys);
+    }
+
+    [Fact]
     public void SaveArgumentGraph_PreservesTimestamps()
     {
         // Arrange
