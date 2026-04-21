@@ -225,6 +225,6 @@ These functions use `Microsoft.Data.Sqlite` directly to query the database:
 
 ## Key Files
 
-- `module/Functions/DatabaseManagement.ps1` - Database query functions
-- `module/PSCue.psm1` - Dot-sources DatabaseManagement.ps1
+- `module/Functions.ps1` - Consolidated module functions; database query functions live in the `Database Management` region
+- `module/PSCue.psm1` - Dot-sources Functions.ps1
 - `module/PSCue.psd1` - Exports `Get-PSCueDatabaseStats` and `Get-PSCueDatabaseHistory`

@@ -717,10 +717,12 @@ cherry-pick     Apply the changes introduced by some existing commits
 - `src/PSCue.Module/PersistenceManager.cs` - SQLite-based cross-session persistence
 
 **PowerShell Functions:**
-- `module/Functions/CacheManagement.ps1` - Cache management functions
-- `module/Functions/LearningManagement.ps1` - Learning system functions
-- `module/Functions/DatabaseManagement.ps1` - Database query functions
-- `module/Functions/Debugging.ps1` - Testing and diagnostics functions
+- `module/Functions.ps1` - Consolidated module functions, organized into `#region` blocks:
+  - Learning Management (`Get-PSCueLearning`, `Clear-PSCueLearning`, `Export-PSCueLearning`, `Import-PSCueLearning`, `Save-PSCueLearning`)
+  - Database Management (`Get-PSCueDatabaseStats`, `Get-PSCueDatabaseHistory`)
+  - Workflow Management (`Get-PSCueWorkflows`, `Get-PSCueWorkflowStats`, `Clear-PSCueWorkflows`, `Export-PSCueWorkflows`, `Import-PSCueWorkflows`)
+  - Smart Navigation (pcd) (`Invoke-PCD`)
+  - Debugging & Diagnostics (`Test-PSCueCompletion`, `Get-PSCueModuleInfo`)
 
 **ArgumentCompleter:**
 - `src/PSCue.ArgumentCompleter/Program.cs` - Entry point for Tab completion
@@ -882,12 +884,8 @@ PSCue/
 │
 ├── module/
 │   ├── PSCue.psd1                       # Module manifest
-│   ├── PSCue.psm1                       # Module script
-│   └── Functions/                       # PowerShell functions (Phase 16)
-│       ├── CacheManagement.ps1
-│       ├── LearningManagement.ps1
-│       ├── DatabaseManagement.ps1
-│       └── Debugging.ps1
+│   ├── PSCue.psm1                       # Module script (lifecycle + registration)
+│   └── Functions.ps1                    # Consolidated module functions (5 #region blocks)
 │
 ├── test/
 │   ├── PSCue.ArgumentCompleter.Tests/
@@ -980,8 +978,7 @@ cd PSCue
 5. Copy files to installation directory:
    - Native executable: `pscue-completer[.exe]`
    - Module DLL: `PSCue.Module.dll`
-   - Module files: `PSCue.psd1`, `PSCue.psm1`
-   - PowerShell functions: `Functions/`
+   - Module files: `PSCue.psd1`, `PSCue.psm1`, `Functions.ps1`
 6. Display instructions for adding to `$PROFILE`
 
 ### 2. Remote Installation (End Users)
@@ -1079,7 +1076,7 @@ Set-PSReadLineOption -PredictionSource HistoryAndPlugin
      - Setup .NET 9.0 SDK
      - Publish ArgumentCompleter for each RID
      - Build CommandPredictor DLL
-     - Copy module files (PSCue.psd1, PSCue.psm1, Functions/)
+     - Copy module files (PSCue.psd1, PSCue.psm1, Functions.ps1)
      - Create platform-specific archives (zip for Windows, tar.gz for others)
      - Generate checksums (SHA256) for each archive
      - Upload archives as artifacts
@@ -1108,7 +1105,7 @@ pscue-completer[.exe]      # Native executable
 PSCue.Module.dll           # Module assembly
 PSCue.psd1                 # Module manifest
 PSCue.psm1                 # Module script
-Functions/                 # PowerShell functions
+Functions.ps1              # Consolidated module functions
 LICENSE                    # License file
 README.md                  # Installation instructions
 ```
