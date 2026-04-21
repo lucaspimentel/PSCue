@@ -67,12 +67,12 @@ function Write-Info {
     Write-Host "${Cyan}${Message}${Reset}" -ForegroundColor Cyan
 }
 
-function Write-Warning {
+function Write-PSCueWarning {
     param([string]$Message)
     Write-Host "${Yellow}Warning: ${Message}${Reset}" -ForegroundColor Yellow
 }
 
-function Write-Error {
+function Write-PSCueError {
     param([string]$Message)
     Write-Host "${Red}Error: ${Message}${Reset}" -ForegroundColor Red
 }
@@ -96,13 +96,13 @@ try {
         $status = @()
         if ([int]$behind -gt 0) { $status += "$behind commit(s) behind" }
         if ([int]$ahead -gt 0) { $status += "$ahead commit(s) ahead of" }
-        Write-Warning "Local branch '$branch' is $($status -join ' and ') origin/$branch."
+        Write-PSCueWarning "Local branch '$branch' is $($status -join ' and ') origin/$branch."
 
         if ($Update) {
             Write-Status "Pulling latest changes..."
             & git pull --quiet 2>&1
             if ($LASTEXITCODE -ne 0) {
-                Write-Error "git pull failed. Resolve conflicts and try again."
+                Write-PSCueError "git pull failed. Resolve conflicts and try again."
                 exit 1
             }
             Write-Info "Repository updated successfully."
@@ -117,8 +117,8 @@ try {
         Write-Info "Repository is up-to-date with origin/$branch."
     }
 } catch {
-    Write-Warning "Could not check remote status: $_"
-    Write-Warning "Continuing with installation..."
+    Write-PSCueWarning "Could not check remote status: $_"
+    Write-PSCueWarning "Continuing with installation..."
 } finally {
     Pop-Location
 }
@@ -138,7 +138,7 @@ try {
     $dotnetVersion = & dotnet --version 2>&1
     Write-Info ".NET SDK version: $dotnetVersion"
 } catch {
-    Write-Error ".NET SDK not found. Please install .NET SDK 10 or later."
+    Write-PSCueError ".NET SDK not found. Please install .NET SDK 10 or later."
     Write-Info "Download from: https://dotnet.microsoft.com/download"
     exit 1
 }
@@ -151,7 +151,7 @@ Write-Info "Installation directory: $InstallDir"
 $AlreadyInstalled = Test-Path $InstallDir
 if ($AlreadyInstalled) {
     if (-not $Force) {
-        Write-Warning "PSCue is already installed at: $InstallDir"
+        Write-PSCueWarning "PSCue is already installed at: $InstallDir"
         $response = Read-Host "Overwrite existing installation? (y/N)"
         if ($response -ne 'y' -and $response -ne 'Y') {
             Write-Info "Installation cancelled."
@@ -168,7 +168,7 @@ Push-Location $RepoRoot
 try {
     & dotnet publish $CompleterProject -c Release -o publish -r $RID
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to build PSCue.ArgumentCompleter"
+        Write-PSCueError "Failed to build PSCue.ArgumentCompleter"
         exit 1
     }
 } finally {
@@ -183,7 +183,7 @@ Push-Location $RepoRoot
 try {
     & dotnet publish $PredictorProject -c Release -o publish -r $RID
     if ($LASTEXITCODE -ne 0) {
-        Write-Error "Failed to build PSCue.Module"
+        Write-PSCueError "Failed to build PSCue.Module"
         exit 1
     }
 } finally {
@@ -192,7 +192,7 @@ try {
 
 # Both builds succeeded — now safe to remove existing installation and create fresh directory
 if ($AlreadyInstalled) {
-    Write-Warning "Removing existing installation..."
+    Write-PSCueWarning "Removing existing installation..."
     Remove-Item -Path $InstallDir -Recurse -Force
 }
 
@@ -217,7 +217,7 @@ if (Test-Path $CompleterSource) {
         & chmod +x $CompleterDest
     }
 } else {
-    Write-Error "ArgumentCompleter executable not found at: $CompleterSource"
+    Write-PSCueError "ArgumentCompleter executable not found at: $CompleterSource"
     exit 1
 }
 
@@ -231,7 +231,7 @@ if (Test-Path $PredictorDllSource) {
     Copy-Item -Path $PredictorDllSource -Destination $PredictorDllDest -Force
     Write-Info "  Installed: $PredictorDll"
 } else {
-    Write-Error "Module DLL not found at: $PredictorDllSource"
+    Write-PSCueError "Module DLL not found at: $PredictorDllSource"
     exit 1
 }
 
@@ -253,7 +253,7 @@ foreach ($dep in $Dependencies) {
         Copy-Item -Path $depSource -Destination $depDest -Force
         Write-Info "  Installed: $dep"
     } else {
-        Write-Warning "Dependency not found: $dep (may not be required)"
+        Write-PSCueWarning "Dependency not found: $dep (may not be required)"
     }
 }
 
@@ -265,7 +265,7 @@ if (Test-Path $NativeDllSource) {
     Copy-Item -Path $NativeDllSource -Destination (Join-Path $InstallDir $NativeDll) -Force
     Write-Info "  Installed: $NativeDll (to module root)"
 } else {
-    Write-Error "Native SQLite library not found at: $NativeDllSource"
+    Write-PSCueError "Native SQLite library not found at: $NativeDllSource"
     exit 1
 }
 
