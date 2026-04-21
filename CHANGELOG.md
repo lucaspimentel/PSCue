@@ -8,6 +8,8 @@
 - Share a single SQLite connection across background load operations, avoiding redundant connection open and `PRAGMA busy_timeout` cycles
 - Batch the `ArgumentGraph` load into a single multi-statement SQLite query, collapsing seven round-trips into one
 - Skip redundant schema DDL on module import when the learning database is already at the current schema version
+- Bump Microsoft.Data.Sqlite from 10.0.5 to 10.0.6
+- Bump System.Security.Cryptography.Xml from 9.0.14 to 9.0.15
 
 ## [0.20.0] - 2026-04-17
 
