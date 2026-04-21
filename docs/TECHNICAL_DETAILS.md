@@ -414,8 +414,10 @@ public void OnImport()
 private static void InitializeInBackground(InitConfiguration config, CancellationToken ct)
 {
     PSCueModule.Persistence = new PersistenceManager(dbPath);
-    PSCueModule.KnowledgeGraph = persistence.LoadArgumentGraph(...);
-    PSCueModule.CommandHistory = persistence.LoadCommandHistory(...);
+    // One shared connection across all Load* calls avoids redundant open + PRAGMA cycles.
+    using var conn = persistence.CreateSharedConnection();
+    PSCueModule.KnowledgeGraph = persistence.LoadArgumentGraph(conn, ...);
+    PSCueModule.CommandHistory = persistence.LoadCommandHistory(conn, ...);
     // ... more components ...
     PSCueModule.GenericPredictor = new GenericPredictor(...);
 

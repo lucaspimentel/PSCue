@@ -115,14 +115,18 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
 
             cancellationToken.ThrowIfCancellationRequested();
 
-            PSCueModule.KnowledgeGraph = persistence.LoadArgumentGraph(config.MaxCommands, config.MaxArgs, config.DecayDays);
-            PSCueModule.CommandHistory = persistence.LoadCommandHistory(config.HistorySize);
+            // One connection shared across all Load operations avoids 5 redundant
+            // open + PRAGMA busy_timeout cycles on the init critical path.
+            using var sharedConnection = persistence.CreateSharedConnection();
+
+            PSCueModule.KnowledgeGraph = persistence.LoadArgumentGraph(sharedConnection, config.MaxCommands, config.MaxArgs, config.DecayDays);
+            PSCueModule.CommandHistory = persistence.LoadCommandHistory(sharedConnection, config.HistorySize);
 
             cancellationToken.ThrowIfCancellationRequested();
 
             // Initialize bookmarks
             var bookmarks = new BookmarkManager(persistence);
-            bookmarks.Initialize(persistence.LoadBookmarks());
+            bookmarks.Initialize(persistence.LoadBookmarks(sharedConnection));
             PSCueModule.Bookmarks = bookmarks;
 
             // Initialize ML sequence predictor if enabled
@@ -130,7 +134,7 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var sequencePredictor = new SequencePredictor(config.NgramOrder, config.NgramMinFreq);
-                sequencePredictor.Initialize(persistence.LoadCommandSequences());
+                sequencePredictor.Initialize(persistence.LoadCommandSequences(sharedConnection));
                 PSCueModule.SequencePredictor = sequencePredictor;
             }
 
@@ -139,7 +143,7 @@ public class ModuleInitializer : IModuleAssemblyInitializer, IModuleAssemblyClea
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var workflowLearner = new WorkflowLearner(config.WorkflowMinFreq, config.WorkflowMaxTime, config.WorkflowMinConf, config.DecayDays);
-                workflowLearner.Initialize(persistence.LoadWorkflowTransitions());
+                workflowLearner.Initialize(persistence.LoadWorkflowTransitions(sharedConnection));
                 PSCueModule.WorkflowLearner = workflowLearner;
             }
 

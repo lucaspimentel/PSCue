@@ -685,9 +685,7 @@ The remaining work is (a) reducing the time the background task spends in SQLite
 
 #### Database I/O optimizations (reduces total background load time)
 
-- [ ] **Use a single connection for all load operations** -- Currently each Load method (`LoadArgumentGraph` :702, `LoadCommandHistory` :866, `LoadBookmarks` :1156, `LoadCommandSequences` :575, `LoadWorkflowTransitions` :659) plus `InitializeDatabase` (:96) each call `CreateConnection()` independently, each running `PRAGMA busy_timeout=5000`. Keep one connection open for the entire init sequence, or add a persistent connection field to PersistenceManager.
-  - **Impact**: High (eliminates 5 redundant connection open + PRAGMA cycles)
-  - **Complexity**: Low (pass connection parameter or use instance field)
+- [x] **Use a single connection for all load operations** -- `PersistenceManager.CreateSharedConnection()` now exposes a connection the caller can reuse, and the five Load methods take it as a required `SqliteConnection` parameter. `ModuleInitializer.InitializeInBackground` opens one connection and threads it through `LoadArgumentGraph` / `LoadCommandHistory` / `LoadBookmarks` / `LoadCommandSequences` / `LoadWorkflowTransitions`. This cuts 5 redundant open + PRAGMA busy_timeout cycles on the init critical path. Saves are unchanged and continue to open per-call connections to preserve the per-operation thread-safety invariant.
 - [ ] **Combine ArgumentGraph queries into fewer round-trips** -- `LoadArgumentGraph` runs 7 sequential SELECTs (commands, arguments, co_occurrences, flag_combinations, argument_sequences, parameters, parameter_values). These could be batched or combined.
   - **Impact**: High (~5,600 rows across 7 queries is the biggest single cost)
   - **Complexity**: Low-Medium

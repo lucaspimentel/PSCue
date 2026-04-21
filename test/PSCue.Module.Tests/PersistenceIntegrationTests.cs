@@ -77,8 +77,9 @@ public class PersistenceIntegrationTests : IDisposable
         // Load final state - Third session
         using (var persistence = new PersistenceManager(_testDbPath))
         {
-            var finalGraph = persistence.LoadArgumentGraph();
-            var finalHistory = persistence.LoadCommandHistory();
+            using var conn = persistence.CreateSharedConnection();
+            var finalGraph = persistence.LoadArgumentGraph(conn);
+            var finalHistory = persistence.LoadCommandHistory(conn);
 
             // Assert - Should have both sessions' data (additively merged)
             Assert.Equal(2, finalGraph.GetTrackedCommands().Count); // git, docker
@@ -106,8 +107,9 @@ public class PersistenceIntegrationTests : IDisposable
         {
             // OnImport - Load
             using var persistence = new PersistenceManager(_testDbPath);
-            var graph = persistence.LoadArgumentGraph(); // Empty on first load
-            var history = persistence.LoadCommandHistory();
+            using var conn = persistence.CreateSharedConnection();
+            var graph = persistence.LoadArgumentGraph(conn); // Empty on first load
+            var history = persistence.LoadCommandHistory(conn);
 
             Assert.Empty(graph.GetTrackedCommands());
             Assert.Equal(0, history.Count);
@@ -126,8 +128,9 @@ public class PersistenceIntegrationTests : IDisposable
         {
             // OnImport - Load (should have Session 1 data)
             using var persistence = new PersistenceManager(_testDbPath);
-            var loadedGraph = persistence.LoadArgumentGraph();
-            var loadedHistory = persistence.LoadCommandHistory();
+            using var conn = persistence.CreateSharedConnection();
+            var loadedGraph = persistence.LoadArgumentGraph(conn);
+            var loadedHistory = persistence.LoadCommandHistory(conn);
 
             Assert.Single(loadedGraph.GetTrackedCommands());
             Assert.Equal(1, loadedHistory.Count);
@@ -151,8 +154,9 @@ public class PersistenceIntegrationTests : IDisposable
         // Session 3 - Verify cumulative data
         {
             using var persistence = new PersistenceManager(_testDbPath);
-            var graph = persistence.LoadArgumentGraph();
-            var history = persistence.LoadCommandHistory();
+            using var conn = persistence.CreateSharedConnection();
+            var graph = persistence.LoadArgumentGraph(conn);
+            var history = persistence.LoadCommandHistory(conn);
 
             var gitKnowledge = graph.GetCommandKnowledge("git");
             Assert.NotNull(gitKnowledge);
@@ -176,10 +180,11 @@ public class PersistenceIntegrationTests : IDisposable
 
         // Act - Load multiple times in same session
         using var sessionPersistence = new PersistenceManager(_testDbPath);
+        using var sessionConn = sessionPersistence.CreateSharedConnection();
 
-        var load1 = sessionPersistence.LoadArgumentGraph();
-        var load2 = sessionPersistence.LoadArgumentGraph();
-        var load3 = sessionPersistence.LoadArgumentGraph();
+        var load1 = sessionPersistence.LoadArgumentGraph(sessionConn);
+        var load2 = sessionPersistence.LoadArgumentGraph(sessionConn);
+        var load3 = sessionPersistence.LoadArgumentGraph(sessionConn);
 
         // Assert - All loads should return equivalent data
         Assert.Single(load1.GetTrackedCommands());
@@ -211,7 +216,8 @@ public class PersistenceIntegrationTests : IDisposable
 
         // Assert - Data should be persisted
         using var verifyPersistence = new PersistenceManager(_testDbPath);
-        var loaded = verifyPersistence.LoadArgumentGraph();
+        using var verifyConn = verifyPersistence.CreateSharedConnection();
+        var loaded = verifyPersistence.LoadArgumentGraph(verifyConn);
 
         Assert.Single(loaded.GetTrackedCommands());
         Assert.Contains("initial", loaded.GetTrackedCommands());
@@ -232,7 +238,8 @@ public class PersistenceIntegrationTests : IDisposable
 
         // Act - Session 2 loads (should recover saved data)
         using var newPersistence = new PersistenceManager(_testDbPath);
-        var recovered = newPersistence.LoadArgumentGraph();
+        using var newConn = newPersistence.CreateSharedConnection();
+        var recovered = newPersistence.LoadArgumentGraph(newConn);
 
         // Assert - Data should be intact
         Assert.Single(recovered.GetTrackedCommands());
@@ -249,6 +256,7 @@ public class PersistenceIntegrationTests : IDisposable
         // which includes both old loaded data + new learning
 
         using var persistence = new PersistenceManager(_testDbPath);
+        using var conn = persistence.CreateSharedConnection();
 
         // Simulate 5 save cycles
         for (int i = 0; i < 5; i++)
@@ -265,7 +273,7 @@ public class PersistenceIntegrationTests : IDisposable
         }
 
         // Verify all data was saved
-        var loaded = persistence.LoadArgumentGraph();
+        var loaded = persistence.LoadArgumentGraph(conn);
         var testKnowledge = loaded.GetCommandKnowledge("test");
         Assert.NotNull(testKnowledge);
         Assert.Equal(5, testKnowledge.TotalUsageCount); // 1+1+1+1+1 = 5
@@ -289,7 +297,8 @@ public class PersistenceIntegrationTests : IDisposable
 
         // Act - Load with different limits
         using var newPersistence = new PersistenceManager(_testDbPath);
-        var loaded = newPersistence.LoadArgumentGraph(maxCommands: 5, maxArgumentsPerCommand: 20);
+        using var newConn = newPersistence.CreateSharedConnection();
+        var loaded = newPersistence.LoadArgumentGraph(newConn, maxCommands: 5, maxArgumentsPerCommand: 20);
 
         // Assert - Should load all saved data (limits apply to new learning, not loading)
         Assert.Equal(10, loaded.GetTrackedCommands().Count);
@@ -300,8 +309,9 @@ public class PersistenceIntegrationTests : IDisposable
     {
         // Act - First load ever (database doesn't exist yet)
         using var persistence = new PersistenceManager(_testDbPath);
-        var graph = persistence.LoadArgumentGraph();
-        var history = persistence.LoadCommandHistory();
+        using var conn = persistence.CreateSharedConnection();
+        var graph = persistence.LoadArgumentGraph(conn);
+        var history = persistence.LoadCommandHistory(conn);
 
         // Assert
         Assert.NotNull(graph);
@@ -333,7 +343,8 @@ public class PersistenceIntegrationTests : IDisposable
 
         // Assert - Should be empty
         using var verifyPersistence = new PersistenceManager(_testDbPath);
-        var loaded = verifyPersistence.LoadArgumentGraph();
+        using var verifyConn = verifyPersistence.CreateSharedConnection();
+        var loaded = verifyPersistence.LoadArgumentGraph(verifyConn);
         Assert.Empty(loaded.GetTrackedCommands());
     }
 
@@ -342,6 +353,7 @@ public class PersistenceIntegrationTests : IDisposable
     {
         // Arrange - Create history with limit
         using var persistence = new PersistenceManager(_testDbPath);
+        using var conn = persistence.CreateSharedConnection();
         var history = new CommandHistory(maxSize: 10);
 
         // Add 20 entries (exceeds ring buffer)
@@ -354,7 +366,7 @@ public class PersistenceIntegrationTests : IDisposable
         persistence.SaveCommandHistory(history, maxEntries: 5);
 
         // Load
-        var loaded = persistence.LoadCommandHistory(maxSize: 10);
+        var loaded = persistence.LoadCommandHistory(conn, maxSize: 10);
 
         // Assert - Should only have 5 most recent
         Assert.Equal(5, loaded.Count);
@@ -384,7 +396,8 @@ public class PersistenceIntegrationTests : IDisposable
 
         // Assert - Load and verify counts didn't multiply
         using var verifyPersistence = new PersistenceManager(_testDbPath);
-        var loaded = verifyPersistence.LoadArgumentGraph();
+        using var verifyConn = verifyPersistence.CreateSharedConnection();
+        var loaded = verifyPersistence.LoadArgumentGraph(verifyConn);
 
         var knowledge = loaded.GetCommandKnowledge("git");
         Assert.NotNull(knowledge);

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using Microsoft.Data.Sqlite;
 using Xunit;
 
 namespace PSCue.Module.Tests;
@@ -9,6 +10,7 @@ public class PersistenceManagerTests : IDisposable
 {
     private readonly string _testDbPath;
     private readonly PersistenceManager _persistence;
+    private readonly SqliteConnection _connection;
 
     public PersistenceManagerTests()
     {
@@ -17,10 +19,12 @@ public class PersistenceManagerTests : IDisposable
         Directory.CreateDirectory(tempDir);
         _testDbPath = Path.Combine(tempDir, "test.db");
         _persistence = new PersistenceManager(_testDbPath);
+        _connection = _persistence.CreateSharedConnection();
     }
 
     public void Dispose()
     {
+        _connection?.Dispose();
         _persistence?.Dispose();
 
         // Clean up test database
@@ -56,7 +60,7 @@ public class PersistenceManagerTests : IDisposable
         _persistence.SaveArgumentGraph(graph);
 
         // Act - Load
-        var loaded = _persistence.LoadArgumentGraph(maxCommands: 10, maxArgumentsPerCommand: 5, scoreDecayDays: 30);
+        var loaded = _persistence.LoadArgumentGraph(_connection, maxCommands: 10, maxArgumentsPerCommand: 5, scoreDecayDays: 30);
 
         // Assert
         Assert.NotNull(loaded);
@@ -93,7 +97,7 @@ public class PersistenceManagerTests : IDisposable
         _persistence.SaveArgumentGraph(graph2);
 
         // Act - Load
-        var loaded = _persistence.LoadArgumentGraph();
+        var loaded = _persistence.LoadArgumentGraph(_connection);
 
         // Assert - Frequencies should be summed
         var gitKnowledge = loaded.GetCommandKnowledge("git");
@@ -117,7 +121,7 @@ public class PersistenceManagerTests : IDisposable
         _persistence.SaveCommandHistory(history, maxEntries: 10);
 
         // Act - Load
-        var loaded = _persistence.LoadCommandHistory(maxSize: 10);
+        var loaded = _persistence.LoadCommandHistory(_connection, maxSize: 10);
 
         // Assert
         Assert.Equal(3, loaded.Count);
@@ -148,7 +152,7 @@ public class PersistenceManagerTests : IDisposable
         _persistence.SaveCommandHistory(history, maxEntries: 10);
 
         // Act - Load
-        var loaded = _persistence.LoadCommandHistory(maxSize: 100);
+        var loaded = _persistence.LoadCommandHistory(_connection, maxSize: 100);
 
         // Assert - Should only have 10 most recent
         Assert.Equal(10, loaded.Count);
@@ -171,8 +175,8 @@ public class PersistenceManagerTests : IDisposable
         _persistence.Clear();
 
         // Assert
-        var loadedGraph = _persistence.LoadArgumentGraph();
-        var loadedHistory = _persistence.LoadCommandHistory();
+        var loadedGraph = _persistence.LoadArgumentGraph(_connection);
+        var loadedHistory = _persistence.LoadCommandHistory(_connection);
 
         Assert.Empty(loadedGraph.GetTrackedCommands());
         Assert.Equal(0, loadedHistory.Count);
@@ -182,8 +186,8 @@ public class PersistenceManagerTests : IDisposable
     public void LoadFromEmptyDatabase_ReturnsEmptyStructures()
     {
         // Act
-        var graph = _persistence.LoadArgumentGraph();
-        var history = _persistence.LoadCommandHistory();
+        var graph = _persistence.LoadArgumentGraph(_connection);
+        var history = _persistence.LoadCommandHistory(_connection);
 
         // Assert
         Assert.NotNull(graph);
@@ -202,7 +206,7 @@ public class PersistenceManagerTests : IDisposable
 
         // Act
         _persistence.SaveArgumentGraph(graph);
-        var loaded = _persistence.LoadArgumentGraph();
+        var loaded = _persistence.LoadArgumentGraph(_connection);
 
         // Assert
         var gitKnowledge = loaded.GetCommandKnowledge("git");
@@ -222,7 +226,7 @@ public class PersistenceManagerTests : IDisposable
 
         // Act
         _persistence.SaveArgumentGraph(graph);
-        var loaded = _persistence.LoadArgumentGraph();
+        var loaded = _persistence.LoadArgumentGraph(_connection);
 
         // Assert
         var gitKnowledge = loaded.GetCommandKnowledge("git");
@@ -244,7 +248,7 @@ public class PersistenceManagerTests : IDisposable
 
         // Act
         _persistence.SaveArgumentGraph(graph);
-        var loaded = _persistence.LoadArgumentGraph();
+        var loaded = _persistence.LoadArgumentGraph(_connection);
 
         // Assert
         var loadedKnowledge = loaded.GetCommandKnowledge("git");
@@ -277,7 +281,7 @@ public class PersistenceManagerTests : IDisposable
         _persistence.SaveArgumentGraph(graph3);
 
         // Load and verify
-        var loaded = _persistence.LoadArgumentGraph();
+        var loaded = _persistence.LoadArgumentGraph(_connection);
 
         // Assert
         Assert.Equal(2, loaded.GetTrackedCommands().Count); // git, docker
@@ -313,7 +317,7 @@ public class PersistenceManagerTests : IDisposable
         Assert.Equal(1, pruned);
 
         // Verify via reload
-        var loaded = _persistence.LoadArgumentGraph();
+        var loaded = _persistence.LoadArgumentGraph(_connection);
         var cdKnowledge = loaded.GetCommandKnowledge("cd");
         Assert.NotNull(cdKnowledge);
         Assert.Contains(cdKnowledge.Arguments.Keys, k => k.Equals(realPath, StringComparison.OrdinalIgnoreCase));
@@ -358,7 +362,7 @@ public class PersistenceManagerTests : IDisposable
         _persistence.PruneStaleDirectoryEntries(graph);
 
         // Assert - git argument should not be affected
-        var loaded = _persistence.LoadArgumentGraph();
+        var loaded = _persistence.LoadArgumentGraph(_connection);
         var gitKnowledge = loaded.GetCommandKnowledge("git");
         Assert.NotNull(gitKnowledge);
         Assert.Contains(gitKnowledge.Arguments.Keys, k => k == "nonexistent-branch");
@@ -378,12 +382,42 @@ public class PersistenceManagerTests : IDisposable
         _persistence.SaveArgumentGraph(graph2);
 
         // Assert - loaded argument text should have updated casing
-        var loaded = _persistence.LoadArgumentGraph();
+        var loaded = _persistence.LoadArgumentGraph(_connection);
         var knowledge = loaded.GetCommandKnowledge("git");
         Assert.NotNull(knowledge);
         var arg = knowledge.Arguments["mybranch"];
         Assert.Equal("mybranch", arg.Argument);
         Assert.Equal(2, arg.UsageCount);
+    }
+
+    [Fact]
+    public void CreateSharedConnection_MultipleLoads_ConnectionStaysOpen()
+    {
+        // Arrange
+        var graph = new ArgumentGraph();
+        graph.RecordUsage("git", new[] { "status" });
+        var history = new CommandHistory();
+        history.Add("git", "git status", new[] { "status" }, success: true);
+
+        _persistence.SaveArgumentGraph(graph);
+        _persistence.SaveCommandHistory(history);
+
+        // Act: open one connection, run multiple Loads through it
+        using var shared = _persistence.CreateSharedConnection();
+
+        var loadedGraph = _persistence.LoadArgumentGraph(shared);
+        Assert.Equal(System.Data.ConnectionState.Open, shared.State);
+
+        var loadedHistory = _persistence.LoadCommandHistory(shared);
+        Assert.Equal(System.Data.ConnectionState.Open, shared.State);
+
+        var loadedBookmarks = _persistence.LoadBookmarks(shared);
+        Assert.Equal(System.Data.ConnectionState.Open, shared.State);
+
+        // Assert: Load methods must not dispose the shared connection, and they return correct data
+        Assert.Contains("git", loadedGraph.GetTrackedCommands());
+        Assert.Equal(1, loadedHistory.Count);
+        Assert.NotNull(loadedBookmarks);
     }
 
     [Fact]

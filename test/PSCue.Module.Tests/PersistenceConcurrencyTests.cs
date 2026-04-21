@@ -89,7 +89,8 @@ public class PersistenceConcurrencyTests : IDisposable
 
         // Assert - Frequencies should be summed (3 sessions * 5 times = 15)
         using var finalPersistence = new PersistenceManager(_testDbPath);
-        var finalGraph = finalPersistence.LoadArgumentGraph();
+        using var finalConn = finalPersistence.CreateSharedConnection();
+        var finalGraph = finalPersistence.LoadArgumentGraph(finalConn);
 
         var gitKnowledge = finalGraph.GetCommandKnowledge("git");
         Assert.NotNull(gitKnowledge);
@@ -125,7 +126,8 @@ public class PersistenceConcurrencyTests : IDisposable
 
         // Assert - All commands should be present
         using var finalPersistence = new PersistenceManager(_testDbPath);
-        var finalGraph = finalPersistence.LoadArgumentGraph();
+        using var finalConn = finalPersistence.CreateSharedConnection();
+        var finalGraph = finalPersistence.LoadArgumentGraph(finalConn);
 
         var trackedCommands = finalGraph.GetTrackedCommands();
         Assert.Equal(commands.Length, trackedCommands.Count);
@@ -167,7 +169,8 @@ public class PersistenceConcurrencyTests : IDisposable
 
         // Assert - Database should be intact and consistent
         using var finalPersistence = new PersistenceManager(_testDbPath);
-        var finalGraph = finalPersistence.LoadArgumentGraph();
+        using var finalConn = finalPersistence.CreateSharedConnection();
+        var finalGraph = finalPersistence.LoadArgumentGraph(finalConn);
 
         var stressKnowledge = finalGraph.GetCommandKnowledge("stress-test");
         Assert.NotNull(stressKnowledge);
@@ -201,7 +204,8 @@ public class PersistenceConcurrencyTests : IDisposable
 
         // Assert - Co-occurrences should be merged
         using var finalPersistence = new PersistenceManager(_testDbPath);
-        var finalGraph = finalPersistence.LoadArgumentGraph();
+        using var finalConn = finalPersistence.CreateSharedConnection();
+        var finalGraph = finalPersistence.LoadArgumentGraph(finalConn);
 
         var gitKnowledge = finalGraph.GetCommandKnowledge("git");
         Assert.NotNull(gitKnowledge);
@@ -243,7 +247,8 @@ public class PersistenceConcurrencyTests : IDisposable
 
         // Assert - LastUsed should be the most recent timestamp
         using var finalPersistence = new PersistenceManager(_testDbPath);
-        var finalGraph = finalPersistence.LoadArgumentGraph();
+        using var finalConn = finalPersistence.CreateSharedConnection();
+        var finalGraph = finalPersistence.LoadArgumentGraph(finalConn);
 
         var gitKnowledge = finalGraph.GetCommandKnowledge("git");
         Assert.NotNull(gitKnowledge);
@@ -266,6 +271,7 @@ public class PersistenceConcurrencyTests : IDisposable
         for (int i = 0; i < iterations; i++)
         {
             using var persistence = new PersistenceManager(_testDbPath);
+            using var conn = persistence.CreateSharedConnection();
 
             // Save
             var graph = new ArgumentGraph();
@@ -273,13 +279,14 @@ public class PersistenceConcurrencyTests : IDisposable
             persistence.SaveArgumentGraph(graph);
 
             // Immediate load
-            var loaded = persistence.LoadArgumentGraph();
+            var loaded = persistence.LoadArgumentGraph(conn);
             Assert.NotNull(loaded);
         }
 
         // Assert - Database should still be valid
         using var finalPersistence = new PersistenceManager(_testDbPath);
-        var finalGraph = finalPersistence.LoadArgumentGraph();
+        using var finalConn = finalPersistence.CreateSharedConnection();
+        var finalGraph = finalPersistence.LoadArgumentGraph(finalConn);
 
         var testKnowledge = finalGraph.GetCommandKnowledge("test");
         Assert.NotNull(testKnowledge);

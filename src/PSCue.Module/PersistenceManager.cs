@@ -71,6 +71,13 @@ public class PersistenceManager : IDisposable
     }
 
     /// <summary>
+    /// Opens a connection that the caller can share across multiple Load operations
+    /// to avoid repeating the per-call open + PRAGMA busy_timeout cost during init.
+    /// The caller owns the returned connection and must dispose it.
+    /// </summary>
+    public SqliteConnection CreateSharedConnection() => CreateConnection();
+
+    /// <summary>
     /// Create and configure a new database connection.
     /// </summary>
     private SqliteConnection CreateConnection()
@@ -568,11 +575,9 @@ public class PersistenceManager : IDisposable
     /// Loads command sequences from the database.
     /// Returns a dictionary of prev_command -> (next_command -> (frequency, lastSeen)).
     /// </summary>
-    public Dictionary<string, Dictionary<string, (int frequency, DateTime lastSeen)>> LoadCommandSequences()
+    public Dictionary<string, Dictionary<string, (int frequency, DateTime lastSeen)>> LoadCommandSequences(SqliteConnection connection)
     {
         var sequences = new Dictionary<string, Dictionary<string, (int frequency, DateTime lastSeen)>>(StringComparer.OrdinalIgnoreCase);
-
-        using var connection = CreateConnection();
 
         using var cmd = connection.CreateCommand();
         cmd.CommandText = @"
@@ -652,11 +657,9 @@ public class PersistenceManager : IDisposable
     /// Loads workflow transitions from the database.
     /// Returns a dictionary of from_command -> (to_command -> WorkflowTransition).
     /// </summary>
-    public Dictionary<string, Dictionary<string, WorkflowTransition>> LoadWorkflowTransitions()
+    public Dictionary<string, Dictionary<string, WorkflowTransition>> LoadWorkflowTransitions(SqliteConnection connection)
     {
         var workflows = new Dictionary<string, Dictionary<string, WorkflowTransition>>(StringComparer.OrdinalIgnoreCase);
-
-        using var connection = CreateConnection();
 
         using var cmd = connection.CreateCommand();
         cmd.CommandText = @"
@@ -695,11 +698,9 @@ public class PersistenceManager : IDisposable
     /// <summary>
     /// Loads the ArgumentGraph from the database.
     /// </summary>
-    public ArgumentGraph LoadArgumentGraph(int maxCommands = 500, int maxArgumentsPerCommand = 100, int scoreDecayDays = 30)
+    public ArgumentGraph LoadArgumentGraph(SqliteConnection connection, int maxCommands = 500, int maxArgumentsPerCommand = 100, int scoreDecayDays = 30)
     {
         var graph = new ArgumentGraph(maxCommands, maxArgumentsPerCommand, scoreDecayDays);
-
-        using var connection = CreateConnection();
 
         // Load commands
         using (var cmd = connection.CreateCommand())
@@ -859,11 +860,9 @@ public class PersistenceManager : IDisposable
     /// <summary>
     /// Loads the CommandHistory from the database.
     /// </summary>
-    public CommandHistory LoadCommandHistory(int maxSize = 100)
+    public CommandHistory LoadCommandHistory(SqliteConnection connection, int maxSize = 100)
     {
         var history = new CommandHistory(maxSize);
-
-        using var connection = CreateConnection();
 
         using var cmd = connection.CreateCommand();
         cmd.CommandText = @"
@@ -1149,11 +1148,10 @@ public class PersistenceManager : IDisposable
     /// <summary>
     /// Loads all bookmarked paths from the database.
     /// </summary>
-    public List<(string Path, DateTime CreatedAt)> LoadBookmarks()
+    public List<(string Path, DateTime CreatedAt)> LoadBookmarks(SqliteConnection connection)
     {
         var bookmarks = new List<(string, DateTime)>();
 
-        using var connection = CreateConnection();
         using var command = connection.CreateCommand();
         command.CommandText = "SELECT path, created_at FROM bookmarks ORDER BY path";
 

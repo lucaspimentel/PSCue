@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using Microsoft.Data.Sqlite;
 using Xunit;
 
 namespace PSCue.Module.Tests;
@@ -11,6 +12,7 @@ public class PersistenceEdgeCaseTests : IDisposable
 {
     private readonly string _testDbPath;
     private readonly PersistenceManager _persistence;
+    private readonly SqliteConnection _connection;
 
     public PersistenceEdgeCaseTests()
     {
@@ -18,10 +20,12 @@ public class PersistenceEdgeCaseTests : IDisposable
         Directory.CreateDirectory(tempDir);
         _testDbPath = Path.Combine(tempDir, "edge-case-test.db");
         _persistence = new PersistenceManager(_testDbPath);
+        _connection = _persistence.CreateSharedConnection();
     }
 
     public void Dispose()
     {
+        _connection?.Dispose();
         _persistence?.Dispose();
 
         try
@@ -51,7 +55,7 @@ public class PersistenceEdgeCaseTests : IDisposable
 
         // Act
         _persistence.SaveArgumentGraph(graph);
-        var loaded = _persistence.LoadArgumentGraph();
+        var loaded = _persistence.LoadArgumentGraph(_connection);
 
         // Assert
         Assert.NotNull(loaded);
@@ -66,7 +70,7 @@ public class PersistenceEdgeCaseTests : IDisposable
 
         // Act
         _persistence.SaveCommandHistory(history);
-        var loaded = _persistence.LoadCommandHistory();
+        var loaded = _persistence.LoadCommandHistory(_connection);
 
         // Assert
         Assert.NotNull(loaded);
@@ -83,7 +87,7 @@ public class PersistenceEdgeCaseTests : IDisposable
 
         // Act
         _persistence.SaveArgumentGraph(graph);
-        var loaded = _persistence.LoadArgumentGraph();
+        var loaded = _persistence.LoadArgumentGraph(_connection);
 
         // Assert
         var testKnowledge = loaded.GetCommandKnowledge("test");
@@ -110,7 +114,7 @@ public class PersistenceEdgeCaseTests : IDisposable
 
         // Act
         _persistence.SaveArgumentGraph(graph);
-        var loaded = _persistence.LoadArgumentGraph();
+        var loaded = _persistence.LoadArgumentGraph(_connection);
 
         // Assert
         var testKnowledge = loaded.GetCommandKnowledge("test");
@@ -140,7 +144,7 @@ public class PersistenceEdgeCaseTests : IDisposable
         _persistence.SaveArgumentGraph(graph2);
         _persistence.SaveArgumentGraph(graph3);
 
-        var loaded = _persistence.LoadArgumentGraph();
+        var loaded = _persistence.LoadArgumentGraph(_connection);
 
         // Assert - Should be merged as one command (case-insensitive)
         var trackedCommands = loaded.GetTrackedCommands();
@@ -168,7 +172,7 @@ public class PersistenceEdgeCaseTests : IDisposable
 
         // Act
         _persistence.SaveArgumentGraph(graph);
-        var loaded = _persistence.LoadArgumentGraph(maxCommands: 5, maxArgumentsPerCommand: 10);
+        var loaded = _persistence.LoadArgumentGraph(_connection, maxCommands: 5, maxArgumentsPerCommand: 10);
 
         // Assert - Should respect limits (some commands dropped)
         Assert.True(loaded.GetTrackedCommands().Count <= 5);
@@ -251,7 +255,8 @@ public class PersistenceEdgeCaseTests : IDisposable
 
         // Create new persistence manager (should recreate database)
         using var newPersistence = new PersistenceManager(_testDbPath);
-        var loaded = newPersistence.LoadArgumentGraph();
+        using var newConn = newPersistence.CreateSharedConnection();
+        var loaded = newPersistence.LoadArgumentGraph(newConn);
 
         // Assert - Should load empty (new database)
         Assert.Empty(loaded.GetTrackedCommands());
@@ -269,7 +274,7 @@ public class PersistenceEdgeCaseTests : IDisposable
 
         // Act
         _persistence.SaveArgumentGraph(graph);
-        var loaded = _persistence.LoadArgumentGraph();
+        var loaded = _persistence.LoadArgumentGraph(_connection);
 
         // Assert
         Assert.Contains("测试", loaded.GetTrackedCommands(), StringComparer.OrdinalIgnoreCase);
@@ -290,7 +295,7 @@ public class PersistenceEdgeCaseTests : IDisposable
 
         // Act
         _persistence.SaveArgumentGraph(graph);
-        var loaded = _persistence.LoadArgumentGraph();
+        var loaded = _persistence.LoadArgumentGraph(_connection);
 
         // Assert
         var testKnowledge = loaded.GetCommandKnowledge("test");
@@ -314,7 +319,7 @@ public class PersistenceEdgeCaseTests : IDisposable
         graph2.RecordUsage("docker", new[] { "run" });
         _persistence.SaveArgumentGraph(graph2);
 
-        var loaded = _persistence.LoadArgumentGraph();
+        var loaded = _persistence.LoadArgumentGraph(_connection);
 
         // Assert - Should only have docker (git cleared)
         Assert.Single(loaded.GetTrackedCommands());
@@ -331,7 +336,7 @@ public class PersistenceEdgeCaseTests : IDisposable
 
         // Manually set old timestamp by saving and checking it loads
         _persistence.SaveArgumentGraph(graph);
-        var loaded = _persistence.LoadArgumentGraph();
+        var loaded = _persistence.LoadArgumentGraph(_connection);
 
         // Assert
         var knowledge = loaded.GetCommandKnowledge("legacy-command");
@@ -363,7 +368,7 @@ public class PersistenceEdgeCaseTests : IDisposable
 
         // Act
         _persistence.SaveArgumentGraph(graph);
-        var loaded = _persistence.LoadArgumentGraph();
+        var loaded = _persistence.LoadArgumentGraph(_connection);
 
         // Assert - Only valid argument should be saved
         var testKnowledge = loaded.GetCommandKnowledge("test");
@@ -381,7 +386,7 @@ public class PersistenceEdgeCaseTests : IDisposable
 
         // Act
         _persistence.SaveCommandHistory(history);
-        var loaded = _persistence.LoadCommandHistory();
+        var loaded = _persistence.LoadCommandHistory(_connection);
 
         // Assert
         Assert.Equal(1, loaded.Count);
@@ -400,7 +405,7 @@ public class PersistenceEdgeCaseTests : IDisposable
 
         // Act
         _persistence.SaveCommandHistory(history);
-        var loaded = _persistence.LoadCommandHistory();
+        var loaded = _persistence.LoadCommandHistory(_connection);
 
         // Assert
         Assert.Equal(1, loaded.Count);

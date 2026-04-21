@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Microsoft.Data.Sqlite;
 using Xunit;
 using PSCue.Module;
 
@@ -14,16 +15,19 @@ public class SequencePersistenceIntegrationTests : IDisposable
 {
     private readonly string _testDbPath;
     private readonly PersistenceManager _persistence;
+    private readonly SqliteConnection _connection;
 
     public SequencePersistenceIntegrationTests()
     {
         // Create temp database for testing
         _testDbPath = Path.Combine(Path.GetTempPath(), $"pscue-test-{Guid.NewGuid()}.db");
         _persistence = new PersistenceManager(_testDbPath);
+        _connection = _persistence.CreateSharedConnection();
     }
 
     public void Dispose()
     {
+        _connection?.Dispose();
         _persistence?.Dispose();
 
         // Clean up test database files
@@ -62,7 +66,7 @@ public class SequencePersistenceIntegrationTests : IDisposable
         _persistence.SaveCommandSequences(delta);
 
         // Load into new predictor
-        var loadedSequences = _persistence.LoadCommandSequences();
+        var loadedSequences = _persistence.LoadCommandSequences(_connection);
         var newPredictor = new SequencePredictor(ngramOrder: 2, minFrequency: 1);
         newPredictor.Initialize(loadedSequences);
 
@@ -85,7 +89,7 @@ public class SequencePersistenceIntegrationTests : IDisposable
         _persistence.SaveCommandSequences(delta);
 
         // Load
-        var loaded = _persistence.LoadCommandSequences();
+        var loaded = _persistence.LoadCommandSequences(_connection);
 
         // Assert
         Assert.Empty(loaded);
@@ -116,7 +120,7 @@ public class SequencePersistenceIntegrationTests : IDisposable
         _persistence.SaveCommandSequences(sequences2);
 
         // Load
-        var loaded = _persistence.LoadCommandSequences();
+        var loaded = _persistence.LoadCommandSequences(_connection);
 
         // Assert - Frequencies should be summed (3 + 2 = 5)
         Assert.Equal(5, loaded["git"]["add"].frequency);
@@ -146,7 +150,7 @@ public class SequencePersistenceIntegrationTests : IDisposable
 
         // Act
         _persistence.SaveCommandSequences(sequences);
-        var loaded = _persistence.LoadCommandSequences();
+        var loaded = _persistence.LoadCommandSequences(_connection);
 
         // Assert
         Assert.Equal(2, loaded.Count); // git, docker
@@ -158,7 +162,7 @@ public class SequencePersistenceIntegrationTests : IDisposable
     public void LoadCommandSequences_EmptyDatabase_ShouldReturnEmpty()
     {
         // Act
-        var loaded = _persistence.LoadCommandSequences();
+        var loaded = _persistence.LoadCommandSequences(_connection);
 
         // Assert
         Assert.NotNull(loaded);
@@ -181,7 +185,7 @@ public class SequencePersistenceIntegrationTests : IDisposable
         _persistence.SaveCommandSequences(initialSequences);
 
         // Act 1 - Load existing data
-        var loaded = _persistence.LoadCommandSequences();
+        var loaded = _persistence.LoadCommandSequences(_connection);
         var predictor = new SequencePredictor(ngramOrder: 2, minFrequency: 1);
         predictor.Initialize(loaded);
 
@@ -195,7 +199,7 @@ public class SequencePersistenceIntegrationTests : IDisposable
         predictor.ClearDelta();
 
         // Act 4 - Load again to verify merge
-        var reloaded = _persistence.LoadCommandSequences();
+        var reloaded = _persistence.LoadCommandSequences(_connection);
 
         // Assert - git->add frequency should be 10 + 1 = 11
         Assert.Equal(11, reloaded["git"]["add"].frequency);
@@ -223,7 +227,7 @@ public class SequencePersistenceIntegrationTests : IDisposable
         _persistence.SaveCommandSequences(predictor2.GetDelta());
 
         // Load and verify
-        var loaded = _persistence.LoadCommandSequences();
+        var loaded = _persistence.LoadCommandSequences(_connection);
 
         // Should have total of 5 (3 + 2)
         Assert.Equal(5, loaded["git"]["add"].frequency);

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using Microsoft.Data.Sqlite;
 using Xunit;
 
 namespace PSCue.Module.Tests;
@@ -9,6 +10,7 @@ public class BookmarkManagerTests : IDisposable
 {
     private readonly string _testDbPath;
     private readonly PersistenceManager _persistence;
+    private readonly SqliteConnection _connection;
     private readonly string _tempDir;
 
     public BookmarkManagerTests()
@@ -18,10 +20,12 @@ public class BookmarkManagerTests : IDisposable
         _tempDir = tempDir;
         _testDbPath = Path.Combine(tempDir, "bookmarks-test.db");
         _persistence = new PersistenceManager(_testDbPath);
+        _connection = _persistence.CreateSharedConnection();
     }
 
     public void Dispose()
     {
+        _connection.Dispose();
         _persistence.Dispose();
         try
         {
@@ -47,7 +51,7 @@ public class BookmarkManagerTests : IDisposable
         Assert.True(result.WasAdded);
         Assert.True(bm.IsBookmarked(path));
 
-        var loaded = _persistence.LoadBookmarks();
+        var loaded = _persistence.LoadBookmarks(_connection);
         Assert.Contains(loaded, b => string.Equals(b.Path, result.NormalizedPath, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -63,7 +67,7 @@ public class BookmarkManagerTests : IDisposable
         Assert.False(result.WasAdded);
         Assert.False(bm.IsBookmarked(path));
 
-        var loaded = _persistence.LoadBookmarks();
+        var loaded = _persistence.LoadBookmarks(_connection);
         Assert.DoesNotContain(loaded, b => string.Equals(b.Path, result.NormalizedPath, StringComparison.OrdinalIgnoreCase));
     }
 
