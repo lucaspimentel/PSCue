@@ -676,23 +676,12 @@ $env:PSCUE_METRICS_ENABLED = "true"  # Default: true
 ---
 
 ### Module Load Time Optimization
-**Status**: Backlog
-**Priority**: High (user-facing latency, currently 2-4 seconds)
+**Status**: In Progress (background loading landed; cold-start optimizations remain)
+**Priority**: Medium (warm import is now ~200ms; cold import still 2-3s)
 
-**Context**: Module import (`OnImport` in `src/PSCue.Module/ModuleInitializer.cs:27`) takes 2-4 seconds. The bottleneck is database I/O during `OnImport`: 6 separate SQLite connections are opened, and `LoadArgumentGraph` (`src/PSCue.Module/PersistenceManager.cs:698`) alone runs 7 sequential queries reading ~5,600 rows with `DateTime.Parse()` on every row.
+**Context**: Background loading landed in commit `2e9691b`. `OnImport` (`src/PSCue.Module/ModuleInitializer.cs:34`) now only registers subsystems synchronously (at `ModuleInitializer.cs:196` and `:216`) and spawns a `Task.Run(InitializeInBackground)` (`:58`) that handles all database I/O off the critical path. `CommandPredictor` and `FeedbackProvider` null-check `PSCueModule.*` statics and return empty results until the background task completes.
 
-**Database stats** (as of 2026-04-12): 1.5 MB, 99 commands, 1,414 arguments, 3,362 co-occurrences, 627 argument sequences, 751 command sequences, 824 workflow transitions.
-
-**Key insight**: The only thing PowerShell requires synchronously from `OnImport` is subsystem registration (`SubsystemManager.RegisterSubsystem` at :121 and :127). Both `CommandPredictor` and `FeedbackProvider` already handle null data gracefully -- `CommandPredictor.GetSuggestion` checks `_enableGenericLearning` and `_genericPredictor != null`; `FeedbackProvider.GetFeedback` reads `PSCueModule.*` statics and returns null when they're null. This means **all database loading can be moved off the critical path**.
-
-**Approach**: Register subsystems immediately, fire `Task.Run()` for all data loading. The predictor/feedback provider return empty results for the first ~1-2s until loading completes. In practice, the user stares at the prompt longer than that before typing.
-
-#### Deferred/async loading (biggest win)
-
-- [ ] **Move all database loading to background `Task.Run()`** -- Register `CommandPredictor` and `FeedbackProvider` with null/empty data immediately, then load everything in a background task. All consumers already null-check `PSCueModule.*` statics.
-  - Components to defer: `PersistenceManager` init (:54-59), `LoadArgumentGraph` (:60), `LoadCommandHistory` (:61), `LoadBookmarks` (:63-65), `LoadCommandSequences` (:71), `LoadWorkflowTransitions` (:79), `CommandParser` (:84-87), `ContextAnalyzer` (:89), `GenericPredictor` (:90)
-  - **Impact**: Very High (moves ~2s of work off the critical path entirely; perceived load time drops to near-zero)
-  - **Complexity**: Medium (need to ensure thread-safe assignment of `PSCueModule.*` statics; consumers already null-check; auto-save timer must wait for init to complete)
+The remaining work is (a) reducing the time the background task spends in SQLite during load, since it still blocks the first few predictions, and (b) attacking the pre-`OnImport` cold-start gap described further below.
 
 #### Database I/O optimizations (reduces total background load time)
 
