@@ -436,4 +436,90 @@ public class PersistenceManagerTests : IDisposable
         // Assert
         Assert.Equal(0, pruned);
     }
+
+    [Fact]
+    public void InitializeDatabase_FreshDb_SetsSchemaVersion()
+    {
+        // Fixture already created a PersistenceManager for a fresh path.
+        var version = GetUserVersion(_connection);
+        Assert.Equal(1, version);
+    }
+
+    [Fact]
+    public void InitializeDatabase_ExistingDb_PreservesDataAndVersion()
+    {
+        // Arrange - save data through the fixture instance
+        var graph = new ArgumentGraph();
+        graph.RecordUsage("git", new[] { "status" });
+        _persistence.SaveArgumentGraph(graph);
+
+        // Tear down first instance (closes its connections)
+        _connection.Dispose();
+        _persistence.Dispose();
+
+        // Act - open a second PersistenceManager against the same DB file
+        using var second = new PersistenceManager(_testDbPath);
+        using var secondConn = second.CreateSharedConnection();
+
+        // Assert - version is still current
+        Assert.Equal(1, GetUserVersion(secondConn));
+
+        // Assert - previously-saved data is intact (DDL skip did not wipe anything)
+        var loaded = second.LoadArgumentGraph(secondConn);
+        var gitKnowledge = loaded.GetCommandKnowledge("git");
+        Assert.NotNull(gitKnowledge);
+        Assert.Equal(1, gitKnowledge.TotalUsageCount);
+        Assert.Contains(gitKnowledge.Arguments.Keys, k => k == "status");
+    }
+
+    [Fact]
+    public void InitializeDatabase_PreVersioningDb_UpgradesToCurrent()
+    {
+        // Arrange - simulate a database from before the user_version gate was introduced
+        // by forcing the version back to 0 on the fixture DB.
+        using (var resetCmd = _connection.CreateCommand())
+        {
+            resetCmd.CommandText = "PRAGMA user_version = 0;";
+            resetCmd.ExecuteNonQuery();
+        }
+        Assert.Equal(0, GetUserVersion(_connection));
+
+        // Close the fixture's handles so the new instance's DDL path runs cleanly.
+        _connection.Dispose();
+        _persistence.Dispose();
+
+        // Act - new PersistenceManager should see version 0 and run the DDL path,
+        // then bump the version to 1.
+        using var upgraded = new PersistenceManager(_testDbPath);
+        using var upgradedConn = upgraded.CreateSharedConnection();
+
+        // Assert
+        Assert.Equal(1, GetUserVersion(upgradedConn));
+
+        var expectedTables = new[]
+        {
+            "commands", "arguments", "co_occurrences", "flag_combinations",
+            "argument_sequences", "command_history", "command_sequences",
+            "workflow_transitions", "parameters", "parameter_values", "bookmarks",
+        };
+        foreach (var table in expectedTables)
+        {
+            Assert.True(TableExists(upgradedConn, table), $"Expected table '{table}' after upgrade");
+        }
+    }
+
+    private static int GetUserVersion(SqliteConnection connection)
+    {
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "PRAGMA user_version;";
+        return Convert.ToInt32(cmd.ExecuteScalar());
+    }
+
+    private static bool TableExists(SqliteConnection connection, string tableName)
+    {
+        using var cmd = connection.CreateCommand();
+        cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name=@name;";
+        cmd.Parameters.AddWithValue("@name", tableName);
+        return cmd.ExecuteScalar() != null;
+    }
 }

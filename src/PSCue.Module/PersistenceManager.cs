@@ -13,6 +13,8 @@ namespace PSCue.Module;
 /// </summary>
 public class PersistenceManager : IDisposable
 {
+    private const int CurrentSchemaVersion = 1;
+
     private readonly string _dbPath;
     private readonly string _connectionString;
     private bool _disposed;
@@ -107,6 +109,18 @@ public class PersistenceManager : IDisposable
         {
             walCommand.CommandText = "PRAGMA journal_mode=WAL;";
             walCommand.ExecuteNonQuery();
+        }
+
+        // Skip DDL if schema is already at the current version. Keeps cold-start
+        // fast on the common case where the database already exists.
+        using (var versionCmd = connection.CreateCommand())
+        {
+            versionCmd.CommandText = "PRAGMA user_version;";
+            var existingVersion = Convert.ToInt32(versionCmd.ExecuteScalar());
+            if (existingVersion == CurrentSchemaVersion)
+            {
+                return;
+            }
         }
 
         // Create tables
@@ -228,6 +242,10 @@ public class PersistenceManager : IDisposable
             CREATE INDEX IF NOT EXISTS idx_parameter_values_command_param ON parameter_values(command, parameter);
         ";
         command.ExecuteNonQuery();
+
+        using var setVersionCmd = connection.CreateCommand();
+        setVersionCmd.CommandText = $"PRAGMA user_version = {CurrentSchemaVersion};";
+        setVersionCmd.ExecuteNonQuery();
     }
 
     /// <summary>

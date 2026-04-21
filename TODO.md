@@ -689,9 +689,7 @@ The remaining work is (a) reducing the time the background task spends in SQLite
 - [ ] **Combine ArgumentGraph queries into fewer round-trips** -- `LoadArgumentGraph` runs 7 sequential SELECTs (commands, arguments, co_occurrences, flag_combinations, argument_sequences, parameters, parameter_values). These could be batched or combined.
   - **Impact**: High (~5,600 rows across 7 queries is the biggest single cost)
   - **Complexity**: Low-Medium
-- [ ] **Skip schema creation on existing databases** -- `InitializeDatabase()` (:94) runs 12 `CREATE TABLE IF NOT EXISTS` + 8 `CREATE INDEX IF NOT EXISTS` every startup. Check if database file already exists before running DDL, or store a schema version in a user_version pragma.
-  - **Impact**: Low-Medium (~100-200ms saved)
-  - **Complexity**: Low
+- [x] **Skip schema creation on existing databases** -- `PersistenceManager.InitializeDatabase()` now reads `PRAGMA user_version` after enabling WAL and returns early when the schema already matches `CurrentSchemaVersion` (= 1). Fresh databases run the full CREATE TABLE / CREATE INDEX block as before and then set `user_version = 1`. Pre-versioning databases (user_version = 0) upgrade transparently -- the `CREATE ... IF NOT EXISTS` clauses remain as a safety net, so existing tables are left untouched and the version is bumped to 1 at the end. Three new tests in `PersistenceManagerTests.cs` cover fresh-DB version stamping, data preservation across reopen, and the pre-versioning upgrade path.
 - [ ] **Replace `DateTime.Parse()` with integer timestamps** -- Every row calls `DateTime.Parse(reader.GetString(N)).ToUniversalTime()` -- ~12,000+ parse calls during load. Storing as Unix epoch integers (`reader.GetInt64`) would be much faster.
   - **Impact**: Medium (significant CPU reduction during deserialization)
   - **Complexity**: High (schema migration, backwards compatibility, update all read/write paths)

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- Skip redundant schema DDL on module import when the learning database is already at the current schema version
+
 ## [0.20.0] - 2026-04-17
 
 ### Added
