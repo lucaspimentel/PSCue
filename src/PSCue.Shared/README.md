@@ -14,7 +14,7 @@ Shared completion logic library used by both the ArgumentCompleter and Module pr
 ## Dependencies
 
 ### NuGet Packages
-- `System.Text.Json` (9.0.0) - For JSON serialization
+- None (uses .NET BCL only)
 
 ### Internal Dependencies
 - None (this is the base shared library)
