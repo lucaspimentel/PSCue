@@ -276,13 +276,9 @@ Copy-Item -Path "$ModuleSource/PSCue.psm1" -Destination $InstallDir -Force
 Write-Info "  Installed: PSCue.psd1"
 Write-Info "  Installed: PSCue.psm1"
 
-# Copy Functions directory (PowerShell module functions)
-$FunctionsSource = Join-Path $ModuleSource "Functions"
-if (Test-Path $FunctionsSource) {
-    $FunctionsDest = Join-Path $InstallDir "Functions"
-    Copy-Item -Path $FunctionsSource -Destination $FunctionsDest -Recurse -Force
-    Write-Info "  Installed: Functions/ (PowerShell module functions)"
-}
+# Copy consolidated Functions.ps1 (PowerShell module functions)
+Copy-Item -Path "$ModuleSource/Functions.ps1" -Destination $InstallDir -Force
+Write-Info "  Installed: Functions.ps1"
 
 # Success!
 Write-Host ""

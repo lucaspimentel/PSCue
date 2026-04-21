@@ -713,9 +713,7 @@ The remaining work is (a) reducing the time the background task spends in SQLite
 - [ ] **Skip or cache `Get-PSReadLineOption` after first session** -- `module/PSCue.psm1:119` calls `Get-PSReadLineOption` solely to detect `None`/`History` and print a one-time setup hint. Measured at 46ms on cold import (23% of psm1 sync time). Gate behind a marker file (e.g. `$env:LOCALAPPDATA\PSCue\prediction-source-checked`) or a module-scoped env var so subsequent sessions skip the call entirely. Re-run the check on a cadence (weekly?) in case the user changes their PSReadLine config.
   - **Impact**: Low-Medium (~46ms on cold, less when warm)
   - **Complexity**: Low
-- [ ] **Consolidate the five dot-sourced `Functions/*.ps1` files into one** -- `module/PSCue.psm1:107-116` dot-sources `LearningManagement.ps1`, `DatabaseManagement.ps1`, `WorkflowManagement.ps1`, `PCD.ps1`, and `Debugging.ps1`. Each costs 25-31ms on cold disk (~139ms combined) -- per-file parse overhead dominates for small scripts. Merging into a single file would save most of that; keep logical separation via `#region` blocks or comment banners.
-  - **Impact**: Medium (up to ~100ms on cold)
-  - **Complexity**: Low (mechanical merge)
+- [x] **Consolidate the five dot-sourced `Functions/*.ps1` files into one** -- Merged into `module/Functions.ps1` with `#region` banners (Learning / Database / Workflow / Smart Navigation (pcd) / Debugging & Diagnostics). `module/PSCue.psm1` now dot-sources a single file. `module/Functions/` directory deleted. `install-local.ps1` and `.github/workflows/release.yml` updated to copy the single file instead of the directory. Warm-cache sample shows 30ms for the single `Dotsource-Functions` phase vs ~39ms combined across the old five phases; cold-disk savings will be larger.
 
 ---
 

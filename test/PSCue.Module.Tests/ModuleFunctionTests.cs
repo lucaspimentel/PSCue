@@ -10,17 +10,12 @@ namespace PSCue.Module.Tests;
 /// </summary>
 public class ModuleFunctionTests
 {
-    [Theory]
-    [InlineData("LearningManagement.ps1")]
-    [InlineData("DatabaseManagement.ps1")]
-    [InlineData("WorkflowManagement.ps1")]
-    [InlineData("PCD.ps1")]
-    [InlineData("Debugging.ps1")]
-    public void FunctionFile_DoesNotContain_ExportModuleMember(string fileName)
+    [Fact]
+    public void FunctionsFile_DoesNotContain_ExportModuleMember()
     {
         // Arrange
         var solutionRoot = FindSolutionRoot();
-        var filePath = Path.Combine(solutionRoot, "module", "Functions", fileName);
+        var filePath = Path.Combine(solutionRoot, "module", "Functions.ps1");
 
         // Act
         var content = File.ReadAllText(filePath);
@@ -35,7 +30,7 @@ public class ModuleFunctionTests
         });
 
         Assert.False(hasActiveExportModuleMember,
-            $"{fileName} should not contain uncommented Export-ModuleMember calls. " +
+            "Functions.ps1 should not contain uncommented Export-ModuleMember calls. " +
             "Functions are exported via FunctionsToExport in PSCue.psd1 manifest. " +
             "Export-ModuleMember in dot-sourced files causes silent load failures.");
     }
@@ -81,69 +76,42 @@ public class ModuleFunctionTests
     }
 
     [Fact]
-    public void ModuleScript_DotSourcesAllFunctionFiles()
+    public void ModuleScript_DotSourcesConsolidatedFunctionsFile()
     {
         // Arrange
         var solutionRoot = FindSolutionRoot();
         var moduleScriptPath = Path.Combine(solutionRoot, "module", "PSCue.psm1");
         var moduleContent = File.ReadAllText(moduleScriptPath);
 
-        var functionFiles = new[]
-        {
-            "LearningManagement.ps1",
-            "DatabaseManagement.ps1",
-            "WorkflowManagement.ps1",
-            "PCD.ps1",
-            "Debugging.ps1"
-        };
-
-        // Assert - each file should be dot-sourced
-        foreach (var file in functionFiles)
-        {
-            Assert.Contains($". $PSScriptRoot/Functions/{file}", moduleContent, StringComparison.Ordinal);
-        }
+        // Assert - the consolidated file should be dot-sourced
+        Assert.Contains(". $PSScriptRoot/Functions.ps1", moduleContent, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void FunctionFiles_ExistInModuleDirectory()
+    public void FunctionsFile_ExistsInModuleDirectory()
     {
         // Arrange
         var solutionRoot = FindSolutionRoot();
-        var functionsDir = Path.Combine(solutionRoot, "module", "Functions");
-
-        var expectedFiles = new[]
-        {
-            "LearningManagement.ps1",
-            "DatabaseManagement.ps1",
-            "WorkflowManagement.ps1",
-            "PCD.ps1",
-            "Debugging.ps1"
-        };
+        var functionsFile = Path.Combine(solutionRoot, "module", "Functions.ps1");
 
         // Assert
-        Assert.True(Directory.Exists(functionsDir), $"Functions directory should exist at {functionsDir}");
-
-        foreach (var file in expectedFiles)
-        {
-            var filePath = Path.Combine(functionsDir, file);
-            Assert.True(File.Exists(filePath), $"Function file {file} should exist at {filePath}");
-        }
+        Assert.True(File.Exists(functionsFile), $"Functions.ps1 should exist at {functionsFile}");
     }
 
     [Theory]
-    [InlineData("LearningManagement.ps1", "Clear-PSCueLearning")]
-    [InlineData("DatabaseManagement.ps1", "Get-PSCueDatabaseStats")]
-    [InlineData("WorkflowManagement.ps1", "Get-PSCueWorkflows")]
-    [InlineData("PCD.ps1", "Invoke-PCD")]
-    [InlineData("Debugging.ps1", "Test-PSCueCompletion")]
-    public void FunctionFile_DefinesExpectedFunction(string fileName, string expectedFunction)
+    [InlineData("Clear-PSCueLearning")]
+    [InlineData("Get-PSCueDatabaseStats")]
+    [InlineData("Get-PSCueWorkflows")]
+    [InlineData("Invoke-PCD")]
+    [InlineData("Test-PSCueCompletion")]
+    public void FunctionsFile_DefinesExpectedFunction(string expectedFunction)
     {
         // Arrange
         var solutionRoot = FindSolutionRoot();
-        var filePath = Path.Combine(solutionRoot, "module", "Functions", fileName);
+        var filePath = Path.Combine(solutionRoot, "module", "Functions.ps1");
         var content = File.ReadAllText(filePath);
 
-        // Assert - function should be defined
+        // Assert - function should be defined in the consolidated file
         Assert.Contains($"function {expectedFunction}", content, StringComparison.Ordinal);
     }
 

@@ -104,16 +104,8 @@ if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] Register-ArgumentComp
 # It auto-registers via IModuleAssemblyInitializer.OnImport()
 
 # Load PowerShell functions for learning, database, workflow, navigation, and debugging
-$sw.Restart(); . $PSScriptRoot/Functions/LearningManagement.ps1
-if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] Dotsource-LearningManagement=$($sw.ElapsedMilliseconds)ms") }
-$sw.Restart(); . $PSScriptRoot/Functions/DatabaseManagement.ps1
-if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] Dotsource-DatabaseManagement=$($sw.ElapsedMilliseconds)ms") }
-$sw.Restart(); . $PSScriptRoot/Functions/WorkflowManagement.ps1
-if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] Dotsource-WorkflowManagement=$($sw.ElapsedMilliseconds)ms") }
-$sw.Restart(); . $PSScriptRoot/Functions/PCD.ps1
-if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] Dotsource-PCD=$($sw.ElapsedMilliseconds)ms") }
-$sw.Restart(); . $PSScriptRoot/Functions/Debugging.ps1
-if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] Dotsource-Debugging=$($sw.ElapsedMilliseconds)ms") }
+$sw.Restart(); . $PSScriptRoot/Functions.ps1
+if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] Dotsource-Functions=$($sw.ElapsedMilliseconds)ms") }
 
 $sw.Restart()
 $predictionSource = (Get-PSReadLineOption).PredictionSource

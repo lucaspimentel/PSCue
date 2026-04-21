@@ -48,7 +48,7 @@ jobs:
         run: |
           Copy-Item module/PSCue.psd1 dist/${{ matrix.rid }}/
           Copy-Item module/PSCue.psm1 dist/${{ matrix.rid }}/
-          Copy-Item -Path module/Functions -Destination dist/${{ matrix.rid }}/ -Recurse
+          Copy-Item module/Functions.ps1 dist/${{ matrix.rid }}/
           Copy-Item LICENSE dist/${{ matrix.rid }}/
           Copy-Item README.md dist/${{ matrix.rid }}/
 
