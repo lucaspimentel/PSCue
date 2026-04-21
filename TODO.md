@@ -725,6 +725,12 @@ $env:PSCUE_METRICS_ENABLED = "true"  # Default: true
 - [ ] **Investigate measuring pre-static-ctor time** -- Current `IMPORT [marker] assembly_ctor_utc=...` log line is the earliest we can observe from inside the module. To attribute the cold-start 5.4s gap, either (a) document a user-side bracket recipe (`$before = [DateTime]::UtcNow; Import-Module PSCue; diff against the log marker`), or (b) have the psm1 capture a pre-import timestamp via a wrapper loaded earlier in the profile. Low value once R2R + Defender exclusion land, since the gap should shrink considerably.
   - **Impact**: Low (diagnostic only)
   - **Complexity**: Low
+- [ ] **Skip or cache `Get-PSReadLineOption` after first session** -- `module/PSCue.psm1:119` calls `Get-PSReadLineOption` solely to detect `None`/`History` and print a one-time setup hint. Measured at 46ms on cold import (23% of psm1 sync time). Gate behind a marker file (e.g. `$env:LOCALAPPDATA\PSCue\prediction-source-checked`) or a module-scoped env var so subsequent sessions skip the call entirely. Re-run the check on a cadence (weekly?) in case the user changes their PSReadLine config.
+  - **Impact**: Low-Medium (~46ms on cold, less when warm)
+  - **Complexity**: Low
+- [ ] **Consolidate the five dot-sourced `Functions/*.ps1` files into one** -- `module/PSCue.psm1:107-116` dot-sources `LearningManagement.ps1`, `DatabaseManagement.ps1`, `WorkflowManagement.ps1`, `PCD.ps1`, and `Debugging.ps1`. Each costs 25-31ms on cold disk (~139ms combined) -- per-file parse overhead dominates for small scripts. Merging into a single file would save most of that; keep logical separation via `#region` blocks or comment banners.
+  - **Impact**: Medium (up to ~100ms on cold)
+  - **Complexity**: Low (mechanical merge)
 
 ---
 
