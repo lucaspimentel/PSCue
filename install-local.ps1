@@ -181,7 +181,7 @@ $PredictorProject = Join-Path $RepoRoot "src/PSCue.Module/PSCue.Module.csproj"
 
 Push-Location $RepoRoot
 try {
-    & dotnet publish $PredictorProject -c Release -o publish
+    & dotnet publish $PredictorProject -c Release -o publish -r $RID
     if ($LASTEXITCODE -ne 0) {
         Write-Error "Failed to build PSCue.Module"
         exit 1
@@ -257,21 +257,16 @@ foreach ($dep in $Dependencies) {
     }
 }
 
-# Copy native SQLite libraries for current platform
-$RuntimesSource = Join-Path $PredictorSource "runtimes/$RID/native"
-if (Test-Path $RuntimesSource) {
-    $RuntimesDest = Join-Path $InstallDir "runtimes/$RID/native"
-    New-Item -ItemType Directory -Path (Split-Path $RuntimesDest -Parent) -Force | Out-Null
-    Copy-Item -Path $RuntimesSource -Destination $RuntimesDest -Recurse -Force
-    Write-Info "  Installed: runtimes/$RID/native/ (native SQLite libraries)"
-
-    # Also copy native DLL directly to module root for easier loading by PowerShell
-    $NativeDll = if ($IsWindowsPlatform) { "e_sqlite3.dll" } elseif ($IsMacOS) { "libe_sqlite3.dylib" } else { "libe_sqlite3.so" }
-    $NativeDllSource = Join-Path $RuntimesSource $NativeDll
-    if (Test-Path $NativeDllSource) {
-        Copy-Item -Path $NativeDllSource -Destination (Join-Path $InstallDir $NativeDll) -Force
-        Write-Info "  Installed: $NativeDll (to module root)"
-    }
+# Copy native SQLite library for current platform.
+# Publishing with -r flattens the native lib to the publish root (no runtimes/ folder).
+$NativeDll = if ($IsWindowsPlatform) { "e_sqlite3.dll" } elseif ($IsMacOS) { "libe_sqlite3.dylib" } else { "libe_sqlite3.so" }
+$NativeDllSource = Join-Path $PredictorSource $NativeDll
+if (Test-Path $NativeDllSource) {
+    Copy-Item -Path $NativeDllSource -Destination (Join-Path $InstallDir $NativeDll) -Force
+    Write-Info "  Installed: $NativeDll (to module root)"
+} else {
+    Write-Error "Native SQLite library not found at: $NativeDllSource"
+    exit 1
 }
 
 # Copy module files

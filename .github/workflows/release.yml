@@ -21,11 +21,9 @@ jobs:
           - os: windows-latest
             rid: win-x64
             archive-ext: zip
-            native-lib: e_sqlite3.dll
           - os: ubuntu-latest
             rid: linux-x64
             archive-ext: tar.gz
-            native-lib: libe_sqlite3.so
 
     steps:
       - name: Checkout code
@@ -43,13 +41,7 @@ jobs:
         run: dotnet publish src/PSCue.ArgumentCompleter/PSCue.ArgumentCompleter.csproj -c Release -r ${{ matrix.rid }} -p:DebugType=none -o dist/${{ matrix.rid }}/
 
       - name: Build Module
-        run: dotnet publish src/PSCue.Module/PSCue.Module.csproj -c Release -p:DebugType=none -o dist/${{ matrix.rid }}/
-
-      - name: Flatten native SQLite library and remove runtimes
-        shell: pwsh
-        run: |
-          Copy-Item dist/${{ matrix.rid }}/runtimes/${{ matrix.rid }}/native/${{ matrix.native-lib }} dist/${{ matrix.rid }}/
-          Remove-Item dist/${{ matrix.rid }}/runtimes -Recurse -Force
+        run: dotnet publish src/PSCue.Module/PSCue.Module.csproj -c Release -r ${{ matrix.rid }} -p:DebugType=none -o dist/${{ matrix.rid }}/
 
       - name: Copy module files
         shell: pwsh

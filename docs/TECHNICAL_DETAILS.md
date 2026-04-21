@@ -726,8 +726,8 @@ cherry-pick     Apply the changes introduced by some existing commits
 - `src/PSCue.Shared/KnownCompletions/` - Command-specific completions
 
 **Testing:**
-- `test/PSCue.ArgumentCompleter.Tests/` - 140 tests for completion logic
-- `test/PSCue.Module.Tests/` - 112 tests for predictor, feedback, learning, persistence
+- `test/PSCue.ArgumentCompleter.Tests/` - tests for completion logic
+- `test/PSCue.Module.Tests/` - tests for predictor, feedback, learning, persistence
 
 ## Cross-Platform Compatibility
 
@@ -926,10 +926,10 @@ PSCue/
    - Output: `PSCue.Module.dll`
    - References PSCue.ArgumentCompleter as a project reference (for shared code)
    - Includes PowerShell SDK dependency
+   - Release builds enable ReadyToRun (`PublishReadyToRun=true`) to AOT-compile managed IL to native, eliminating first-touch JIT on cold module import. Requires `dotnet publish -r <RID>` (R2R cannot target a RID-less publish).
 
 3. **Test Projects**:
    - Build and run tests for both ArgumentCompleter and Module
-   - Total: 315 tests (140 ArgumentCompleter + 175 Module)
 
 ### Build Commands
 
@@ -937,8 +937,11 @@ PSCue/
 # Build ArgumentCompleter for current platform
 dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
 
-# Build Module (managed DLL)
+# Build Module (managed DLL) -- dev inner loop, no R2R
 dotnet build src/PSCue.Module/ -c Release -f net9.0
+
+# Publish Module for release (R2R AOT-compiled, requires -r <RID>)
+dotnet publish src/PSCue.Module/ -c Release -r win-x64
 
 # Run tests
 dotnet test test/PSCue.ArgumentCompleter.Tests/

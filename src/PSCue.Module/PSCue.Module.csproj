@@ -9,6 +9,9 @@
 
     <!-- Enable module initializer for auto-registration -->
     <EnablePreviewFeatures>true</EnablePreviewFeatures>
+
+    <!-- ReadyToRun: AOT-compile IL to native during publish to eliminate cold-import JIT cost -->
+    <PublishReadyToRun>true</PublishReadyToRun>
   </PropertyGroup>
 
   <ItemGroup>
