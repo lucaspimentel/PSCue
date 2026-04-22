@@ -644,6 +644,11 @@ $env:PSCUE_WORKFLOW_MIN_CONFIDENCE = "0.6"       # Min confidence threshold
 
 # Privacy: ignore sensitive commands (comma-separated wildcards)
 $env:PSCUE_IGNORE_PATTERNS = "aws *,*secret*,*password*"
+
+# PSReadLine prediction-source check cadence (days). After a good
+# source is seen, the check is skipped until the marker is this old.
+# Set to 0 to re-check on every import.
+$env:PSCUE_PREDICTION_SOURCE_CHECK_DAYS = "7"
 ```
 
 **ML Prediction Performance:**

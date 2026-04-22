@@ -8,6 +8,7 @@
 - Share a single SQLite connection across background load operations, avoiding redundant connection open and `PRAGMA busy_timeout` cycles
 - Batch the `ArgumentGraph` load into a single multi-statement SQLite query, collapsing seven round-trips into one
 - Skip redundant schema DDL on module import when the learning database is already at the current schema version
+- Skip the `Get-PSReadLineOption` check on module import after a successful first check (marker file in the PSCue data directory, default 7-day re-check cadence, configurable via `PSCUE_PREDICTION_SOURCE_CHECK_DAYS`)
 - Bump Microsoft.Data.Sqlite from 10.0.5 to 10.0.6
 - Bump System.Security.Cryptography.Xml from 9.0.14 to 9.0.15
 

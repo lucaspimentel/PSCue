@@ -108,12 +108,37 @@ $sw.Restart(); . $PSScriptRoot/Functions.ps1
 if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] Dotsource-Functions=$($sw.ElapsedMilliseconds)ms") }
 
 $sw.Restart()
-$predictionSource = (Get-PSReadLineOption).PredictionSource
-if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] Get-PSReadLineOption=$($sw.ElapsedMilliseconds)ms") }
-if ($predictionSource -eq 'None' -or $predictionSource -eq 'History') {
-    Write-Host "PSCue: To enable inline predictions, run:" -ForegroundColor Cyan
-    Write-Host "  Set-PSReadLineOption -PredictionSource HistoryAndPlugin" -ForegroundColor Yellow
+$dataDir = if ($env:PSCUE_DATA_DIR) {
+    $env:PSCUE_DATA_DIR
+} elseif ($IsWindows) {
+    Join-Path $env:LOCALAPPDATA 'PSCue'
+} else {
+    Join-Path $HOME '.local/share/PSCue'
 }
+$marker = Join-Path $dataDir 'prediction-source-ok'
+$checkDays = if ($env:PSCUE_PREDICTION_SOURCE_CHECK_DAYS) {
+    [int]$env:PSCUE_PREDICTION_SOURCE_CHECK_DAYS
+} else { 7 }
+$markerFresh = (Test-Path -LiteralPath $marker) -and
+    ((Get-Item -LiteralPath $marker).LastWriteTimeUtc -gt [DateTime]::UtcNow.AddDays(-$checkDays))
+
+if (-not $markerFresh) {
+    $predictionSource = (Get-PSReadLineOption).PredictionSource
+    if ($predictionSource -eq 'None' -or $predictionSource -eq 'History') {
+        Write-Host "PSCue: To enable inline predictions, run:" -ForegroundColor Cyan
+        Write-Host "  Set-PSReadLineOption -PredictionSource HistoryAndPlugin" -ForegroundColor Yellow
+    } else {
+        try {
+            if (-not (Test-Path -LiteralPath $dataDir)) {
+                $null = New-Item -ItemType Directory -Path $dataDir -Force
+            }
+            [System.IO.File]::WriteAllText($marker, '')
+        } catch {
+            # best-effort: if we can't write the marker we just re-check next session
+        }
+    }
+}
+if ($debug) { [PSCue.Shared.Logger]::Write("IMPORT [phase] PSReadLine-source-check=$($sw.ElapsedMilliseconds)ms (marker_fresh=$markerFresh)") }
 
 if ($debug) {
     $psm1Total = ([DateTime]::UtcNow - $psm1Start).TotalMilliseconds
