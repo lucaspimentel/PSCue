@@ -124,8 +124,24 @@ public void TestLearningAccess()
 19. **Background init and PSCueModule statics**: `OnImport` loads data in a background `Task.Run()`. All `PSCueModule.*` statics are null until loading completes. Every consumer (CommandPredictor, FeedbackProvider, PowerShell functions, PCD) must null-check before use -- this is already the established pattern. When adding new statics or consumers, always follow the "capture to local, null-check, return early" pattern. The `GenericPredictor` is also a `PSCueModule` static (not a constructor parameter on `CommandPredictor`).
 20. **C# ValueTuple named elements inaccessible from PowerShell**: When a C# method returns a named ValueTuple like `(bool WasAdded, string NormalizedPath)`, PowerShell cannot resolve the named elements. Use `.Item1`, `.Item2` etc. instead of `.WasAdded`, `.NormalizedPath`. Named elements are compile-time metadata via `TupleElementNamesAttribute` and PowerShell does not read them. Accessing a named element returns `$null`, which can cause silent logic bugs (e.g., `if ($result.WasAdded)` always evaluates to `$false`).
 
+## Module Functions
+```powershell
+# Learning Management
+Get-PSCueLearning, Clear-PSCueLearning, Export-PSCueLearning, Import-PSCueLearning, Save-PSCueLearning
+
+# Database Management
+Get-PSCueDatabaseStats, Get-PSCueDatabaseHistory
+
+# Workflow Management
+Get-PSCueWorkflows, Get-PSCueWorkflowStats, Clear-PSCueWorkflows, Export-PSCueWorkflows, Import-PSCueWorkflows
+
+# Debugging
+Test-PSCueCompletion, Get-PSCueModuleInfo
+```
+
 ## Documentation
 - Active work: `TODO.md` | Completed work: `docs/COMPLETED.md`
+- Architecture: `docs/TECHNICAL_DETAILS.md`
 - Database functions: `docs/DATABASE-FUNCTIONS.md`
 - Troubleshooting: `docs/TROUBLESHOOTING.md`
 

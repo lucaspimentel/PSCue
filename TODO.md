@@ -745,48 +745,6 @@ git push origin main vX.Y.Z
 
 ---
 
-## Quick Reference
-
-### Key Files
-- **Task Tracking**: `TODO.md` (this file)
-- **Architecture**: `docs/TECHNICAL_DETAILS.md`
-- **AI Agent Guide**: `CLAUDE.md`
-- **User Guide**: `README.md`
-- **Database Functions**: `docs/DATABASE-FUNCTIONS.md`
-- **Completed Phases**: `docs/COMPLETED.md`
-
-### Build & Test Commands
-```bash
-# Build
-dotnet build src/PSCue.Module/ -c Release -f net9.0
-dotnet publish src/PSCue.ArgumentCompleter/ -c Release -r win-x64
-
-# Test
-dotnet test test/PSCue.ArgumentCompleter.Tests/
-dotnet test test/PSCue.Module.Tests/
-dotnet test --filter "FullyQualifiedName~ModuleFunctions"
-
-# Install locally
-./install-local.ps1 -Force
-```
-
-### Module Functions (Phase 16 + Phase 18.1)
-```powershell
-# Learning Management
-Get-PSCueLearning, Clear-PSCueLearning, Export-PSCueLearning, Import-PSCueLearning, Save-PSCueLearning
-
-# Database Management
-Get-PSCueDatabaseStats, Get-PSCueDatabaseHistory
-
-# Workflow Management (Phase 18.1)
-Get-PSCueWorkflows, Get-PSCueWorkflowStats, Clear-PSCueWorkflows, Export-PSCueWorkflows, Import-PSCueWorkflows
-
-# Debugging
-Test-PSCueCompletion, Get-PSCueModuleInfo
-```
-
----
-
 ## Notes
 
 - This is a living document - update as tasks progress
