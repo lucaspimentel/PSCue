@@ -18,16 +18,15 @@ Unit test project for PSCue.Module using xUnit. Tests all module functionality i
 - **Module Functions**: PowerShell function behavior and edge cases
 - **Integration**: End-to-end workflows
 
-## Test Statistics
+## Test Framework
 
-- Total Tests: 336 (as of v0.3.0)
-- Test Framework: xUnit
+xUnit
 
 ## Test Categories
 
 - Completion and Prediction Tests
 - Learning System Tests
-- Workflow Learning Tests (35+ tests)
+- Workflow Learning Tests
 - Persistence Tests (Unit + Concurrency + Integration)
 - PCD Tests (smart directory navigation with fuzzy matching and frecency)
 - Module Function Tests

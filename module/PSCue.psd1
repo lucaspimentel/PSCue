@@ -117,21 +117,7 @@
             # IconUri = ''
 
             # ReleaseNotes of this module
-            ReleaseNotes = @'
-v0.12.0-beta
-
-New Features:
-- Tab completion for chafa (image-to-text converter) with full flag/option support
-- Tab completion for fd (fd-find) with all flags and common options
-- Tab completion for rg (ripgrep) with all flags and common options
-- Expanded claude CLI completions with additional subcommands and flags
-
-Improvements:
-- PersistenceManager: additive merging for argument sequences and parameter values on load
-- FeedbackProvider: uses PowerShell $PWD for accurate path normalization in navigation tracking
-- ArgumentGraph: navigation timestamp tracking records absolute destination paths
-- Race condition fixes in tests for static mutation safety
-'@
+            ReleaseNotes = 'See https://github.com/lucaspimentel/PSCue/blob/main/CHANGELOG.md for release notes.'
 
             # Prerelease string of this module
             # Prerelease = ''

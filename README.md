@@ -69,7 +69,7 @@ PSCue provides detailed completions for these commands:
 
 ### Universal Learning
 
-**NEW**: PSCue now learns from ANY command you use, even those not explicitly supported:
+PSCue learns from any command you use, even those not explicitly supported:
 
 - **kubectl**, **docker**, **cargo**, **npm**, **dotnet**, **go**, **terraform**, and hundreds more
 - Tracks which flags and arguments you use most frequently
@@ -106,7 +106,7 @@ irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps
 Install a specific version:
 
 ```powershell
-$version = "0.15.0-beta"; irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps1 | iex
+$version = "0.20.0"; irm https://raw.githubusercontent.com/lucaspimentel/PSCue/main/install-remote.ps1 | iex
 ```
 
 ### From Source
@@ -161,7 +161,7 @@ cd ~/<Tab>              # Shows home directory subdirectories
 
 ### Smart Directory Navigation with `pcd`
 
-**NEW**: PSCue includes an enhanced smart directory navigation command that learns from your `cd` usage with powerful fuzzy matching and intelligent scoring:
+PSCue includes a smart directory navigation command that learns from your `cd` usage with powerful fuzzy matching and intelligent scoring:
 
 ```powershell
 pcd datadog<Tab>        # Shows learned directories with fuzzy matching
@@ -441,7 +441,7 @@ Patterns use wildcards: `*` matches any characters.
 
 PSCue uses a two-component architecture optimized for both speed and intelligence.
 
-> **For detailed technical information**, including caching strategy and implementation notes, see [TECHNICAL_DETAILS.md](docs/TECHNICAL_DETAILS.md).
+> **For detailed technical information**, including implementation notes and internal architecture, see [TECHNICAL_DETAILS.md](docs/TECHNICAL_DETAILS.md).
 
 ### ArgumentCompleter (Short-lived)
 - **Binary**: `pscue-completer.exe` (NativeAOT)
@@ -713,7 +713,7 @@ Clear-PSCueLearning -Force           # Force delete database even if PSCue isn't
 
 ### Database Management (Direct SQLite Queries)
 
-PSCue now includes functions to directly query the SQLite database, allowing you to inspect what's actually persisted on disk vs. what's in memory:
+PSCue includes functions to query the SQLite database directly, so you can inspect what is actually persisted on disk vs. what is in memory:
 
 ```powershell
 # View database statistics
@@ -889,11 +889,13 @@ Special thanks to the PowerShell team for the `ICommandPredictor` and `IFeedback
 - **Issues**: https://github.com/lucaspimentel/PSCue/issues
 - **Releases**: https://github.com/lucaspimentel/PSCue/releases
 - **Project Documentation**:
+  - [CHANGELOG.md](CHANGELOG.md) - Release notes per version
   - [TODO.md](TODO.md) - Current work and future plans
   - [COMPLETED.md](docs/COMPLETED.md) - Completed implementation phases
+  - [TECHNICAL_DETAILS.md](docs/TECHNICAL_DETAILS.md) - Architecture and implementation details
   - [TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) - Common issues and solutions
-  - [CLAUDE.md](CLAUDE.md) - Quick reference for AI agents
   - [DATABASE-FUNCTIONS.md](docs/DATABASE-FUNCTIONS.md) - Database query functions and schema
+  - [CLAUDE.md](CLAUDE.md) - Quick reference for AI agents
 - **PowerShell API Documentation**:
   - [ICommandPredictor API](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-cmdlet-predictor)
   - [IFeedbackProvider API](https://learn.microsoft.com/powershell/scripting/dev-cross-plat/create-feedback-provider)

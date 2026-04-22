@@ -12,11 +12,9 @@ Unit test project for PSCue.ArgumentCompleter using xUnit. Tests all completion 
 - **Edge Cases**: Empty inputs, invalid commands, partial matches
 - **Performance**: Completion speed and memory usage
 
-## Test Statistics
+## Test Framework
 
-- Total Tests: 142 (as of v0.3.0)
-- Skipped Tests: 5 (platform-specific Unix tests)
-- Test Framework: xUnit
+xUnit (with `Xunit.SkippableFact` for platform-specific tests)
 
 ## Dependencies
 

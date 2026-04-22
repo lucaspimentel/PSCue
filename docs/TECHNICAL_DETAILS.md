@@ -1,18 +1,20 @@
 # PSCue Technical Details
 
-**Last Updated**: 2025-11-14
-
-This document provides technical details about PSCue's architecture, implementation, and internal workings. For user-facing documentation, see [README.md](README.md). For development guidelines, see [CLAUDE.md](CLAUDE.md).
+This document provides technical details about PSCue's architecture, implementation, and internal workings. For user-facing documentation, see [README.md](../README.md). For development guidelines, see [CLAUDE.md](../CLAUDE.md).
 
 ## Table of Contents
 
+- [Module Architecture](#module-architecture)
 - [Multi-Word Prediction Suggestions](#multi-word-prediction-suggestions)
 - [Navigation Path Learning](#navigation-path-learning)
 - [PowerShell Module Functions](#powershell-module-functions)
 - [Architecture Diagram](#architecture-diagram)
-- [Performance Metrics](#performance-metrics)
+- [Performance Targets](#performance-targets)
 - [Cross-Platform Compatibility](#cross-platform-compatibility)
 - [Key Technical Decisions](#key-technical-decisions)
+- [Build Process](#build-process)
+- [Installation Strategies](#installation-strategies)
+- [CI/CD Architecture](#cicd-architecture)
 
 ---
 
@@ -496,55 +498,37 @@ private void RegisterCommandPredictor(ICommandPredictor commandPredictor)
 
 ## PowerShell Module Functions
 
-PSCue provides 7 native PowerShell functions for testing, diagnostics, and management. These replace the previous `PSCue.Debug` CLI tool with direct in-process access.
+PSCue provides native PowerShell functions for testing, diagnostics, and management via direct in-process access. The source lives in `module/Functions.ps1`, organized into `#region` blocks for Learning, Database, Workflow, Smart Navigation (pcd), and Debugging.
 
-### Learning System Management
+### Learning Management
 
-**`Get-PSCueLearning [-Command <string>] [-AsJson]`**
-- View learned command data from memory
-- Filter by specific command
-- Shows usage counts, scores, and top arguments
-
-**`Clear-PSCueLearning [-WhatIf] [-Confirm]`**
-- Clear all learned data (memory + database)
-- High-impact confirmation required
-- Shows counts of cleared data
-
-**`Export-PSCueLearning -Path <string>`**
-- Export learned data to JSON file
-- For backup or migration scenarios
-
-**`Import-PSCueLearning -Path <string> [-Merge]`**
-- Import learned data from JSON file
-- Replace or merge with current data
-
-**`Save-PSCueLearning`**
-- Force immediate save to database
-- Bypasses auto-save timer
+- `Get-PSCueLearning [-Command <string>] [-AsJson]` — view learned command data from memory
+- `Clear-PSCueLearning [-Force] [-WhatIf] [-Confirm]` — clear all learned data (memory + database); `-Force` deletes the DB even when init has failed
+- `Export-PSCueLearning -Path <string>` — export learned data to JSON
+- `Import-PSCueLearning -Path <string> [-Merge]` — import learned data from JSON (replace or merge)
+- `Save-PSCueLearning` — force immediate save, bypassing the auto-save timer
 
 ### Database Management
 
-**`Get-PSCueDatabaseStats [-Detailed] [-AsJson]`**
-- View SQLite database statistics
-- Shows totals and top commands
-- Optional detailed per-command breakdown
+- `Get-PSCueDatabaseStats [-Detailed] [-AsJson]` — SQLite statistics and top commands
+- `Get-PSCueDatabaseHistory [-Last <n>] [-Command <string>] [-AsJson]` — query command history (defaults to last 20)
 
-**`Get-PSCueDatabaseHistory [-Last <n>] [-Command <string>] [-AsJson]`**
-- Query command history from database
-- Filter by command name
-- Defaults to last 20 entries
+### Workflow Management
+
+- `Get-PSCueWorkflows [-Command <string>] [-AsJson]` — view learned command-to-command transitions
+- `Get-PSCueWorkflowStats [-Detailed] [-AsJson]` — workflow summary statistics
+- `Clear-PSCueWorkflows [-WhatIf] [-Confirm]` — clear workflow data
+- `Export-PSCueWorkflows -Path <string>` — export workflows to JSON
+- `Import-PSCueWorkflows -Path <string> [-Merge]` — import workflows from JSON
+
+### Smart Navigation
+
+- `Invoke-PCD` (exported as `pcd`, shorthand `pcdi` for `pcd -i`) — smart directory navigation with fuzzy matching, bookmarks, interactive selector, and git-root jump (`pcd -Root`/`pcd -r`)
 
 ### Debugging & Diagnostics
 
-**`Test-PSCueCompletion -InputString <string> [-IncludeTiming]`**
-- Test completion generation locally
-- Shows up to 20 completions with descriptions
-- Optional timing information
-
-**`Get-PSCueModuleInfo [-AsJson]`**
-- Module diagnostics and status
-- Version, configuration, component status
-- Learning and database statistics
+- `Test-PSCueCompletion -InputString <string> [-IncludeTiming]` — test completion generation locally
+- `Get-PSCueModuleInfo [-AsJson]` — module version, configuration, component status, learning and DB statistics
 
 ### Usage Examples
 
@@ -558,18 +542,22 @@ Save-PSCueLearning
 Get-PSCueDatabaseStats -Detailed
 Get-PSCueDatabaseHistory -Last 50 -Command "docker"
 
+# Workflow insights
+Get-PSCueWorkflows -Command "git add"
+Get-PSCueWorkflowStats -Detailed
+
 # Test completions and diagnostics
 Test-PSCueCompletion -InputString "git checkout ma" -IncludeTiming
 Get-PSCueModuleInfo
 ```
 
-### Benefits Over CLI Tools
+### Design Benefits
 
 - Direct in-process access (no IPC overhead)
 - PowerShell-native patterns (objects, pipeline, tab completion)
 - Comprehensive help via `Get-Help <function>`
 - Standard cmdlet parameters (`-WhatIf`, `-Confirm`, `-Verbose`)
-- Better discoverability via `Get-Command -Module PSCue`
+- Discoverable via `Get-Command -Module PSCue`
 
 ## Architecture Diagram
 
@@ -578,176 +566,135 @@ Get-PSCueModuleInfo
 │ PowerShell Session                                           │
 ├──────────────────────────────────────────────────────────────┤
 │                                                              │
-│  PSCue.Module.dll (Long-lived)                              │
+│  PSCue.Module.dll (long-lived, ReadyToRun-compiled)         │
 │  ┌────────────────────────────────────────────────────────┐ │
 │  │ CommandPredictor (ICommandPredictor)                   │ │
-│  │ - Provides inline suggestions                          │ │
-│  │ - Uses PSCue.Shared for completions                    │ │
-│  │ - Skips dynamic arguments for speed                    │ │
+│  │  - Inline suggestions, 20ms PowerShell hard timeout    │ │
+│  │  - Blends known + generic + ML + workflow predictions  │ │
 │  │                                                        │ │
-│  │ FeedbackProvider (IFeedbackProvider)                   │ │
-│  │ - Learns from successful commands                      │ │
-│  │ - Updates cache scores                                 │ │
-│  │ - Captures working directory                           │ │
-│  │                                                        │ │
-│  │ CompletionCache                                        │ │
-│  │ - ConcurrentDictionary<string, CacheEntry>            │ │
-│  │ - 5-minute expiration                                  │ │
-│  │ - Usage tracking (score, hit count)                   │ │
+│  │ FeedbackProvider (IFeedbackProvider, PS 7.4+)          │ │
+│  │  - Silent learning from executed commands              │ │
+│  │  - Captures $PWD for path normalization                │ │
+│  │  - Error-recovery suggestions (e.g. git errors)        │ │
 │  │                                                        │ │
 │  │ Learning System                                        │ │
-│  │ - ArgumentGraph (knowledge graph)                      │ │
-│  │ - CommandHistory (ring buffer)                         │ │
-│  │ - GenericPredictor (context-aware)                     │ │
-│  │ - PersistenceManager (SQLite)                          │ │
+│  │  - ArgumentGraph (commands → arguments, sequences,     │ │
+│  │      parameters, value bindings)                       │ │
+│  │  - CommandHistory (ring buffer)                        │ │
+│  │  - SequencePredictor (n-gram ML)                       │ │
+│  │  - WorkflowLearner (command → next command)            │ │
+│  │  - GenericPredictor (context-aware generation)         │ │
 │  │                                                        │ │
-│  │ PowerShell Functions (10 exported)                     │ │
-│  │ - Get-PSCueCache, Clear-PSCueCache                     │ │
-│  │ - Get-PSCueLearning, Export/Import/Save               │ │
-│  │ - Get-PSCueDatabaseStats/History                       │ │
-│  │ - Test-PSCueCompletion, Get-PSCueModuleInfo           │ │
+│  │ Smart Navigation (pcd)                                 │ │
+│  │  - PcdCompletionEngine, PcdSubsequenceScorer           │ │
+│  │  - BookmarkManager (SQLite write-through)              │ │
+│  │  - Interactive selector (ConsoleMenu)                  │ │
+│  │                                                        │ │
+│  │ Persistence                                            │ │
+│  │  - PersistenceManager (SQLite WAL, 5-minute auto-save) │ │
+│  │                                                        │ │
+│  │ Exported PowerShell functions (see module/Functions.ps1)│ │
+│  │  - Learning, Database, Workflow, Navigation, Debug     │ │
 │  └────────────────────────────────────────────────────────┘ │
-│                                                              │
 └──────────────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────────────┐
-│ Tab Press (independent process)                              │
+│ Tab Press (independent NativeAOT process)                    │
 ├──────────────────────────────────────────────────────────────┤
-│  pscue-completer.exe (Short-lived, NativeAOT)               │
+│  pscue-completer.exe                                         │
 │  ┌────────────────────────────────────────────────────────┐ │
 │  │ CommandCompleter.GetCompletions()                      │ │
-│  │ - Uses PSCue.Shared (compiled in)                      │ │
-│  │ - Includes dynamic arguments (git branches, etc.)      │ │
-│  │ - Fast startup (<10ms)                                 │ │
-│  │ - Complete local computation                           │ │
-│  │ - No external dependencies                             │ │
+│  │  - Uses PSCue.Shared (compiled in)                     │ │
+│  │  - Computes locally with full dynamic arguments        │ │
+│  │  - <10ms cold start, <50ms total                       │ │
+│  │  - No SQLite, no IPC                                   │ │
 │  └────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-## Test Results
+## Performance Targets
 
-### Build
-```
-Build succeeded.
-    0 Warning(s)
-    0 Error(s)
-Time Elapsed 00:00:01.31
-```
-
-### Tests
-```
-Test Run Successful.
-Total tests: 65
-     Passed: 62
-    Skipped: 3 (platform-specific)
- Total time: 0.4949 Seconds
-```
-
-### Manual Testing
-```powershell
-PS> Import-Module ~/.local/pwsh-modules/PSCue/PSCue.psd1
-PS> Start-Sleep -Milliseconds 500
-
-PS> # Test IPC connectivity
-PS> $pipeName = "PSCue-$PID"
-PS> $pc = [System.IO.Pipes.NamedPipeClientStream]::new(".", $pipeName, [System.IO.Pipes.PipeDirection]::InOut)
-PS> $pc.Connect(100)
-PS> $pc.IsConnected
-True  ✅
-
-PS> # Test Tab completion
-PS> TabExpansion2 'git che' 7
-CompletionText  ToolTip
---------------  -------
-checkout        Switch branches or restore working tree files
-cherry-pick     Apply the changes introduced by some existing commits
-```
-
-## Performance Metrics
-
-| Metric | Target | Achieved | Notes |
-|--------|--------|----------|-------|
-| ArgumentCompleter Startup | <10ms | <10ms ✅ | NativeAOT critical for responsiveness |
-| Tab Completion Response | <50ms | 11-15ms ✅ | No hard timeout enforced by PowerShell |
-| **Inline Prediction Response** | **<20ms** | **Varies** ⚠️ | **Hard limit enforced by PowerShell** |
-| Cache Access | <1ms | <1ms ✅ | |
-| Module Function Calls | <5ms | <5ms ✅ | |
-| Module Loading | <100ms | <80ms ✅ | |
-| Build Time | <5s | 1.3s ✅ | |
-| Test Execution (252 tests) | <5s | <3s ✅ | |
-| Module Installation | <60s | ~30s ✅ | |
-| NativeAOT Warnings | 0 | 0 ✅ | |
+| Metric | Target |
+|--------|--------|
+| ArgumentCompleter startup | <10ms (NativeAOT) |
+| Tab completion total | <50ms |
+| **Inline prediction response** | **<20ms** (PowerShell hard timeout) |
+| Module function calls | <5ms |
+| Database queries | <10ms |
+| PCD tab completion | <10ms |
+| PCD best-match navigation | <50ms |
 
 ### Critical Performance Constraint: ICommandPredictor 20ms Timeout
 
 **PowerShell enforces a hardcoded 20ms timeout for `ICommandPredictor.GetSuggestion()`**:
 
 - **Source**: `PowerShell/src/System.Management.Automation/engine/Subsystem/PredictionSubsystem/CommandPrediction.cs`
-- **Mechanism**: `Task.WhenAny(predictorTask, Task.Delay(20))` - any predictor not responding in 20ms is silently ignored
-- **Not configurable**: Cannot be changed without recompiling PowerShell (as of 7.5, 2025)
-- **Impact**: Any expensive computation (ML inference, database queries) MUST complete in <20ms or be pre-computed asynchronously
+- **Mechanism**: `Task.WhenAny(predictorTask, Task.Delay(20))` — any predictor not responding in 20ms is silently ignored
+- **Not configurable**: Cannot be changed without recompiling PowerShell
+- **Impact**: Any expensive computation (ML inference, database queries) must complete in <20ms or be pre-computed asynchronously
 
 **Implications**:
-- ✅ **Tab completion** (`Register-ArgumentCompleter`): No hard timeout, 50-100ms acceptable
-- ⚠️ **Inline predictions** (`ICommandPredictor`): **20ms hard limit**, predictions discarded if slower
-- 🔧 **ML features**: Must use background pre-computation + caching to stay under 20ms
+- **Tab completion** (`Register-ArgumentCompleter`): no hard timeout, 50-100ms acceptable
+- **Inline predictions** (`ICommandPredictor`): 20ms hard limit, predictions discarded if slower
+- **ML features**: must use background pre-computation and caching to stay under 20ms
 
 **References**:
-- [PSReadLine #4029](https://github.com/PowerShell/PSReadLine/issues/4029) - Feature request to make timeout configurable
-- See `./ML-PREDICTIONS.md` for architectural strategies to handle this constraint
-
-**Note:** Simplified architecture provides faster, more reliable performance.
+- [PSReadLine #4029](https://github.com/PowerShell/PSReadLine/issues/4029) — feature request to make timeout configurable
 
 ## Source Code Organization
 
 ### Key Files
 
 **Module Components:**
-- `src/PSCue.Module/ModuleInitializer.cs` - Module initialization and subsystem registration
-- `src/PSCue.Module/PSCueModule.cs` - Static module state container
-- `src/PSCue.Module/CommandPredictor.cs` - Inline predictions (ICommandPredictor)
-- `src/PSCue.Module/FeedbackProvider.cs` - Learning from execution (IFeedbackProvider)
-- `src/PSCue.Module/CompletionCache.cs` - Intelligent cache with usage tracking
+- `src/PSCue.Module/ModuleInitializer.cs` — module initialization and subsystem registration
+- `src/PSCue.Module/PSCueModule.cs` — static module state container
+- `src/PSCue.Module/CommandPredictor.cs` — inline predictions (ICommandPredictor)
+- `src/PSCue.Module/FeedbackProvider.cs` — learning from execution (IFeedbackProvider)
 
 **Learning System:**
-- `src/PSCue.Module/ArgumentGraph.cs` - Knowledge graph with path normalization
-- `src/PSCue.Module/CommandHistory.cs` - Ring buffer for recent commands
-- `src/PSCue.Module/GenericPredictor.cs` - Context-aware suggestions
-- `src/PSCue.Module/PersistenceManager.cs` - SQLite-based cross-session persistence
+- `src/PSCue.Module/ArgumentGraph.cs` — knowledge graph with path normalization, sequences, parameters, value bindings
+- `src/PSCue.Module/CommandHistory.cs` — ring buffer for recent commands
+- `src/PSCue.Module/GenericPredictor.cs` — context-aware suggestions
+- `src/PSCue.Module/SequencePredictor.cs` — n-gram sequence prediction
+- `src/PSCue.Module/WorkflowLearner.cs` — command-to-command transition learning
+- `src/PSCue.Module/PersistenceManager.cs` — SQLite cross-session persistence
+
+**Smart Navigation (pcd):**
+- `src/PSCue.Module/PcdCompletionEngine.cs` — directory suggestion engine
+- `src/PSCue.Module/PcdSubsequenceScorer.cs` — fzf-style matching
+- `src/PSCue.Module/BookmarkManager.cs` — directory bookmarks with SQLite write-through
+- `src/PSCue.Module/ConsoleMenu.cs` — interactive selector
 
 **PowerShell Functions:**
-- `module/Functions.ps1` - Consolidated module functions, organized into `#region` blocks:
-  - Learning Management (`Get-PSCueLearning`, `Clear-PSCueLearning`, `Export-PSCueLearning`, `Import-PSCueLearning`, `Save-PSCueLearning`)
-  - Database Management (`Get-PSCueDatabaseStats`, `Get-PSCueDatabaseHistory`)
-  - Workflow Management (`Get-PSCueWorkflows`, `Get-PSCueWorkflowStats`, `Clear-PSCueWorkflows`, `Export-PSCueWorkflows`, `Import-PSCueWorkflows`)
-  - Smart Navigation (pcd) (`Invoke-PCD`)
-  - Debugging & Diagnostics (`Test-PSCueCompletion`, `Get-PSCueModuleInfo`)
+- `module/Functions.ps1` — all exported functions, organized into five `#region` blocks (Learning, Database, Workflow, Smart Navigation, Debugging)
+- `module/PSCue.psm1` — module lifecycle and completer registration
+- `module/PSCue.psd1` — module manifest
 
 **ArgumentCompleter:**
-- `src/PSCue.ArgumentCompleter/Program.cs` - Entry point for Tab completion
-- `src/PSCue.Shared/CommandCompleter.cs` - Main completion orchestrator
-- `src/PSCue.Shared/KnownCompletions/` - Command-specific completions
+- `src/PSCue.ArgumentCompleter/Program.cs` — entry point for Tab completion
+- `src/PSCue.Shared/CommandCompleter.cs` — main completion orchestrator
+- `src/PSCue.Shared/KnownCompletions/` — command-specific completions (Git, Gh, Gt, Scoop, Winget, Wt, Code, Claude, Chezmoi, GitWt, and more; Azure commands under `Azure/`)
 
 **Testing:**
-- `test/PSCue.ArgumentCompleter.Tests/` - tests for completion logic
-- `test/PSCue.Module.Tests/` - tests for predictor, feedback, learning, persistence
+- `test/PSCue.ArgumentCompleter.Tests/` — tests for completion logic
+- `test/PSCue.Module.Tests/` — tests for predictor, feedback, learning, workflows, persistence, PCD
+
+**Benchmarks:**
+- `benchmark/PSCue.Benchmarks/` — BenchmarkDotNet performance tests
 
 ## Cross-Platform Compatibility
 
-PSCue works seamlessly across platforms:
-
 | Platform | Status | Notes |
 |----------|--------|-------|
-| Windows x64 | ✅ Tested | Full support, all features |
-| Linux x64 | ✅ Tested | Full support, case-sensitive paths |
-| macOS arm64 | ✅ Tested | Full support, Apple Silicon |
+| Windows x64 | Pre-built binaries | Full support, all features |
+| Linux x64 | Pre-built binaries | Full support, case-sensitive paths |
+| macOS (x64, arm64) | Build from source | Not shipped as pre-built binary |
 
 **Platform-specific considerations:**
 - Path separators handled automatically (`\` on Windows, `/` on Unix)
 - Case sensitivity respects platform defaults
 - SQLite database works identically on all platforms
-- PowerShell functions work on PowerShell 7.2+ (all platforms)
+- PowerShell functions work on PowerShell 7.2+ (learning features require 7.4+)
 
 ## Key Technical Decisions
 
@@ -783,21 +730,20 @@ PSCue works seamlessly across platforms:
 ### Database Access Architecture
 
 **ArgumentCompleter (Tab completion)**:
-- ❌ **No SQLite access** - NativeAOT executable, no database dependency
-- ✅ Computes completions from static/dynamic sources only
-- ✅ Can include dynamic arguments (git branches, scoop packages, etc.)
-- ✅ No 20ms timeout constraint
+- No SQLite access — NativeAOT executable, no database dependency
+- Computes completions from static and dynamic sources only
+- Includes dynamic arguments (git branches, scoop packages, etc.)
+- No 20ms timeout constraint
 
 **CommandPredictor (Inline predictions)**:
-- ✅ **Has SQLite access** via `PersistenceManager`
-- ✅ Loads learned data from database on startup
-- ✅ Provides inline suggestions via `ICommandPredictor`
-- ⚠️ **20ms hard timeout** - expensive queries must be pre-cached
+- Has SQLite access via `PersistenceManager`
+- Loads learned data from database in a background task on module import; consumers null-check `PSCueModule.*` statics and return empty results until loading completes
+- Provides inline suggestions via `ICommandPredictor`
+- 20ms hard timeout — expensive queries must be served from in-memory data
 
 **Implication for ML Features**:
-- ML predictions in inline suggestions require background pre-computation
+- ML predictions in inline suggestions must stay under the 20ms budget (typically served from in-memory n-gram tables)
 - ML predictions in Tab completion can be synchronous (no timeout)
-- See `./ML-PREDICTIONS.md` for detailed architectural strategies
 
 ### Project References
 
@@ -826,82 +772,33 @@ PSCue works seamlessly across platforms:
 - Simpler, more reliable than previous IPC-based design
 
 ### Performance Optimization
-- `ConcurrentDictionary` provides thread-safe caching without explicit locks
-- Cache expiration (5 minutes) prevents stale data
-- Generic learning uses frequency × recency scoring (60/40 split)
-- Path normalization cached for performance
+- `ConcurrentDictionary` provides thread-safe access without explicit locks in the learning system
+- Background module initialization keeps `Import-Module` fast (~sub-100ms synchronous path) while DB loading runs off the critical path
+- `PublishReadyToRun=true` on `PSCue.Module.csproj` AOT-compiles managed IL to native on release publish, eliminating first-touch JIT on cold imports
+- Shared SQLite connection and batched multi-statement queries during load cut per-table round-trips
+- Generic learning uses frequency + recency scoring with platform-aware path normalization
 
 ### Error Handling
 - Module functions use standard PowerShell error handling
-- Learning system has privacy filters for sensitive commands
-- Database errors logged but don't crash module
-- All tests pass with comprehensive error scenarios covered
+- Learning system filters sensitive commands (built-in patterns + `PSCUE_IGNORE_PATTERNS`)
+- Database errors are logged but do not crash the module
+- `Clear-PSCueLearning -Force` recovers from a corrupted database without requiring module initialization
 
 ---
 
 ## Directory Structure
 
-```
-PSCue/
-├── src/
-│   ├── PSCue.ArgumentCompleter/         # NativeAOT executable for Tab completion
-│   │   ├── PSCue.ArgumentCompleter.csproj
-│   │   ├── Program.cs                   # Entry point
-│   │   └── AssemblyInfo.cs              # NativeAOT trim settings
-│   │
-│   ├── PSCue.Module/                    # DLL for ICommandPredictor + IFeedbackProvider
-│   │   ├── PSCue.Module.csproj
-│   │   ├── ModuleInitializer.cs         # IModuleAssemblyInitializer - auto-registers
-│   │   ├── PSCueModule.cs               # Static module state container
-│   │   ├── CommandPredictor.cs          # ICommandPredictor implementation
-│   │   ├── FeedbackProvider.cs          # IFeedbackProvider - learns from execution
-│   │   ├── CompletionCache.cs           # Cache with usage tracking
-│   │   ├── ArgumentGraph.cs             # Knowledge graph
-│   │   ├── CommandHistory.cs            # Ring buffer
-│   │   ├── GenericPredictor.cs          # Context-aware suggestions
-│   │   └── PersistenceManager.cs        # SQLite persistence
-│   │
-│   └── PSCue.Shared/                    # Shared completion logic
-│       ├── PSCue.Shared.csproj
-│       ├── CommandCompleter.cs          # Main completion orchestrator
-│       ├── Logger.cs                    # Debug logging (concurrent write support)
-│       ├── Helpers.cs                   # Utility functions
-│       ├── Completions/                 # Completion framework
-│       │   ├── ICompletion.cs
-│       │   ├── Command.cs
-│       │   ├── CommandParameter.cs
-│       │   ├── StaticArgument.cs
-│       │   └── DynamicArgument.cs
-│       └── KnownCompletions/            # Command-specific completions
-│           ├── GitCommand.cs
-│           ├── GhCommand.cs
-│           ├── ScoopCommand.cs
-│           ├── WingetCommand.cs
-│           └── Azure/
-│               ├── AzCommand.cs
-│               ├── AzdCommand.cs
-│               └── FuncCommand.cs
-│
-├── module/
-│   ├── PSCue.psd1                       # Module manifest
-│   ├── PSCue.psm1                       # Module script (lifecycle + registration)
-│   └── Functions.ps1                    # Consolidated module functions (5 #region blocks)
-│
-├── test/
-│   ├── PSCue.ArgumentCompleter.Tests/
-│   │   └── PSCue.ArgumentCompleter.Tests.csproj
-│   └── PSCue.Module.Tests/
-│       └── PSCue.Module.Tests.csproj
-│
-├── scripts/
-│   ├── install-local.ps1                # Build from source and install
-│   └── install-remote.ps1               # Download and install from GitHub release
-│
-├── PSCue.slnx                           # Solution file
-├── README.md
-├── LICENSE
-└── .gitignore
-```
+Run `ls` in the repo root for the authoritative layout. Notable top-level directories:
+
+- `src/PSCue.ArgumentCompleter/` — NativeAOT executable for Tab completion
+- `src/PSCue.Module/` — managed DLL: predictor, feedback provider, learning system, SQLite persistence, PCD engine
+- `src/PSCue.Shared/` — completion framework and per-command completions (`KnownCompletions/`, with `Azure/` for Azure-family commands)
+- `module/` — PowerShell module assets (`PSCue.psd1`, `PSCue.psm1`, `Functions.ps1`)
+- `test/PSCue.ArgumentCompleter.Tests/`, `test/PSCue.Module.Tests/` — xUnit test projects
+- `test/test-scripts/` — ad-hoc PowerShell test scripts for interactive verification
+- `benchmark/PSCue.Benchmarks/` — BenchmarkDotNet benchmarks
+- `docs/` — TECHNICAL_DETAILS.md, TROUBLESHOOTING.md, COMPLETED.md, DATABASE-FUNCTIONS.md
+- `install-local.ps1`, `install-remote.ps1` — installers at the repo root
 
 ---
 
@@ -1040,24 +937,10 @@ Set-PSReadLineOption -PredictionSource HistoryAndPlugin
 
 **Jobs**:
 
-1. **Build & Test (Matrix)**:
-   - **Platforms**: ubuntu-latest, windows-latest, macos-latest
-   - **Steps**:
-     - Checkout code
-     - Setup .NET 9.0 SDK
-     - Restore dependencies: `dotnet restore`
-     - Build solution: `dotnet build --configuration Release`
-     - Run tests: `dotnet test --configuration Release --no-build --verbosity normal`
-     - Upload test results as artifacts
-
-2. **Lint & Format**:
-   - Check code formatting: `dotnet format --verify-no-changes`
-   - Run static analysis (optional): `dotnet analyze`
-
-**Status Badge**: Add to README.md
-```markdown
-[![CI](https://github.com/lucaspimentel/PSCue/actions/workflows/ci.yml/badge.svg)](https://github.com/lucaspimentel/PSCue/actions/workflows/ci.yml)
-```
+- **Build & Test (matrix: ubuntu-latest, windows-latest)**
+  - Installs both .NET 9 and .NET 10 SDKs (ArgumentCompleter targets net10.0, Module targets net9.0)
+  - `dotnet restore` → `dotnet build --configuration Release` → `dotnet test`
+  - Uploads test results as artifacts
 
 ### Release Workflow (.github/workflows/release.yml)
 
@@ -1067,34 +950,21 @@ Set-PSReadLineOption -PredictionSource HistoryAndPlugin
 
 **Jobs**:
 
-1. **Build Native Binaries (Matrix)**:
-   - **Matrix dimensions**:
-     - Platform: windows, macos, linux
-     - Architecture: x64, arm64 (macOS only)
-   - **Steps**:
-     - Checkout code
-     - Setup .NET 9.0 SDK
-     - Publish ArgumentCompleter for each RID
-     - Build CommandPredictor DLL
-     - Copy module files (PSCue.psd1, PSCue.psm1, Functions.ps1)
-     - Create platform-specific archives (zip for Windows, tar.gz for others)
-     - Generate checksums (SHA256) for each archive
-     - Upload archives as artifacts
+1. **Build Release Binaries (matrix)**:
+   - Matrix: `windows-latest` → `win-x64` (zip), `ubuntu-latest` → `linux-x64` (tar.gz)
+   - Setup .NET 10 SDK
+   - `dotnet publish` both ArgumentCompleter (NativeAOT) and Module (ReadyToRun, requires `-r <RID>`) for the matrix RID
+   - Copy `PSCue.psd1`, `PSCue.psm1`, `Functions.ps1`, `LICENSE`, `README.md`
+   - Pack platform archive, generate SHA256 checksum, upload as artifact
 
-2. **Create GitHub Release**:
-   - **Depends on**: Build Native Binaries job
-   - **Steps**:
-     - Download all build artifacts
-     - Extract version from tag (e.g., `v1.0.0` → `1.0.0`)
-     - Create GitHub release using `softprops/action-gh-release@v1`
-     - Attach all platform archives + checksums
-     - Update `latest` tag (for remote installer)
+2. **Create GitHub Release** (runs on `ubuntu-latest`):
+   - Download all build artifacts
+   - Create GitHub release with platform archives and checksums
+   - Update the `latest` tag for the remote installer
 
-**Release Assets Structure**:
+**Release assets**:
 ```
 PSCue-win-x64.zip
-PSCue-osx-x64.tar.gz
-PSCue-osx-arm64.tar.gz
 PSCue-linux-x64.tar.gz
 checksums.txt
 ```
@@ -1134,37 +1004,28 @@ git push origin v1.0.0
 - `pscue-completer` / `pscue-completer.exe` (ArgumentCompleter native executable)
 
 ### Assemblies
-- `PSCue.Module.dll` (CommandPredictor module)
-- `PSCue.Shared.dll` (optional shared library, future)
+- `PSCue.Module.dll`, `PSCue.Shared.dll`
 
 ### Namespaces
-- `PSCue.ArgumentCompleter.*`
-- `PSCue.Module.*`
-- `PSCue.Shared.*`
+- `PSCue.ArgumentCompleter.*`, `PSCue.Module.*`, `PSCue.Shared.*`
 
-### Module Name
-- `PSCue` (PowerShell module name)
-
-### PowerShell Functions (10 exported)
-- **Cache**: `Get-PSCueCache`, `Clear-PSCueCache`, `Get-PSCueCacheStats`
-- **Learning**: `Get-PSCueLearning`, `Clear-PSCueLearning`, `Export-PSCueLearning`, `Import-PSCueLearning`, `Save-PSCueLearning`
-- **Database**: `Get-PSCueDatabaseStats`, `Get-PSCueDatabaseHistory`
-- **Debugging**: `Test-PSCueCompletion`, `Get-PSCueModuleInfo`
+### Module
+- Module name: `PSCue`
+- Exported aliases: `pcd`, `pcdi`
+- See `module/PSCue.psd1` (`FunctionsToExport`) for the authoritative list of exported functions
 
 ---
 
 ## Platform Support
 
-### Tier 1 (Full Support)
+### Shipping as pre-built binaries
 - Windows x64
-- macOS x64 (Intel)
-- macOS arm64 (Apple Silicon)
 - Linux x64
 
-### Tier 2 (Possible Future)
-- Linux arm64
-- Windows arm64
+### Build from source only
+- macOS x64 (Intel)
+- macOS arm64 (Apple Silicon)
 
 ### PowerShell Version Requirements
 - PowerShell 7.2+ (Core only)
-- IFeedbackProvider requires 7.4+, but module works with degraded functionality on 7.2-7.3
+- IFeedbackProvider requires 7.4+, but the module works with degraded functionality on 7.2-7.3
