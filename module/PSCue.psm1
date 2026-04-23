@@ -119,8 +119,9 @@ $marker = Join-Path $dataDir 'prediction-source-ok'
 $checkDays = if ($env:PSCUE_PREDICTION_SOURCE_CHECK_DAYS) {
     [int]$env:PSCUE_PREDICTION_SOURCE_CHECK_DAYS
 } else { 7 }
-$markerFresh = (Test-Path -LiteralPath $marker) -and
-    ((Get-Item -LiteralPath $marker).LastWriteTimeUtc -gt [DateTime]::UtcNow.AddDays(-$checkDays))
+$markerInfo = [System.IO.FileInfo]::new($marker)
+$markerFresh = $markerInfo.Exists -and
+    $markerInfo.LastWriteTimeUtc -gt [DateTime]::UtcNow.AddDays(-$checkDays)
 
 if (-not $markerFresh) {
     $predictionSource = (Get-PSReadLineOption).PredictionSource
