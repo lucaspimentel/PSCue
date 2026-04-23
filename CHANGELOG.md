@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.21.0] - 2026-04-22
 
 ### Changed
 - Enable ReadyToRun compilation for `PSCue.Module` and `PSCue.Shared` to reduce first-touch JIT cost on cold module imports
