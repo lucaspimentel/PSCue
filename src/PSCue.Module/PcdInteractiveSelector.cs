@@ -1,3 +1,5 @@
+using PSCue.Shared;
+
 namespace PSCue.Module;
 
 public class PcdInteractiveSelector
@@ -14,9 +16,9 @@ public class PcdInteractiveSelector
         try
         {
             var encoding = Console.OutputEncoding;
-            return encoding.CodePage == 65001 // UTF-8
-                || encoding is System.Text.UTF8Encoding
-                || encoding is System.Text.UnicodeEncoding;
+            return encoding is System.Text.UTF8Encoding
+                || encoding is System.Text.UnicodeEncoding
+                || encoding.CodePage == 65001; // Windows code page for UTF-8
         }
         catch
         {
@@ -89,7 +91,7 @@ public class PcdInteractiveSelector
             .Where(s => s.Path != ".." &&
                         Directory.Exists(s.DisplayPath) &&
                         !s.DisplayPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                            .Equals(normalizedCurrentDir, StringComparison.OrdinalIgnoreCase))
+                            .Equals(normalizedCurrentDir, PathComparer.Comparison))
             .ToList();
 
         if (validSuggestions.Count == 0)
@@ -103,7 +105,7 @@ public class PcdInteractiveSelector
         if (Console.IsInputRedirected || Console.IsOutputRedirected)
         {
             WriteError("Interactive mode requires a TTY terminal.");
-            Console.WriteLine($"{Dim}  Try running in Windows Terminal or a standard console.{Reset}");
+            Console.WriteLine($"{Dim}  Run pcd in an interactive terminal session.{Reset}");
             return null;
         }
 
@@ -124,7 +126,7 @@ public class PcdInteractiveSelector
         catch (InvalidOperationException)
         {
             WriteError("Cannot show interactive prompt in this terminal.");
-            Console.WriteLine($"{Dim}  Try running in Windows Terminal or use regular 'pcd' commands.{Reset}");
+            Console.WriteLine($"{Dim}  Try a different terminal, or use regular 'pcd' commands.{Reset}");
             return null;
         }
     }
@@ -169,7 +171,7 @@ public class PcdInteractiveSelector
         {
             var argStats = commandKnowledge.Arguments.Values
                 .FirstOrDefault(a => a.Argument.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                    .Equals(normalizedPath, StringComparison.OrdinalIgnoreCase));
+                    .Equals(normalizedPath, PathComparer.Comparison));
 
             if (argStats != null)
             {
@@ -211,7 +213,7 @@ public class PcdInteractiveSelector
     private string ShortenPath(string path)
     {
         var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        if (!string.IsNullOrEmpty(home) && path.StartsWith(home, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrEmpty(home) && path.StartsWith(home, PathComparer.Comparison))
         {
             return "~" + path.Substring(home.Length);
         }

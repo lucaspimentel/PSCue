@@ -38,9 +38,7 @@ public static class Logger
 
         try
         {
-            // ${env:LOCALAPPDATA}, e.g. C:\Users\${env:USERNAME}\AppData\Local
-            var localAppDataFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var folder = Path.Combine(localAppDataFolder, "PSCue");
+            var folder = PSCueData.GetDataDirectory();
 
             if (!Directory.Exists(folder))
             {
@@ -90,9 +88,7 @@ public static class Logger
     {
         try
         {
-            // Ensure log directory exists
-            var localAppDataFolder = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            var folder = Path.Combine(localAppDataFolder, "PSCue");
+            var folder = PSCueData.GetDataDirectory();
 
             if (!Directory.Exists(folder))
             {

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using PSCue.Shared;
 
 namespace PSCue.Module;
 
@@ -102,7 +103,7 @@ public class ArgumentStats
     /// Other arguments that commonly appear with this one.
     /// Maps argument -> co-occurrence count.
     /// </summary>
-    public ConcurrentDictionary<string, int> CoOccurrences { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public ConcurrentDictionary<string, int> CoOccurrences { get; set; } = new(PathComparer.Equality);
 
     /// <summary>
     /// Calculates a recency-weighted score (0.0-1.0).
@@ -148,7 +149,7 @@ public class ArgumentStats
 public class ParameterStats
 {
     public string Parameter { get; set; } = string.Empty;
-    public ConcurrentDictionary<string, int> KnownValues { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public ConcurrentDictionary<string, int> KnownValues { get; set; } = new(PathComparer.Equality);
     public int UsageCount { get; set; }
     public DateTime FirstSeen { get; set; }
     public DateTime LastUsed { get; set; }
@@ -179,7 +180,7 @@ public class CommandKnowledge
     /// <summary>
     /// Arguments and their usage statistics.
     /// </summary>
-    public ConcurrentDictionary<string, ArgumentStats> Arguments { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public ConcurrentDictionary<string, ArgumentStats> Arguments { get; set; } = new(PathComparer.Equality);
 
     /// <summary>
     /// Common flag combinations (e.g., "-la" used together).
@@ -192,7 +193,7 @@ public class CommandKnowledge
     /// Maps "first|second" key -> ArgumentSequence.
     /// Used for multi-word prediction suggestions.
     /// </summary>
-    public ConcurrentDictionary<string, ArgumentSequence> ArgumentSequences { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public ConcurrentDictionary<string, ArgumentSequence> ArgumentSequences { get; set; } = new(PathComparer.Equality);
 
     /// <summary>
     /// Parameters and their statistics.
@@ -204,7 +205,7 @@ public class CommandKnowledge
     /// Parameter-value pairs.
     /// Maps "param|value" key -> ParameterValuePair.
     /// </summary>
-    public ConcurrentDictionary<string, ParameterValuePair> ParameterValues { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public ConcurrentDictionary<string, ParameterValuePair> ParameterValues { get; set; } = new(PathComparer.Equality);
 
     /// <summary>
     /// Total number of times this command has been observed.
@@ -242,12 +243,12 @@ public class ArgumentGraph
     private class BaselineData
     {
         public int TotalCount { get; set; }
-        public ConcurrentDictionary<string, int> ArgCounts { get; set; } = new(StringComparer.OrdinalIgnoreCase);
-        public ConcurrentDictionary<string, ConcurrentDictionary<string, int>> CoOccurrences { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        public ConcurrentDictionary<string, int> ArgCounts { get; set; } = new(PathComparer.Equality);
+        public ConcurrentDictionary<string, ConcurrentDictionary<string, int>> CoOccurrences { get; set; } = new(PathComparer.Equality);
         public ConcurrentDictionary<string, int> FlagCombinations { get; set; } = new(StringComparer.OrdinalIgnoreCase);
-        public ConcurrentDictionary<string, int> ArgumentSequences { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        public ConcurrentDictionary<string, int> ArgumentSequences { get; set; } = new(PathComparer.Equality);
         public ConcurrentDictionary<string, int> ParameterCounts { get; set; } = new(StringComparer.OrdinalIgnoreCase);
-        public ConcurrentDictionary<string, int> ParameterValuePairs { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+        public ConcurrentDictionary<string, int> ParameterValuePairs { get; set; } = new(PathComparer.Equality);
     }
 
     /// <summary>
@@ -326,7 +327,7 @@ public class ArgumentGraph
             // Track co-occurrences with other arguments
             foreach (var otherArg in arguments)
             {
-                if (string.IsNullOrWhiteSpace(otherArg) || string.Equals(arg, otherArg, StringComparison.OrdinalIgnoreCase))
+                if (string.IsNullOrWhiteSpace(otherArg) || string.Equals(arg, otherArg, PathComparer.Comparison))
                     continue;
 
                 stats.CoOccurrences.AddOrUpdate(otherArg, 1, (_, count) => count + 1);
@@ -643,7 +644,7 @@ public class ArgumentGraph
         if (!_commands.TryGetValue(command, out var knowledge))
             return new List<ArgumentStats>();
 
-        var alreadyTyped = new HashSet<string>(alreadyTypedArgs ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
+        var alreadyTyped = new HashSet<string>(alreadyTypedArgs ?? Array.Empty<string>(), PathComparer.Equality);
 
         return knowledge.Arguments.Values
             .Where(stats => !alreadyTyped.Contains(stats.Argument))
@@ -676,7 +677,7 @@ public class ArgumentGraph
             return new List<ArgumentSequence>();
 
         return knowledge.ArgumentSequences.Values
-            .Where(seq => seq.FirstArgument.Equals(firstArgument, StringComparison.OrdinalIgnoreCase))
+            .Where(seq => seq.FirstArgument.Equals(firstArgument, PathComparer.Comparison))
             .Select(seq => new
             {
                 Sequence = seq,
@@ -792,7 +793,7 @@ public class ArgumentGraph
         {
             if (!baseline.CoOccurrences.TryGetValue(argument, out var argCoOccurrences))
             {
-                argCoOccurrences = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                argCoOccurrences = new ConcurrentDictionary<string, int>(PathComparer.Equality);
                 baseline.CoOccurrences[argument] = argCoOccurrences;
             }
             argCoOccurrences.TryAdd(coOccurredWith, count);
@@ -1157,7 +1158,7 @@ public class ArgumentGraph
                 baselineData.ArgCounts[argKv.Key] = argKv.Value.UsageCount;
 
                 // Track co-occurrences for this argument
-                var coOccurrences = new ConcurrentDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                var coOccurrences = new ConcurrentDictionary<string, int>(PathComparer.Equality);
                 foreach (var coKv in argKv.Value.CoOccurrences)
                 {
                     coOccurrences[coKv.Key] = coKv.Value;

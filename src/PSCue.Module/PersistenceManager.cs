@@ -50,27 +50,10 @@ public class PersistenceManager : IDisposable
     }
 
     /// <summary>
-    /// Gets the default data directory for PSCue.
+    /// Gets the default data directory for PSCue. Delegates to the shared resolver
+    /// so the Module DLL, the AOT exe, and the Logger all agree on the location.
     /// </summary>
-    private static string GetDataDirectory()
-    {
-        var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-
-        if (OperatingSystem.IsWindows())
-        {
-            var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-            return Path.Combine(localAppData, "PSCue");
-        }
-        else
-        {
-            // Linux/macOS: use XDG_DATA_HOME or ~/.local/share
-            var xdgDataHome = Environment.GetEnvironmentVariable("XDG_DATA_HOME");
-            var dataHome = string.IsNullOrEmpty(xdgDataHome)
-                ? Path.Combine(homeDir, ".local", "share")
-                : xdgDataHome;
-            return Path.Combine(dataHome, "PSCue");
-        }
-    }
+    private static string GetDataDirectory() => PSCue.Shared.PSCueData.GetDataDirectory();
 
     /// <summary>
     /// Opens a connection that the caller can share across multiple Load operations
@@ -123,9 +106,14 @@ public class PersistenceManager : IDisposable
             }
         }
 
+        // Path-storing columns use BINARY collation on Linux/macOS so case-distinct
+        // paths (e.g. /tmp/Foo and /tmp/foo) are kept as separate rows. Windows keeps
+        // NOCASE because the filesystem is case-insensitive there.
+        var pathCollation = OperatingSystem.IsWindows() ? "NOCASE" : "BINARY";
+
         // Create tables
         using var command = connection.CreateCommand();
-        command.CommandText = @"
+        command.CommandText = $@"
             -- Commands table: tracks command-level statistics
             CREATE TABLE IF NOT EXISTS commands (
                 command TEXT PRIMARY KEY COLLATE NOCASE,
@@ -137,7 +125,7 @@ public class PersistenceManager : IDisposable
             -- Arguments table: tracks argument usage per command
             CREATE TABLE IF NOT EXISTS arguments (
                 command TEXT NOT NULL COLLATE NOCASE,
-                argument TEXT NOT NULL COLLATE NOCASE,
+                argument TEXT NOT NULL COLLATE {pathCollation},
                 usage_count INTEGER NOT NULL DEFAULT 0,
                 first_seen TEXT NOT NULL,
                 last_used TEXT NOT NULL,
@@ -148,8 +136,8 @@ public class PersistenceManager : IDisposable
             -- Co-occurrences table: tracks which arguments appear together
             CREATE TABLE IF NOT EXISTS co_occurrences (
                 command TEXT NOT NULL COLLATE NOCASE,
-                argument TEXT NOT NULL COLLATE NOCASE,
-                co_occurred_with TEXT NOT NULL COLLATE NOCASE,
+                argument TEXT NOT NULL COLLATE {pathCollation},
+                co_occurred_with TEXT NOT NULL COLLATE {pathCollation},
                 count INTEGER NOT NULL DEFAULT 0,
                 PRIMARY KEY (command, argument, co_occurred_with)
             );
@@ -165,8 +153,8 @@ public class PersistenceManager : IDisposable
             -- Argument sequences table: tracks consecutive argument pairs for multi-word suggestions
             CREATE TABLE IF NOT EXISTS argument_sequences (
                 command TEXT NOT NULL COLLATE NOCASE,
-                first_argument TEXT NOT NULL COLLATE NOCASE,
-                second_argument TEXT NOT NULL COLLATE NOCASE,
+                first_argument TEXT NOT NULL COLLATE {pathCollation},
+                second_argument TEXT NOT NULL COLLATE {pathCollation},
                 usage_count INTEGER NOT NULL DEFAULT 0,
                 first_seen TEXT NOT NULL,
                 last_used TEXT NOT NULL,
@@ -218,7 +206,7 @@ public class PersistenceManager : IDisposable
             CREATE TABLE IF NOT EXISTS parameter_values (
                 command TEXT NOT NULL COLLATE NOCASE,
                 parameter TEXT NOT NULL COLLATE NOCASE,
-                value TEXT NOT NULL COLLATE NOCASE,
+                value TEXT NOT NULL COLLATE {pathCollation},
                 usage_count INTEGER NOT NULL DEFAULT 0,
                 first_seen TEXT NOT NULL,
                 last_used TEXT NOT NULL,
@@ -227,7 +215,7 @@ public class PersistenceManager : IDisposable
 
             -- Bookmarks table: user-managed directory bookmarks for pcd
             CREATE TABLE IF NOT EXISTS bookmarks (
-                path TEXT PRIMARY KEY COLLATE NOCASE,
+                path TEXT PRIMARY KEY COLLATE {pathCollation},
                 created_at TEXT NOT NULL
             );
 

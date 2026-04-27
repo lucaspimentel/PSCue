@@ -166,9 +166,11 @@ function Clear-PSCueLearning {
         [switch]$Force
     )
 
-    # Helper function to get database path (mirrors PersistenceManager.GetDataDirectory logic)
+    # Helper function to get database path (mirrors PSCue.Shared.PSCueData.GetDataDirectory logic)
     function Get-PSCueDatabasePath {
-        if ($IsWindows -or $PSVersionTable.PSVersion.Major -lt 6) {
+        if ($env:PSCUE_DATA_DIR) {
+            $dataDir = $env:PSCUE_DATA_DIR
+        } elseif ($IsWindows -or $PSVersionTable.PSVersion.Major -lt 6) {
             # Windows: Use LocalApplicationData
             $localAppData = [Environment]::GetFolderPath([Environment+SpecialFolder]::LocalApplicationData)
             $dataDir = Join-Path $localAppData "PSCue"

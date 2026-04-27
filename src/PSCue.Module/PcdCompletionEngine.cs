@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using PSCue.Shared;
 
 namespace PSCue.Module;
 
@@ -25,7 +26,7 @@ public class PcdCompletionEngine
     /// <summary>
     /// Well-known directory shortcuts that should be handled quickly.
     /// </summary>
-    private static readonly Dictionary<string, string> WellKnownShortcuts = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, string> WellKnownShortcuts = new(PathComparer.Equality)
     {
         { "~", null! }, // Will be replaced with actual home directory
         { "..", null! }, // Will be replaced with parent directory
@@ -127,7 +128,7 @@ public class PcdCompletionEngine
 
         // Deduplicate by DisplayPath (normalized full path with symlinks resolved) and sort by score
         return suggestions
-            .GroupBy(s => s.DisplayPath, StringComparer.OrdinalIgnoreCase)
+            .GroupBy(s => s.DisplayPath, PathComparer.Equality)
             .Select(g => g.OrderByDescending(s => s.Score).First())
             .OrderByDescending(s => s.Score)
             .ThenByDescending(s => s.UsageCount)
@@ -150,7 +151,7 @@ public class PcdCompletionEngine
         foreach (var path in _bookmarks.GetAll())
         {
             // Skip current directory
-            if (path.Equals(normalizedCurrent, StringComparison.OrdinalIgnoreCase))
+            if (path.Equals(normalizedCurrent, PathComparer.Comparison))
                 continue;
 
             // Skip paths that don't exist on the filesystem (unless testing)
@@ -163,11 +164,11 @@ public class PcdCompletionEngine
                 var dirName = Path.GetFileName(path);
 
                 // Check prefix match on directory name
-                bool matches = dirName.StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase);
+                bool matches = dirName.StartsWith(wordToComplete, PathComparer.Comparison);
 
                 // Check prefix match on full path (for absolute path typing)
                 if (!matches)
-                    matches = path.StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase);
+                    matches = path.StartsWith(wordToComplete, PathComparer.Comparison);
 
                 // Check fuzzy match on directory name
                 if (!matches)
@@ -221,13 +222,13 @@ public class PcdCompletionEngine
         }
 
         // Home directory (~)
-        if ("~".StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase))
+        if ("~".StartsWith(wordToComplete, PathComparer.Comparison))
         {
             var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
             // Only suggest home directory if we're not already there
             if (!string.IsNullOrEmpty(homeDir) &&
                 Directory.Exists(homeDir) &&
-                !homeDir.Equals(currentDirectory, StringComparison.OrdinalIgnoreCase))
+                !homeDir.Equals(currentDirectory, PathComparer.Comparison))
             {
                 suggestions.Add(new PcdSuggestion
                 {
@@ -243,7 +244,7 @@ public class PcdCompletionEngine
         }
 
         // Parent directory (..)
-        if ("..".StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase))
+        if ("..".StartsWith(wordToComplete, PathComparer.Comparison))
         {
             try
             {
@@ -296,7 +297,7 @@ public class PcdCompletionEngine
                 continue;
 
             // Skip current directory paths (not useful in suggestions)
-            if (path.Equals(currentDirectory, StringComparison.OrdinalIgnoreCase))
+            if (path.Equals(currentDirectory, PathComparer.Comparison))
                 continue;
 
             // Skip paths that don't exist on the filesystem (unless testing with mock paths)
@@ -317,7 +318,7 @@ public class PcdCompletionEngine
                     if (!string.IsNullOrEmpty(inputDir) &&
                         path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                             .Equals(inputDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                                   StringComparison.OrdinalIgnoreCase))
+                                   PathComparer.Comparison))
                     {
                         continue; // Skip parent directory
                     }
@@ -412,7 +413,7 @@ public class PcdCompletionEngine
                         continue;
 
                     // Check if directory name matches the search pattern (prefix or fuzzy match)
-                    if (dirName.StartsWith(searchPattern, StringComparison.OrdinalIgnoreCase))
+                    if (dirName.StartsWith(searchPattern, PathComparer.Comparison))
                     {
                         var matchScore = 0.8; // High score for prefix match
                         var relativePath = ToRelativePath(subDir, currentDirectory);
@@ -428,7 +429,7 @@ public class PcdCompletionEngine
                             Tooltip = $"{subDir} - Found in filesystem"
                         });
                     }
-                    else if (dirName.Contains(searchPattern, StringComparison.OrdinalIgnoreCase))
+                    else if (dirName.Contains(searchPattern, PathComparer.Comparison))
                     {
                         var matchScore = 0.6; // Lower score for substring match
                         var relativePath = ToRelativePath(subDir, currentDirectory);
@@ -570,12 +571,12 @@ public class PcdCompletionEngine
         // Check if directory matches any blocklisted pattern
         foreach (var pattern in blocklist)
         {
-            if (dirName.Equals(pattern, StringComparison.OrdinalIgnoreCase))
+            if (dirName.Equals(pattern, PathComparer.Comparison))
             {
                 // Exception: Allow if user explicitly typed this pattern
                 // e.g., typing ".claude" should show .claude directories
                 if (!string.IsNullOrWhiteSpace(userInput) &&
-                    userInput.Contains(pattern, StringComparison.OrdinalIgnoreCase))
+                    userInput.Contains(pattern, PathComparer.Comparison))
                 {
                     return false; // Don't filter - user explicitly wants this
                 }
@@ -600,7 +601,7 @@ public class PcdCompletionEngine
             return false; // Empty input doesn't count as exact match
 
         // Exact full path match
-        if (path.Equals(wordToComplete, StringComparison.OrdinalIgnoreCase))
+        if (path.Equals(wordToComplete, PathComparer.Comparison))
             return true;
 
         // Extract directory name from both path and search term for comparison
@@ -610,7 +611,7 @@ public class PcdCompletionEngine
         // Exact directory name match (e.g., "dd-trace-dotnet" matches "D:\source\datadog\dd-trace-dotnet")
         if (!string.IsNullOrEmpty(pathDirName) &&
             !string.IsNullOrEmpty(searchDirName) &&
-            pathDirName.Equals(searchDirName, StringComparison.OrdinalIgnoreCase))
+            pathDirName.Equals(searchDirName, PathComparer.Comparison))
         {
             return true;
         }
@@ -629,11 +630,11 @@ public class PcdCompletionEngine
             return 1.0; // Empty input matches everything
 
         // Exact match (full path)
-        if (path.Equals(wordToComplete, StringComparison.OrdinalIgnoreCase))
+        if (path.Equals(wordToComplete, PathComparer.Comparison))
             return 1.0;
 
         // Starts with (prefix match on full path)
-        if (path.StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase))
+        if (path.StartsWith(wordToComplete, PathComparer.Comparison))
             return 0.9;
 
         // Check directory name match (e.g., "dd-trace-dotnet" matches "D:\source\datadog\dd-trace-dotnet")
@@ -643,7 +644,7 @@ public class PcdCompletionEngine
         // Exact directory name match
         if (!string.IsNullOrEmpty(pathDirName) &&
             !string.IsNullOrEmpty(searchDirName) &&
-            pathDirName.Equals(searchDirName, StringComparison.OrdinalIgnoreCase))
+            pathDirName.Equals(searchDirName, PathComparer.Comparison))
         {
             return 1.0; // Treat as exact match
         }
@@ -651,7 +652,7 @@ public class PcdCompletionEngine
         // Directory name prefix match
         if (!string.IsNullOrEmpty(pathDirName) &&
             !string.IsNullOrEmpty(searchDirName) &&
-            pathDirName.StartsWith(searchDirName, StringComparison.OrdinalIgnoreCase))
+            pathDirName.StartsWith(searchDirName, PathComparer.Comparison))
         {
             return 0.9; // Treat as prefix match
         }
@@ -810,7 +811,7 @@ public class PcdCompletionEngine
             var normalizedCurrent = Path.GetFullPath(currentDirectory);
 
             // Same directory
-            if (normalizedPath.Equals(normalizedCurrent, StringComparison.OrdinalIgnoreCase))
+            if (normalizedPath.Equals(normalizedCurrent, PathComparer.Comparison))
                 return 1.0;
 
             // Parent directory
@@ -821,12 +822,12 @@ public class PcdCompletionEngine
                 var normalizedPathTrimmed = normalizedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 var parentTrimmed = parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-                if (normalizedPathTrimmed.Equals(parentTrimmed, StringComparison.OrdinalIgnoreCase))
+                if (normalizedPathTrimmed.Equals(parentTrimmed, PathComparer.Comparison))
                     return 0.9;
             }
 
             // Child directory
-            if (normalizedPath.StartsWith(normalizedCurrent + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            if (normalizedPath.StartsWith(normalizedCurrent + Path.DirectorySeparatorChar, PathComparer.Comparison))
             {
                 var depth = normalizedPath.Substring(normalizedCurrent.Length).Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries).Length;
                 return Math.Max(0.5, 0.85 - (depth * 0.1));
@@ -840,7 +841,7 @@ public class PcdCompletionEngine
                 var pathParentTrimmed = pathParent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 var parentTrimmed = parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-                if (pathParentTrimmed.Equals(parentTrimmed, StringComparison.OrdinalIgnoreCase))
+                if (pathParentTrimmed.Equals(parentTrimmed, PathComparer.Comparison))
                     return 0.7;
             }
 
@@ -883,7 +884,7 @@ public class PcdCompletionEngine
 
         for (int i = 0; i < minLength; i++)
         {
-            if (parts1[i].Equals(parts2[i], StringComparison.OrdinalIgnoreCase))
+            if (parts1[i].Equals(parts2[i], PathComparer.Comparison))
                 commonDepth++;
             else
                 break;
@@ -910,7 +911,7 @@ public class PcdCompletionEngine
             // Check if paths are on the same drive (Windows) or root (Unix)
             var absoluteRoot = Path.GetPathRoot(normAbsolute);
             var currentRoot = Path.GetPathRoot(normCurrent);
-            if (!string.Equals(absoluteRoot, currentRoot, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(absoluteRoot, currentRoot, PathComparer.Comparison))
             {
                 // Different drives/roots - must use absolute path
                 return normAbsolute;
@@ -925,14 +926,14 @@ public class PcdCompletionEngine
                 var normAbsoluteTrimmed = normAbsolute.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 var parentTrimmed = parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
 
-                if (normAbsoluteTrimmed.Equals(parentTrimmed, StringComparison.OrdinalIgnoreCase))
+                if (normAbsoluteTrimmed.Equals(parentTrimmed, PathComparer.Comparison))
                 {
                     return "..";
                 }
             }
 
             // If it's a child directory, use relative path (without redundant .\ prefix)
-            if (normAbsolute.StartsWith(normCurrent + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            if (normAbsolute.StartsWith(normCurrent + Path.DirectorySeparatorChar, PathComparer.Comparison))
             {
                 var childPath = normAbsolute.Substring(normCurrent.Length + 1);
                 // Remove trailing separator from relative path for cleaner display
@@ -949,7 +950,7 @@ public class PcdCompletionEngine
             if (parent != null)
             {
                 var pathParent = Directory.GetParent(normAbsolute)?.FullName;
-                if (pathParent != null && pathParent.Equals(parent, StringComparison.OrdinalIgnoreCase))
+                if (pathParent != null && pathParent.Equals(parent, PathComparer.Comparison))
                 {
                     var dirName = Path.GetFileName(normAbsolute.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
                     var relativePath = ".." + Path.DirectorySeparatorChar + dirName;
@@ -979,13 +980,13 @@ public class PcdCompletionEngine
         if (string.IsNullOrWhiteSpace(wordToComplete))
             return MatchType.Learned;
 
-        if (path.Equals(wordToComplete, StringComparison.OrdinalIgnoreCase))
+        if (path.Equals(wordToComplete, PathComparer.Comparison))
             return MatchType.Exact;
 
-        if (path.StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase))
+        if (path.StartsWith(wordToComplete, PathComparer.Comparison))
             return MatchType.Prefix;
 
-        if (path.Contains(wordToComplete, StringComparison.OrdinalIgnoreCase))
+        if (path.Contains(wordToComplete, PathComparer.Comparison))
             return MatchType.Fuzzy;
 
         return MatchType.Learned;
@@ -1055,7 +1056,7 @@ public class PcdCompletionEngine
             }
 
             // Return the resolved path (different from original means symlink was resolved)
-            return currentPath.Equals(realPath, StringComparison.OrdinalIgnoreCase) ? null : currentPath;
+            return currentPath.Equals(realPath, PathComparer.Comparison) ? null : currentPath;
         }
         catch
         {

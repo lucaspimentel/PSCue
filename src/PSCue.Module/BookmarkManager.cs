@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using PSCue.Shared;
 
 namespace PSCue.Module;
 
@@ -9,7 +10,7 @@ namespace PSCue.Module;
 /// </summary>
 public class BookmarkManager
 {
-    private readonly ConcurrentDictionary<string, DateTime> _bookmarks = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DateTime> _bookmarks = new(PathComparer.Equality);
     private readonly object _toggleLock = new();
     private readonly PersistenceManager? _persistence;
 
