@@ -63,6 +63,19 @@ This document tracks planned work for PSCue. For architectural details, see [TEC
 
 ---
 
+### Case-Sensitive Flag Combinations
+**Status**: Backlog
+
+**Problem**: `FlagCombinations` dicts in `ArgumentGraph` key joined flag strings (e.g. `"-a -b"`) case-insensitively. Flags that differ only by case get conflated. On Windows this is unnoticed because no commonly-shipped Windows tool relies on case-distinct short flags, but on Linux many tools do (e.g. `git -S` vs `-s`, `grep -V` vs `-v`). Predates the Linux-support PR; deferred from that PR to keep its scope tight.
+
+**Fix**: Switch the `FlagCombinations` dict comparer to `PathComparer.Equality` (introduced by the Linux-support PR — `OrdinalIgnoreCase` on Windows, `Ordinal` on Linux). Touches `src/PSCue.Module/ArgumentGraph.cs:188` (`CommandKnowledge.FlagCombinations`) and `src/PSCue.Module/ArgumentGraph.cs:247` (the matching baseline dict). Consider also switching the `flag_combinations` SQLite column from `COLLATE NOCASE` to `BINARY` on Linux to match.
+
+- [ ] Flip `FlagCombinations` dict comparers to `PathComparer.Equality`
+- [ ] Decide whether to also flip the SQLite `flag_combinations.flags` collation on Linux (matches the path-column treatment)
+- [ ] Add a regression test: `git -S` and `git -s` are tracked as distinct flag combinations on Linux
+
+---
+
 ## Phase 18: Workflow Improvements
 
 ### Phase 18.3: Workflow Chains (3+ Commands)
