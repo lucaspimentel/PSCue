@@ -30,7 +30,7 @@
     </PackageReference>
 
     <!-- PowerShell SDK needed for testing CommandPredictor -->
-    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.5">
+    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.6.1">
       <ExcludeAssets>contentFiles</ExcludeAssets>
     </PackageReference>
   </ItemGroup>
