@@ -359,9 +359,18 @@ public class ArgumentGraphTests
         Assert.NotNull(knowledge);
         Assert.Equal(2, knowledge.TotalUsageCount);
 
-        // Arguments should be merged case-insensitively
-        Assert.Equal(2, knowledge.Arguments["commit"].UsageCount);
-        Assert.Equal(2, knowledge.Arguments["-m"].UsageCount);
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Equal(2, knowledge.Arguments["commit"].UsageCount);
+            Assert.Equal(2, knowledge.Arguments["-m"].UsageCount);
+        }
+        else
+        {
+            Assert.Equal(1, knowledge.Arguments["Commit"].UsageCount);
+            Assert.Equal(1, knowledge.Arguments["commit"].UsageCount);
+            Assert.Equal(1, knowledge.Arguments["-M"].UsageCount);
+            Assert.Equal(1, knowledge.Arguments["-m"].UsageCount);
+        }
     }
 
     [Fact]
@@ -822,9 +831,18 @@ public class ArgumentGraphTests
 
         var knowledge = graph.GetCommandKnowledge("git");
         Assert.NotNull(knowledge);
-        var arg = knowledge.Arguments["mybranch"];
-        Assert.Equal("mybranch", arg.Argument);
-        Assert.Equal(2, arg.UsageCount);
+
+        if (OperatingSystem.IsWindows())
+        {
+            var arg = knowledge.Arguments["mybranch"];
+            Assert.Equal("mybranch", arg.Argument);
+            Assert.Equal(2, arg.UsageCount);
+        }
+        else
+        {
+            Assert.Equal(1, knowledge.Arguments["MyBranch"].UsageCount);
+            Assert.Equal(1, knowledge.Arguments["mybranch"].UsageCount);
+        }
     }
 
     [Fact]

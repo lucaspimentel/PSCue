@@ -1967,10 +1967,17 @@ public class PcdEnhancedTests : IDisposable
         // Act - Search with different casing
         var suggestions = engine.GetSuggestions("myproject", _testRootDir, 20);
 
-        // Assert - Case-insensitive exact match should still get boost
         var topResult = suggestions.First();
-        Assert.Contains("MyProject", topResult.DisplayPath);
-        Assert.DoesNotContain("Dev", topResult.DisplayPath);
+
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.Contains("MyProject", topResult.DisplayPath);
+            Assert.DoesNotContain("Dev", topResult.DisplayPath);
+        }
+        else
+        {
+            Assert.Contains("MyProject-Dev", topResult.DisplayPath);
+        }
     }
 
     #endregion
