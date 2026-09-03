@@ -611,7 +611,7 @@ public class PcdCompletionEngine
         // Exact directory name match (e.g., "dd-trace-dotnet" matches "D:\source\datadog\dd-trace-dotnet")
         if (!string.IsNullOrEmpty(pathDirName) &&
             !string.IsNullOrEmpty(searchDirName) &&
-            pathDirName.Equals(searchDirName, PathComparer.Comparison))
+            pathDirName.Equals(searchDirName, StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
@@ -644,7 +644,7 @@ public class PcdCompletionEngine
         // Exact directory name match
         if (!string.IsNullOrEmpty(pathDirName) &&
             !string.IsNullOrEmpty(searchDirName) &&
-            pathDirName.Equals(searchDirName, PathComparer.Comparison))
+            pathDirName.Equals(searchDirName, StringComparison.OrdinalIgnoreCase))
         {
             return 1.0; // Treat as exact match
         }
@@ -652,7 +652,7 @@ public class PcdCompletionEngine
         // Directory name prefix match
         if (!string.IsNullOrEmpty(pathDirName) &&
             !string.IsNullOrEmpty(searchDirName) &&
-            pathDirName.StartsWith(searchDirName, PathComparer.Comparison))
+            pathDirName.StartsWith(searchDirName, StringComparison.OrdinalIgnoreCase))
         {
             return 0.9; // Treat as prefix match
         }
