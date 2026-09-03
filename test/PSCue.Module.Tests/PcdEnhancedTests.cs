@@ -1968,6 +1968,7 @@ public class PcdEnhancedTests : IDisposable
         var suggestions = engine.GetSuggestions("myproject", _testRootDir, 20);
 
         // Assert - Case-insensitive exact match should still get boost
+        Assert.NotEmpty(suggestions);
         var topResult = suggestions.First();
         Assert.Contains("MyProject", topResult.DisplayPath);
         Assert.DoesNotContain("Dev", topResult.DisplayPath);
