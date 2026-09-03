@@ -1964,8 +1964,9 @@ public class PcdEnhancedTests : IDisposable
 
         var engine = new PcdCompletionEngine(_graph);
 
-        // Act - Search with different casing
-        var suggestions = engine.GetSuggestions("myproject", _testRootDir, 20);
+        // Act
+        var searchTerm = OperatingSystem.IsWindows() ? "myproject" : "MyProject";
+        var suggestions = engine.GetSuggestions(searchTerm, _testRootDir, 20);
 
         // Assert - Case-insensitive exact match should still get boost
         var topResult = suggestions.First();

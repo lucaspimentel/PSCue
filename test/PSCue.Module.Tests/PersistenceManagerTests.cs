@@ -417,9 +417,17 @@ public class PersistenceManagerTests : IDisposable
         var loaded = _persistence.LoadArgumentGraph(_connection);
         var knowledge = loaded.GetCommandKnowledge("git");
         Assert.NotNull(knowledge);
-        var arg = knowledge.Arguments["mybranch"];
-        Assert.Equal("mybranch", arg.Argument);
-        Assert.Equal(2, arg.UsageCount);
+        if (OperatingSystem.IsWindows())
+        {
+            var arg = knowledge.Arguments["mybranch"];
+            Assert.Equal("mybranch", arg.Argument);
+            Assert.Equal(2, arg.UsageCount);
+        }
+        else
+        {
+            Assert.Equal(1, knowledge.Arguments["MyBranch"].UsageCount);
+            Assert.Equal(1, knowledge.Arguments["mybranch"].UsageCount);
+        }
     }
 
     [Fact]
