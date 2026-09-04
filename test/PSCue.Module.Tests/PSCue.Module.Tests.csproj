@@ -18,7 +18,8 @@
 
   <ItemGroup>
     <!-- xUnit testing framework -->
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
+    <!-- xunit.v3 pinned: 4.0.0 depends on Microsoft.Testing.Platform 2.x, which no longer supports the VSTest dotnet test target on .NET 10 SDK -->
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
     <PackageReference Include="xunit.v3" Version="3.2.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
@@ -30,7 +31,7 @@
     </PackageReference>
 
     <!-- PowerShell SDK needed for testing CommandPredictor -->
-    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.5">
+    <PackageReference Include="Microsoft.PowerShell.SDK" Version="7.5.10">
       <ExcludeAssets>contentFiles</ExcludeAssets>
     </PackageReference>
   </ItemGroup>
