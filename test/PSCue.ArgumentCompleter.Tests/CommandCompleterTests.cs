@@ -659,6 +659,50 @@ public class CommandCompleterTests
         Assert.Contains(completions, x => x.CompletionText == "--version");
     }
 
+    [SkippableFact]
+    public void Wt_Worktrunk()
+    {
+        Skip.If(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "wt is Windows Terminal on Windows; worktrunk is git-wt");
+
+        var completions = CommandCompleter.GetCompletions("wt").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "switch");
+        Assert.Contains(completions, x => x.CompletionText == "remove");
+        Assert.Contains(completions, x => x.CompletionText == "statusline");
+        Assert.Contains(completions, x => x.CompletionText == "list");
+    }
+
+    [SkippableFact]
+    public void Wt_Worktrunk_Switch()
+    {
+        Skip.If(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "wt is Windows Terminal on Windows; worktrunk is git-wt");
+
+        var completions = CommandCompleter.GetCompletions("wt sw").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("switch", item.CompletionText);
+    }
+
+    [SkippableFact]
+    public void Wt_Worktrunk_Switch_Parameters()
+    {
+        Skip.If(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "wt is Windows Terminal on Windows; worktrunk is git-wt");
+
+        var completions = CommandCompleter.GetCompletions("wt switch").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--create");
+        Assert.Contains(completions, x => x.CompletionText == "--base");
+        Assert.Contains(completions, x => x.CompletionText == "--execute");
+    }
+
+    [SkippableFact]
+    public void Wt_WindowsTerminal()
+    {
+        Skip.IfNot(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "wt is Windows Terminal only on Windows");
+
+        var completions = CommandCompleter.GetCompletions("wt").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "new-tab");
+        Assert.Contains(completions, x => x.CompletionText == "split-pane");
+        Assert.Contains(completions, x => x.CompletionText == "focus-tab");
+    }
+
     [Fact]
     public void Rg()
     {
