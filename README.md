@@ -58,12 +58,14 @@ PSCue provides detailed completions for these commands:
 - **Scoop** (Windows): `scoop` - apps, buckets
 - **Winget** (Windows): `winget` - packages, sources
 - **Windows Terminal** (Windows): `wt` - tabs, panes, profiles
+- **Worktrunk** (Linux/macOS): `wt` - worktree management (same completions as `git-wt`; worktrunk's binary is `wt` everywhere, but on Windows winget installs it as `git-wt` to avoid the Windows Terminal collision)
 - **Chezmoi**: `chezmoi` - dotfile management commands
 - **Tree alternatives**: `tre`, `lsd` - directory navigation
 - **Disk usage**: `dust` - directory analysis
 - **Character art**: `chafa` - terminal graphics/character art generator
 - **Search**: `rg` (ripgrep) - recursive regex search, `fd` (fd-find) - fast file finder
 - **Claude**: `claude` - Claude Code CLI commands
+- **Pi**: `pi` - pi coding agent CLI (install/remove, update, auth, mcp, global options)
 - **Git Worktrees**: `git-wt` - worktree management (switch, list, remove, merge, step, hook, config)
 - **Navigation**: `cd`, `Set-Location`, `sl`, `chdir` - directory completion with smart caching
 
@@ -682,13 +684,12 @@ Contributions are welcome! Please feel free to:
 
 To add completions for a new command:
 
-1. Create a new file in `src/PSCue.Shared/KnownCompletions/YourCommand.cs` (or a subdirectory for related commands, e.g., `Azure/`)
-2. Implement the `ICompletion` interface
-3. Add the command to `CommandCompleter.cs` switch statement
-4. Add tests in `test/PSCue.ArgumentCompleter.Tests/`
-5. Register the completer in `module/PSCue.psm1`
+1. Create a new file in `src/PSCue.Shared/KnownCompletions/YourCommand.cs` (or a subdirectory for related commands, e.g., `Azure/`), building a `Command` tree with `SubCommands` and `Parameters`
+2. Add the command to `CommandCompleter.cs` switch statement
+3. Add tests in `test/PSCue.ArgumentCompleter.Tests/`
+4. Register the completer in `module/PSCue.psm1`
 
-See existing completions like `GitCommand.cs` or `ScoopCommand.cs` for examples in `src/PSCue.Shared/KnownCompletions/`.
+See existing completions like `PiCommand.cs` or `GitCommand.cs` for examples in `src/PSCue.Shared/KnownCompletions/`.
 
 ## Learning & Database Management
 

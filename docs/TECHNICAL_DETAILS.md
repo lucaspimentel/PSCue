@@ -673,7 +673,7 @@ Get-PSCueModuleInfo
 **ArgumentCompleter:**
 - `src/PSCue.ArgumentCompleter/Program.cs` — entry point for Tab completion
 - `src/PSCue.Shared/CommandCompleter.cs` — main completion orchestrator
-- `src/PSCue.Shared/KnownCompletions/` — command-specific completions (Git, Gh, Gt, Scoop, Winget, Wt, Code, Claude, Chezmoi, GitWt, and more; Azure commands under `Azure/`)
+- `src/PSCue.Shared/KnownCompletions/` — command-specific completions (Git, Gh, Gt, Scoop, Winget, Wt, Code, Claude, Pi, Chezmoi, GitWt, and more; Azure commands under `Azure/`)
 
 **Testing:**
 - `test/PSCue.ArgumentCompleter.Tests/` — tests for completion logic
