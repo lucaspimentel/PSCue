@@ -753,6 +753,18 @@ git push origin main vX.Y.Z
 
 ---
 
+### New Command Completions
+**Status**: Backlog
+
+New `KnownCompletions/*Command.cs` entries (see `src/PSCue.Shared/CommandCompleter.cs:30-56` dispatch table and `module/PSCue.psm1:68-95` `$SupportedCommands`).
+
+- [ ] Support worktrunk (`wt`) on Linux: worktrunk's binary is `wt` on all platforms, but on Windows winget installs it as `git-wt` to avoid the Windows Terminal `wt` collision (verified against the worktrunk README). PSCue already has the completions in `GitWtCommand.cs` under `git-wt`. Register the same command in `CommandCompleter.cs` as `"wt" when !isWindows` (the existing `"wt" when isWindows => WindowsTerminalCommand.Create()` entry is unchanged), and add `wt` to `$SupportedCommands` in `module/PSCue.psm1` only on non-Windows (check how the script handles OS-conditional registration for `scoop`/`winget`).
+- [ ] Add support for `pi` (pi coding agent).
+- [ ] Add support for the Rust toolchain: `cargo` first, evaluate others (rustup, rustc) after.
+- [ ] Update the existing `claude` completions (`ClaudeCommand.cs`).
+
+---
+
 ## Notes
 
 - This is a living document - update as tasks progress
