@@ -759,7 +759,7 @@ git push origin main vX.Y.Z
 New `KnownCompletions/*Command.cs` entries (see `src/PSCue.Shared/CommandCompleter.cs:30-56` dispatch table and `module/PSCue.psm1:68-95` `$SupportedCommands`).
 
 - [x] Support worktrunk (`wt`) on Linux and macOS: worktrunk's binary is `wt` on all platforms, but on Windows winget installs it as `git-wt` to avoid the Windows Terminal `wt` collision (verified against the worktrunk README). Registered the same command in `CommandCompleter.cs` as `"wt"` on non-Windows (the existing `"wt" when isWindows => WindowsTerminalCommand.Create()` entry is unchanged); no `$SupportedCommands` change needed since `wt` was already registered cross-platform.
-- [ ] Add support for `pi` (pi coding agent).
+- [x] Add support for `pi` (pi coding agent): full CLI surface (install/remove/uninstall, update, list, config, auth, mcp with subcommands) plus all global options with static argument lists for `--mode`, `--thinking`, `--tui-mode`, `--exposure`. Static completions only, no dynamic arguments in v1 (`src/PSCue.Shared/KnownCompletions/PiCommand.cs`).
 - [ ] Add support for the Rust toolchain: `cargo` first, evaluate others (rustup, rustc) after.
 - [ ] Update the existing `claude` completions (`ClaudeCommand.cs`).
 

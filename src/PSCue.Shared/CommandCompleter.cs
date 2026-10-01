@@ -44,6 +44,7 @@ public static class CommandCompleter
             "gh" => GhCommand.Create(),
             "gt" => GtCommand.Create(),
             "claude" => ClaudeCommand.Create(),
+            "pi" => PiCommand.Create(),
             "tre" => TreCommand.Create(),
             "lsd" => LsdCommand.Create(),
             "dust" => DustCommand.Create(),

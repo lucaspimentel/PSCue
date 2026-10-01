@@ -704,6 +704,82 @@ public class CommandCompleterTests
     }
 
     [Fact]
+    public void Pi()
+    {
+        var completions = CommandCompleter.GetCompletions("pi").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "install");
+        Assert.Contains(completions, x => x.CompletionText == "remove");
+        Assert.Contains(completions, x => x.CompletionText == "update");
+        Assert.Contains(completions, x => x.CompletionText == "auth");
+        Assert.Contains(completions, x => x.CompletionText == "mcp");
+        Assert.Contains(completions, x => x.CompletionText == "config");
+        Assert.Contains(completions, x => x.CompletionText == "list");
+        Assert.Contains(completions, x => x.CompletionText == "--thinking");
+        Assert.Contains(completions, x => x.CompletionText == "--continue");
+        Assert.Contains(completions, x => x.CompletionText == "--print");
+    }
+
+    [Fact]
+    public void Pi_Mcp()
+    {
+        var completions = CommandCompleter.GetCompletions("pi mcp").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "add");
+        Assert.Contains(completions, x => x.CompletionText == "remove");
+        Assert.Contains(completions, x => x.CompletionText == "list");
+        Assert.Contains(completions, x => x.CompletionText == "login");
+        Assert.Contains(completions, x => x.CompletionText == "logout");
+    }
+
+    [Fact]
+    public void Pi_Mcp_Add_Parameters()
+    {
+        var completions = CommandCompleter.GetCompletions("pi mcp add").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--url");
+        Assert.Contains(completions, x => x.CompletionText == "--exposure");
+        Assert.Contains(completions, x => x.CompletionText == "--header");
+    }
+
+    [Fact]
+    public void Pi_Mcp_Add_Exposure_Values()
+    {
+        var completions = CommandCompleter.GetCompletions("pi mcp add --exposure").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "codemode");
+        Assert.Contains(completions, x => x.CompletionText == "deferred");
+        Assert.Contains(completions, x => x.CompletionText == "direct");
+        Assert.Contains(completions, x => x.CompletionText == "hidden");
+    }
+
+    [Fact]
+    public void Pi_Thinking_Values()
+    {
+        var completions = CommandCompleter.GetCompletions("pi --thinking").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "off");
+        Assert.Contains(completions, x => x.CompletionText == "minimal");
+        Assert.Contains(completions, x => x.CompletionText == "xhigh");
+        Assert.Contains(completions, x => x.CompletionText == "max");
+    }
+
+    [Fact]
+    public void Pi_Update()
+    {
+        var completions = CommandCompleter.GetCompletions("pi update").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "--self");
+        Assert.Contains(completions, x => x.CompletionText == "--extensions");
+        Assert.Contains(completions, x => x.CompletionText == "--models");
+        Assert.Contains(completions, x => x.CompletionText == "--all");
+        Assert.Contains(completions, x => x.CompletionText == "--force");
+    }
+
+    [Fact]
+    public void Pi_Uninstall_Alias()
+    {
+        // 'uninstall' is an alias of 'remove'; the completer surfaces the canonical name
+        var completions = CommandCompleter.GetCompletions("pi un").ToList();
+        var item = Assert.Single(completions);
+        Assert.Equal("remove", item.CompletionText);
+    }
+
+    [Fact]
     public void Rg()
     {
         var completions = CommandCompleter.GetCompletions("rg").ToList();

@@ -84,6 +84,7 @@ $SupportedCommands = @(
     # Tools
     'code'
     'claude'
+    'pi'
     'chezmoi'
     'tre'
     'lsd'
