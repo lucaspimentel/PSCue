@@ -13,6 +13,7 @@ The following scripts work with the current PSCue architecture:
 - **test-empty-state.ps1** — validates `Get-*` functions on a fresh install (no learned data)
 - **test-feedback-provider.ps1** — tests the learning / error-suggestion path (requires PowerShell 7.4+)
 - **test-inline-predictions.ps1** — interactive harness for inline predictions via PSReadLine
+- **test-completer-timing.ps1** — regression checks for the spawn-cost measurement harness in `benchmark/spawn-cost/` (runs `-SelfTest`, invalid-input handling, and an optional short integration run via `-CompleterPath`)
 
 ## Usage
 

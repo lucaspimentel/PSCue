@@ -40,6 +40,11 @@ dotnet run -c Release --project benchmark/PSCue.Benchmarks/
 dotnet run -c Release --project benchmark/PSCue.Benchmarks/ --filter *ArgumentCompleter*
 ```
 
+These benchmarks run **in process** against the shared library, so they cannot observe
+process creation, PowerShell startup, or child-process launches. For the fresh-process cost
+of the `pscue-completer` executable itself, use
+[`benchmark/spawn-cost`](../spawn-cost/README.md).
+
 ## Benchmark Scenarios
 
 ### 1. ArgumentCompleter Startup
