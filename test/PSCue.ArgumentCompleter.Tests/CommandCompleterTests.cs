@@ -667,7 +667,6 @@ public class CommandCompleterTests
         var completions = CommandCompleter.GetCompletions("wt").ToList();
         Assert.Contains(completions, x => x.CompletionText == "switch");
         Assert.Contains(completions, x => x.CompletionText == "remove");
-        Assert.Contains(completions, x => x.CompletionText == "statusline");
         Assert.Contains(completions, x => x.CompletionText == "list");
     }
 
@@ -690,6 +689,15 @@ public class CommandCompleterTests
         Assert.Contains(completions, x => x.CompletionText == "--create");
         Assert.Contains(completions, x => x.CompletionText == "--base");
         Assert.Contains(completions, x => x.CompletionText == "--execute");
+    }
+
+    [SkippableFact]
+    public void Wt_Worktrunk_List_Statusline()
+    {
+        Skip.If(RuntimeInformation.IsOSPlatform(OSPlatform.Windows), "wt is Windows Terminal on Windows; worktrunk is git-wt");
+
+        var completions = CommandCompleter.GetCompletions("wt list st").ToList();
+        Assert.Contains(completions, x => x.CompletionText == "statusline");
     }
 
     [SkippableFact]
