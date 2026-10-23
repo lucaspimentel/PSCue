@@ -721,6 +721,18 @@ The remaining work is (a) reducing the time the background task spends in SQLite
 
 ---
 
+### Tab Completion Spawn Cost (ArgumentCompleter)
+**Status**: Measurement in progress (Linux/WSL done; native Windows pending)
+**Priority**: High (measured ~3.7s per `git` Tab press, ~70x the 50ms target)
+
+**Context**: `pscue-completer` is a one-shot NativeAOT exe spawned fresh on every Tab press, so child-process launches dominate its cost. Measured under WSL2 (`linux-x64`, source `20429f1`, 20 samples per scenario after 3 warmups; full table in the run's `report.md`): baseline/no-args ~2.8ms, `pi ` ~2.0ms, `cd ` ~2.0ms, but `git checkout ` = 1041ms/2 launches, `git` (no trailing space) = 1767ms/3, `git ` = 3682ms/6, and `git pscue-no-match` = 4229ms/6. A bare `pwsh -NoProfile -NonInteractive -Command "exit 0"` costs 437ms, so launches account for essentially all of it. Two multipliers stack: `Helpers.ExecuteCommand` (`src/PSCue.Shared/Helpers.cs:56`) wraps every child in a fresh `pwsh`, and the dynamic factory runs twice per request -- once from `FindNode` (`src/PSCue.Shared/Completions/Command.cs:37`) and again from `GetCompletions` (`:82`). Harness: `benchmark/spawn-cost/Measure-CompleterSpawn.ps1` (see `benchmark/spawn-cost/README.md` for usage, outputs, and limits).
+
+- [ ] **Collect Windows and Scoop spawn-cost numbers** -- The harness was only run under WSL, and it skips scoop scenarios off-Windows because the dispatcher does not build the scoop tree there. Re-run on native Windows to capture Windows `pwsh` startup cost and the Windows-only scoop scenarios (`scoop `, `scoop update `), then confirm whether the Linux findings and any later fix hold on the primary target platform. Command: `pwsh -NoProfile -File ./benchmark/spawn-cost/Measure-CompleterSpawn.ps1 -Build -WarmupCount 10 -RepeatCount 100`. Expect roughly 25-40 minutes for the full matrix.
+  - **Impact**: Medium (confirms the findings on the primary platform, and Scoop is a Windows-only completion path)
+  - **Complexity**: Low (run the harness and record the results)
+
+---
+
 ### Phase 19.3: Distribution & Packaging
 **Status**: Backlog
 
