@@ -722,14 +722,14 @@ The remaining work is (a) reducing the time the background task spends in SQLite
 ---
 
 ### Tab Completion Spawn Cost (ArgumentCompleter)
-**Status**: Measurement in progress (Linux/WSL done; native Windows pending)
-**Priority**: High (measured ~3.7s per `git` Tab press, ~70x the 50ms target)
+**Status**: Measured on both platforms (Linux/WSL + native Windows); fix not started
+**Priority**: High (measured ~2.7s per `git ` Tab press and ~3.1s per `scoop update ` Tab press on Windows, ~50-60x the 50ms target)
 
 **Context**: `pscue-completer` is a one-shot NativeAOT exe spawned fresh on every Tab press, so child-process launches dominate its cost. Measured under WSL2 (`linux-x64`, source `20429f1`, 20 samples per scenario after 3 warmups; full table in the run's `report.md`): baseline/no-args ~2.8ms, `pi ` ~2.0ms, `cd ` ~2.0ms, but `git checkout ` = 1041ms/2 launches, `git` (no trailing space) = 1767ms/3, `git ` = 3682ms/6, and `git pscue-no-match` = 4229ms/6. A bare `pwsh -NoProfile -NonInteractive -Command "exit 0"` costs 437ms, so launches account for essentially all of it. Two multipliers stack: `Helpers.ExecuteCommand` (`src/PSCue.Shared/Helpers.cs:56`) wraps every child in a fresh `pwsh`, and the dynamic factory runs twice per request -- once from `FindNode` (`src/PSCue.Shared/Completions/Command.cs:37`) and again from `GetCompletions` (`:82`). Harness: `benchmark/spawn-cost/Measure-CompleterSpawn.ps1` (see `benchmark/spawn-cost/README.md` for usage, outputs, and limits).
 
-- [ ] **Collect Windows and Scoop spawn-cost numbers** -- The harness was only run under WSL, and it skips scoop scenarios off-Windows because the dispatcher does not build the scoop tree there. Re-run on native Windows to capture Windows `pwsh` startup cost and the Windows-only scoop scenarios (`scoop `, `scoop update `), then confirm whether the Linux findings and any later fix hold on the primary target platform. Command: `pwsh -NoProfile -File ./benchmark/spawn-cost/Measure-CompleterSpawn.ps1 -Build -WarmupCount 10 -RepeatCount 100`. Expect roughly 25-40 minutes for the full matrix.
-  - **Impact**: Medium (confirms the findings on the primary platform, and Scoop is a Windows-only completion path)
-  - **Complexity**: Low (run the harness and record the results)
+Measured on native Windows (`win-x64`, source `3aab8a4`, pwsh 7.6.7, 20 samples per scenario after 3 warmups, spawn probes n=4; run output gitignored under `artifacts/spawn-cost/windows-x64/`): baseline/no-args ~87ms, `scoop ` ~87ms/0 launches, `git checkout ` = 957ms/2, `git` (no trailing space) = 1374ms/3, `git ` = 2692ms/6, `git pscue-no-match` = 2683ms/6, and `scoop update ` = 3088ms/2. A bare `pwsh exit 0` costs 354ms, git probes ~420-444ms, and `scoop list` ~1469ms per launch (scoop's shim is a .ps1 run through pwsh), making it the most expensive single spawn. The WSL findings hold: launches account for all wall time (attribution residuals 64-150ms, at baseline level), and the dynamic factory still runs twice per request (6 launches for `git `). One platform difference: the spawn-free floor is ~87ms on Windows vs ~2.8ms on WSL, so even with no dynamic lookups a Tab press sits near 2x the 50ms target on the primary platform.
+
+- [x] **Collect Windows and Scoop spawn-cost numbers** -- The harness was only run under WSL, and it skips scoop scenarios off-Windows because the dispatcher does not build the scoop tree there. Re-ran on native Windows to capture the Windows `pwsh` startup cost and the Windows-only scoop scenarios (`scoop `, `scoop update `), and confirmed the Linux findings hold on the primary target platform. Run: `pwsh -NoProfile -File ./benchmark/spawn-cost/Measure-CompleterSpawn.ps1 -Build -WarmupCount 3 -RepeatCount 20 -SpawnRepeatCount 5 -OutputDirectory artifacts/spawn-cost/windows-x64` (lighter than the 100-rep full matrix; same Seed 12345).
 
 ---
 
