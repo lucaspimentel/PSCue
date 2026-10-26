@@ -106,8 +106,8 @@ there.
 ## Measured results
 
 WSL2 (Ubuntu 24.04, `linux-x64`, PowerShell 7.6.7), source `20429f1`, 20 measured
-invocations per scenario after 3 warmups, 8 standalone spawn probes. Full table:
-`artifacts/spawn-cost/wsl-linux-x64/report.md`.
+invocations per scenario after 3 warmups, 7 standalone spawn probes at 7 samples each. Full
+table: `artifacts/spawn-cost/wsl-linux-x64/report.md`.
 
 | Scenario | Median | Spawns |
 | --- | --- | --- |
@@ -122,15 +122,44 @@ invocations per scenario after 3 warmups, 8 standalone spawn probes. Full table:
 Standalone: bare `pwsh -NoProfile -NonInteractive -Command "exit 0"` = **437 ms**; each
 `git` probe adds ~100-200 ms on top.
 
-Two findings follow directly from the counts:
+Windows (`win-x64`, Windows 10.0.26200, PowerShell 7.6.7), source `3aab8a4`, same 20 samples
+per scenario after 3 warmups, 8 standalone spawn probes at 4 samples each. Full table:
+`artifacts/spawn-cost/windows-x64/report.md`.
+
+| Scenario | Median | P90 | Spawns |
+| --- | --- | --- | --- |
+| baseline (no args) | 86.7 ms | 91.0 ms | 0 |
+| `scoop ` | 86.6 ms | 91.7 ms | 0 |
+| `pi ` | 86.8 ms | 111.3 ms | 0 |
+| `cd ` | 94.5 ms | 97.0 ms | 0 |
+| `git fetch ` | 922.5 ms | 946.9 ms | 2 |
+| `git-wt switch --base ` | 928.3 ms | 959.6 ms | 2 |
+| `git-wt switch ` | 931.8 ms | 955.5 ms | 2 |
+| `git tag ` | 934.9 ms | 968.2 ms | 2 |
+| `git checkout ` | 956.8 ms | 1,004.6 ms | 2 |
+| `git` (no trailing space) | 1,374.3 ms | 1,392.3 ms | 3 |
+| `git pscue-no-match` | 2,683.4 ms | 2,735.2 ms | 6 |
+| `git ` | 2,691.6 ms | 2,852.9 ms | 6 |
+| `scoop update ` | 3,087.9 ms | 3,157.5 ms | 2 |
+
+Standalone: bare `pwsh ... "exit 0"` = **354 ms**; `git` probes 418-444 ms; `scoop list` =
+**1,469 ms**, the most expensive single spawn. Scoop's shim is a `.ps1` run through pwsh, so
+one `scoop update ` completion pays PowerShell startup twice.
+
+### What both runs agree on
 
 - A single `pwsh` startup is the unit of cost, and the completer pays it 2-6 times per Tab.
 - The dynamic factory runs **twice** per request, once from `FindNode`
   (`src/PSCue.Shared/Completions/Command.cs:37`) and again from `GetCompletions`
   (`:82`). `git ` and `git pscue-no-match` therefore spawn 6 times where 3 would do; `git`
   with no trailing space spawns 3 because navigation never runs.
+- Spawns account for essentially all wall time. Windows residuals are 64-150 ms, at or near
+  the spawn-free floor, and most WSL git scenarios have negative residuals, meaning the
+  spawns account for all observed wall time.
 
-Windows results are not collected in this run, so Windows and Scoop numbers remain pending.
+One platform difference bears on the 50 ms target: the spawn-free floor is ~2.8 ms on WSL2
+but ~87 ms on Windows, so on the primary platform a Tab press is already near 2x target
+before any dynamic lookup runs.
 
 ## Noise controls and limits
 
