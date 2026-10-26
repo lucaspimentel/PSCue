@@ -278,6 +278,19 @@ public class CommandProcessTests : IDisposable
     }
 
     [SkippableFact]
+    public void ExecutableImagesRunDirectlyWithArguments()
+    {
+        Skip.IfNot(IsWindows, "uses cmd.exe as a real image");
+
+        var lines = CommandProcess.Run(
+            Path.Combine(Environment.SystemDirectory, "cmd.exe"),
+            TestTimeout,
+            ["/d", "/c", "echo direct-image"]);
+
+        Assert.Equal(["direct-image"], lines);
+    }
+
+    [SkippableFact]
     public void CommandScriptsRunThroughTheInterpreter()
     {
         Skip.IfNot(IsWindows, "command scripts are Windows-only");
@@ -315,7 +328,7 @@ public class CommandProcessTests : IDisposable
 
     // Builds a payload that lets one process write a known transcript, optionally to stderr,
     // optionally exiting non-zero, and optionally hanging after flushing.
-    private static (string Executable, string[] Arguments, string[] Expected) Transcript(
+    private (string Executable, string[] Arguments, string[] Expected) Transcript(
         string stdout,
         string? stderr = null,
         int exitCode = 0,
@@ -325,26 +338,32 @@ public class CommandProcessTests : IDisposable
 
         if (IsWindows)
         {
-            var builder = new System.Text.StringBuilder();
+            // A command script is the shape the interpreter path takes in production, and it
+            // keeps the payload out of the inline quoting that cmd.exe parses differently
+            // across Windows versions. CI rejects the inline '&exit /b' form that a one line
+            // payload would use.
+            var builder = new System.Text.StringBuilder("@echo off\r\n");
 
-            foreach (var line in LinesOf(stdout))
+            foreach (var line in expected)
             {
-                builder.Append(line.Length == 0 ? "echo." : $"echo {line}").Append('&');
+                builder.Append(line.Length == 0 ? "echo.\r\n" : $"echo {line}\r\n");
             }
 
             if (!string.IsNullOrWhiteSpace(stderr))
             {
-                builder.Append($"echo {stderr.Trim()} 1>&2&");
+                builder.Append($"echo {stderr.Trim()} 1>&2\r\n");
             }
 
             if (hang)
             {
-                builder.Append("ping -n 21 127.0.0.1 >nul&");
+                builder.Append("ping -n 21 127.0.0.1 >nul\r\n");
             }
 
-            builder.Append("exit /b ").Append(exitCode);
+            builder.Append($"exit /b {exitCode}\r\n");
 
-            return (Path.Combine(Environment.SystemDirectory, "cmd.exe"), ["/d", "/v:off", "/s", "/c", builder.ToString()], expected);
+            var payloadPath = CreateFile(Path.Combine("payload", $"payload-{Guid.NewGuid():N}.cmd"), builder.ToString());
+
+            return (payloadPath, [], expected);
         }
 
         var script = new System.Text.StringBuilder($"printf '{stdout.Replace("\n", "\\n")}'");
