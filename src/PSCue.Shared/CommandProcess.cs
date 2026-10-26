@@ -14,7 +14,13 @@ internal static class CommandProcess
     // completions for that lookup instead of hanging the Tab press.
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(5);
 
-    // Bounds cleanup of the output readers after the child has exited or been killed.
+    // Bounds cleanup of the output readers after the child has exited or been killed. A child
+    // that exited on its own gets a real window, because the readers may not be scheduled for a
+    // while on a loaded machine and a short window reports an empty result for output that
+    // arrived. A killed child gets the short window, since a descendant can hold the pipe open
+    // indefinitely.
+    private const int DrainAfterExitMilliseconds = 5000;
+
     private const int ReaderShutdownMilliseconds = 500;
 
     private static readonly string[] WindowsPathExtensions = [".COM", ".EXE", ".BAT", ".CMD"];
@@ -142,6 +148,7 @@ internal static class CommandProcess
 
         var gate = new object();
         var lines = new List<string>();
+        var completed = true;
         using var cancellation = new CancellationTokenSource(timeout);
 
         var stdout = ReadLinesAsync(process.StandardOutput, lines, gate, cancellation.Token);
@@ -153,16 +160,20 @@ internal static class CommandProcess
             {
                 Logger.Write($"{resolved} did not finish within {timeout.TotalSeconds} seconds and was killed");
                 TryKill(process);
+                completed = false;
             }
         }
         catch (Exception ex)
         {
             Logger.Write($"Waiting for {resolved} failed: {ex.Message}");
+            completed = false;
         }
 
         try
         {
-            Task.WaitAll([stdout, stderr], ReaderShutdownMilliseconds);
+            Task.WaitAll(
+                [stdout, stderr],
+                completed ? DrainAfterExitMilliseconds : ReaderShutdownMilliseconds);
         }
         catch (AggregateException ex)
         {
