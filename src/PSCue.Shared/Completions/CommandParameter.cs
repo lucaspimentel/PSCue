@@ -9,6 +9,8 @@ public sealed class CommandParameter(string completionText, string? tooltip = nu
     public StaticArgument[] StaticArguments { get; init; } = [];
     public DynamicArgumentsFactory? DynamicArguments { get; init; }
 
+    private readonly DynamicArgumentsMemo _dynamicArguments = new();
+
     /// <summary>
     /// Indicates whether this parameter requires a value (e.g., "-f net6.0").
     /// If true, the parser will treat the next argument as a value bound to this parameter.
@@ -26,7 +28,7 @@ public sealed class CommandParameter(string completionText, string? tooltip = nu
 
         var completion = Helpers.FindEquals(StaticArguments, wordToComplete);
 
-        if (completion is null && DynamicArguments?.Invoke() is { } arguments)
+        if (completion is null && _dynamicArguments.Get(DynamicArguments) is { } arguments)
         {
             completion = Helpers.FindEquals(arguments, wordToComplete);
         }
@@ -41,7 +43,7 @@ public sealed class CommandParameter(string completionText, string? tooltip = nu
         Helpers.AddWhereStartsWith(StaticArguments, results, wordToComplete);
 
         // Only include dynamic arguments if requested
-        if (includeDynamicArguments && DynamicArguments?.Invoke() is { } arguments)
+        if (includeDynamicArguments && _dynamicArguments.Get(DynamicArguments) is { } arguments)
         {
             Helpers.AddWhereStartsWith(arguments, results, wordToComplete);
         }

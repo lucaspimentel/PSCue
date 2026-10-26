@@ -12,6 +12,8 @@ public sealed class Command(string completionText, string? tooltip = null)
     public CommandParameter[] Parameters { get; init; } = [];
     public DynamicArgumentsFactory? DynamicArguments { get; init; }
 
+    private readonly DynamicArgumentsMemo _dynamicArguments = new();
+
     public ICompletion? FindNode(ReadOnlySpan<char> wordToComplete)
     {
         // Check if the word matches either the main completion text or the alias
@@ -34,7 +36,7 @@ public sealed class Command(string completionText, string? tooltip = null)
         // Check parameters
         var completion = Helpers.FindEquals(Parameters, wordToComplete);
 
-        if (completion is null && DynamicArguments?.Invoke() is { } arguments)
+        if (completion is null && _dynamicArguments.Get(DynamicArguments) is { } arguments)
         {
             completion = Helpers.FindEquals(arguments, wordToComplete);
         }
@@ -79,7 +81,7 @@ public sealed class Command(string completionText, string? tooltip = null)
         // Only include dynamic arguments (git branches, scoop packages, etc.) if requested
         // Exclude dynamic arguments that match existing SubCommands or Parameters to avoid duplicates
         // (SubCommands/Parameters have better tooltips, so they should take precedence)
-        if (includeDynamicArguments && DynamicArguments?.Invoke() is { } arguments)
+        if (includeDynamicArguments && _dynamicArguments.Get(DynamicArguments) is { } arguments)
         {
             // Create a HashSet of existing completion texts for fast lookup
             var existingCompletions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

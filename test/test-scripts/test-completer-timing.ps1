@@ -76,6 +76,34 @@ if ($CompleterPath -and (Test-Path -Path $CompleterPath -PathType Leaf)) {
         $report = Get-Content -Path (Join-Path $outDir 'report.md') -Raw -ErrorAction SilentlyContinue
         Assert-True ($report -match 'baseline-no-args') 'report contains baseline-no-args row'
         Assert-True ($report -match 'git-root') 'report contains git-root row'
+
+        # Spawn counts are deterministic: each dynamic lookup must run its children once per
+        # request, not twice. Guarded on the file because the harness only writes it when a
+        # scenario produced spawns (no git on the host means no file).
+        $countsPath = Join-Path $outDir 'spawn-counts.csv'
+        if (Test-Path $countsPath) {
+            $counts = Import-Csv -Path $countsPath
+            $expectedCounts = @{
+                'git-root'              = 3
+                'git-no-trailing-space' = 3
+                'git-prefix-nomatch'    = 3
+                'git-branches'          = 1
+                'git-remotes'           = 1
+                'git-tags'              = 1
+                'gitwt-branches'        = 1
+                'gitwt-param-branches'  = 1
+            }
+            foreach ($name in $expectedCounts.Keys) {
+                $row = $counts | Where-Object Scenario -eq $name | Select-Object -First 1
+                if ($row) {
+                    Assert-True ([int]$row.TotalSpawns -eq $expectedCounts[$name]) `
+                        "$name spawn count is $($expectedCounts[$name]) (got $($row.TotalSpawns))"
+                }
+            }
+        }
+        else {
+            Write-Host 'Skipping spawn count assertions (no spawn-counts.csv in the run output).'
+        }
     }
     finally {
         Remove-Item -Recurse -Force $outDir -ErrorAction SilentlyContinue
