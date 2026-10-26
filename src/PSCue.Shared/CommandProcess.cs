@@ -10,7 +10,9 @@ namespace PSCue.Shared;
 /// </summary>
 internal static class CommandProcess
 {
-    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(2);
+    // Generous enough that a real git can finish on a loaded machine. Expiry costs the
+    // completions for that lookup instead of hanging the Tab press.
+    private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(5);
 
     // Bounds cleanup of the output readers after the child has exited or been killed.
     private const int ReaderShutdownMilliseconds = 500;
