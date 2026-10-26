@@ -285,7 +285,7 @@ $env:PSCUE_EMPTY_TAB_MIN_USAGE = "3"
 
 ## Related Files
 
-- `src/PSCue.Module/ArgumentGraph.cs`: Line 474 (`GetTrackedCommands()`), Line 482 (`GetAllCommands()`)
+- `src/PSCue.Module/ArgumentGraph.cs`: Line 704 (`GetTrackedCommands()`), Line 712 (`GetAllCommands()`)
 - `src/PSCue.Module/WorkflowLearner.cs`: Line 296 (`GetNextCommandPredictions()`)
 - `module/PSCue.psm1`: Module initialization (future integration point)
 

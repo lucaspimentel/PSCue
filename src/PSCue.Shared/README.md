@@ -7,8 +7,10 @@ Shared completion logic library used by both the ArgumentCompleter and Module pr
 ## Key Components
 
 - **Completion Framework**: `Command`, `CommandParameter`, `CommandArgument` classes with alias support
-- **Known Completions**: Command-specific completion logic for git, git-wt, gh, gt, az, azd, func, scoop, winget, wt, code, claude, chezmoi, chafa, rg, fd, tre, lsd, dust
+- **Known Completions**: Command-specific completion logic for git, git-wt, gh, gt, az, azd, func, scoop, winget, wt, code, claude, pi, chezmoi, chafa, rg, fd, tre, lsd, dust
 - **CommandCompleter**: Main orchestrator for completion logic
+- **CommandProcess**: Launches child processes for dynamic arguments (PATH resolution, no shell wrapper, bounded timeout)
+- **DynamicArgumentsMemo**: Evaluates a node's dynamic arguments once per request instead of once per calling site
 - **Shared Utilities**: Common utilities for both ArgumentCompleter and Module
 
 ## Dependencies
