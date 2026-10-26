@@ -25,8 +25,8 @@ PSCue uses a dual-component architecture with direct in-process communication fo
 ### Component Architecture
 
 **ArgumentCompleter** (`pscue-completer.exe`):
-- NativeAOT executable for <10ms startup
-- Computes completions locally with full dynamic arguments
+- NativeAOT executable started fresh on every Tab press
+- Computes completions locally with full dynamic arguments, including child-process lookups (git branches, scoop packages)
 - Uses `PSCue.Shared` for completion logic
 - No external dependencies or IPC calls
 
@@ -606,13 +606,16 @@ Get-PSCueModuleInfo
 │  │ CommandCompleter.GetCompletions()                      │ │
 │  │  - Uses PSCue.Shared (compiled in)                     │ │
 │  │  - Computes locally with full dynamic arguments        │ │
-│  │  - <10ms cold start, <50ms total                       │ │
 │  │  - No SQLite, no IPC                                   │ │
 │  └────────────────────────────────────────────────────────┘ │
 └──────────────────────────────────────────────────────────────┘
 ```
 
 ## Performance Targets
+
+Targets are goals, not measurements. The measured cost of a no-op invocation is ~2.8ms on
+Linux/WSL and ~87ms on Windows, and dynamic lookups add one child process each on top; see
+[`benchmark/spawn-cost/README.md`](../benchmark/spawn-cost/README.md) for numbers and method.
 
 | Metric | Target |
 |--------|--------|
@@ -680,7 +683,8 @@ Get-PSCueModuleInfo
 - `test/PSCue.Module.Tests/` — tests for predictor, feedback, learning, workflows, persistence, PCD
 
 **Benchmarks:**
-- `benchmark/PSCue.Benchmarks/` — BenchmarkDotNet performance tests
+- `benchmark/PSCue.Benchmarks/` — BenchmarkDotNet project, currently with no benchmark classes
+- `benchmark/spawn-cost/` — harness for the fresh-process cost of the completer, including child-process counts (see its README)
 
 ## Cross-Platform Compatibility
 
@@ -702,7 +706,7 @@ Get-PSCueModuleInfo
 
 1. **Removed IPC Layer** (Phase 16.7): Simplified architecture, no inter-process communication
 2. **Direct In-Process Access**: PowerShell functions access module state directly
-3. **NativeAOT for ArgumentCompleter**: <10ms startup time for Tab completion
+3. **NativeAOT for ArgumentCompleter**: minimal startup work for Tab completion, since the process is created on every Tab press
 4. **Managed DLL for Module**: Full .NET capabilities for learning and persistence
 5. **Shared Completion Logic** (`PSCue.Shared`): Consistency between Tab and inline predictions
 6. **SQLite for Persistence**: Cross-session learning data with WAL mode for concurrency
@@ -777,12 +781,15 @@ Get-PSCueModuleInfo
 - `PublishReadyToRun=true` on `PSCue.Module.csproj` AOT-compiles managed IL to native on release publish, eliminating first-touch JIT on cold imports
 - Shared SQLite connection and batched multi-statement queries during load cut per-table round-trips
 - Generic learning uses frequency + recency scoring with platform-aware path normalization
+- Dynamic arguments are evaluated once per request (`DynamicArgumentsMemo`), because the completion tree is rebuilt per request and both `FindNode` and `GetCompletions` would otherwise launch the same children
+- Child processes are launched directly with `CommandProcess` instead of through a `pwsh` wrapper, which removes one PowerShell startup per lookup; the actual costs are measured by `benchmark/spawn-cost/`
 
 ### Error Handling
 - Module functions use standard PowerShell error handling
 - Learning system filters sensitive commands (built-in patterns + `PSCUE_IGNORE_PATTERNS`)
 - Database errors are logged but do not crash the module
 - `Clear-PSCueLearning -Force` recovers from a corrupted database without requiring module initialization
+- A child process that cannot be found or started, or that exceeds its timeout, contributes no output or whatever it printed before the timeout, instead of throwing; a child that exits non-zero still contributes what it printed. Diagnostics go to the log only when `PSCUE_DEBUG=1`
 
 ---
 
@@ -796,7 +803,8 @@ Run `ls` in the repo root for the authoritative layout. Notable top-level direct
 - `module/` — PowerShell module assets (`PSCue.psd1`, `PSCue.psm1`, `Functions.ps1`)
 - `test/PSCue.ArgumentCompleter.Tests/`, `test/PSCue.Module.Tests/` — xUnit test projects
 - `test/test-scripts/` — ad-hoc PowerShell test scripts for interactive verification
-- `benchmark/PSCue.Benchmarks/` — BenchmarkDotNet benchmarks
+- `benchmark/PSCue.Benchmarks/` — BenchmarkDotNet project (no benchmark classes currently)
+- `benchmark/spawn-cost/` — harness for fresh-process and child-process cost of Tab completion
 - `docs/` — TECHNICAL_DETAILS.md, TROUBLESHOOTING.md, COMPLETED.md, DATABASE-FUNCTIONS.md
 - `install-local.ps1`, `install-remote.ps1` — installers at the repo root
 

@@ -3,7 +3,9 @@
 PowerShell completion module combining Tab completion (NativeAOT) + inline predictions (managed DLL) with generic learning and cross-session persistence. See README.md for features, installation, configuration, and usage.
 
 ## Architecture Internals
-- **ArgumentCompleter** (`pscue-completer.exe`): NativeAOT exe, <10ms startup, computes completions locally with full dynamic arguments support
+- **ArgumentCompleter** (`pscue-completer.exe`): NativeAOT exe, computes completions locally with full dynamic arguments support. It is one-shot: every Tab press starts a fresh process, so child-process launches dominate its cost
+- **CommandProcess**: The only way to launch a child process. Resolves the executable against `PATH` (PATHEXT tried within each directory), starts the image with no shell in between, falls back to `cmd.exe /d /v:off /s /c` for a `.cmd`/`.bat` shim, and kills at a constant timeout. Missing, failing, or slow executables return no output instead of throwing. `Helpers.ExecuteCommand` still wraps children in `pwsh` and is down to its last caller (`scoop list`)
+- **DynamicArgumentsMemo**: Evaluates a node's dynamic arguments once per request. The `DynamicArguments` factory is an iterator, so both `FindNode` and `GetCompletions` would otherwise launch the same children twice; the memo materializes the result to stay correct. It documents that the completion tree is rebuilt per request, which is what makes an instance-scoped memo safe
 - **Module** (`PSCue.Module.dll`): Long-lived, implements `ICommandPredictor` + `IFeedbackProvider` (7.4+), provides PowerShell module functions
 - **Background Initialization**: `OnImport` registers subsystems synchronously (required by PowerShell), then loads all learned data via `Task.Run()` so `Import-Module` returns instantly. All `PSCueModule.*` consumers null-check and return empty results until loading completes.
 - **Learning System**:
@@ -48,6 +50,9 @@ dotnet test --filter "FullyQualifiedName~WorkflowLearner"
 # Install locally
 ./install-local.ps1
 
+# Tab completion cost: validate the harness, then measure
+pwsh -NoProfile -File ./benchmark/spawn-cost/Measure-CompleterSpawn.ps1 -SelfTest
+
 # Dev testing (isolated from production install)
 ./install-local.ps1 -Force -InstallPath D:\temp\PSCue-dev
 # Then in a new PowerShell session:
@@ -65,8 +70,11 @@ dotnet test --filter "FullyQualifiedName~WorkflowLearner"
 6. **PowerShell module functions**: Direct in-process access, no IPC overhead
 7. **Background init via Task.Run()**: `OnImport` only registers subsystems synchronously; all DB loading is async. `CommandPredictor` and `FeedbackProvider` read `PSCueModule.*` statics dynamically and null-check on every call, so they gracefully return empty until data loads. Auto-save timer starts only after init completes. `OnRemove` cancels+waits on the background task before cleanup.
 8. **ReadyToRun for Module DLL**: `PSCue.Module.csproj` sets `PublishReadyToRun=true` to AOT-compile managed IL to native during publish, eliminating first-touch JIT on cold module import. Cascades to `PSCue.Shared.dll` and the SQLite chain. Requires `-r <RID>` on publish. `dotnet build` ignores R2R, so dev builds stay fast.
+9. **Launch children through `CommandProcess`**: Never wrap a child in `pwsh` (`Helpers.ExecuteCommand`), never `UseShellExecute=true`, no reflection or `dynamic` (NativeAOT/trim). Direct launch took Windows `git ` from ~1479ms to ~575ms. Dynamic-argument work is only acceptable at one process per lookup, and every change to it is measured with the spawn-cost harness rather than assumed
 
 ## Performance Targets
+Targets are goals, not measurements. The spawn-free floor of a Tab press measured ~2.8ms on WSL2 and ~87ms on Windows, and dynamic lookups used to add seconds on top. `benchmark/spawn-cost/README.md` has the numbers and the method.
+
 - ArgumentCompleter startup: <10ms
 - Total Tab completion: <50ms
 - Module function calls: <5ms
@@ -102,7 +110,7 @@ public void TestLearningAccess()
 ```
 
 ## Common Pitfalls
-1. **ArgumentCompleter slow**: DynamicArguments (git branches, scoop packages) are computed on every Tab press. This is expected and fast (<50ms).
+1. **ArgumentCompleter slow**: Dynamic arguments (git branches, scoop packages) are launched as child processes on every Tab press, in a one-shot exe, so their cost sets the Tab latency. It is not safe to assume this is fast: before the spawn-cost work, `git ` was ~2.7s on Windows and `scoop update ` ~3.1s. Measure with `benchmark/spawn-cost` (`benchmark/spawn-cost/README.md`) instead of guessing, and keep dynamic lookups to one process each. The 50ms target is a goal, not a measured property of the current code
 2. **NativeAOT reference errors**: Put shared code in PSCue.Shared, not ArgumentCompleter
 3. **Module functions return null**: Module may not be fully initialized. Check PSCueModule.KnowledgeGraph != null before use.
 4. **Corrupted database prevents initialization**: Use `Clear-PSCueLearning -Force` to delete database files without requiring module initialization.
@@ -144,6 +152,7 @@ Test-PSCueCompletion, Get-PSCueModuleInfo
 - Architecture: `docs/TECHNICAL_DETAILS.md`
 - Database functions: `docs/DATABASE-FUNCTIONS.md`
 - Troubleshooting: `docs/TROUBLESHOOTING.md`
+- Tab completion cost: `benchmark/spawn-cost/README.md` (harness usage, baseline numbers, limits)
 
 # Misc
 - When running ./install-local.ps1, always use -Force

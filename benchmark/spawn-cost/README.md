@@ -6,9 +6,14 @@ spawns on every Tab press, and attributes that cost to child-process launches.
 ## Why this exists
 
 `pscue-completer` is a one-shot process: it answers one completion request and exits. Some
-completion scenarios shell out through `Helpers.ExecuteCommand`
-(`src/PSCue.Shared/Helpers.cs:56`), which starts a full `pwsh -NoProfile -NonInteractive`
-per call. That is invisible to in-process benchmarking, so it needs its own measurement.
+completion scenarios launch child processes, and the cost of doing so is invisible to
+in-process benchmarking, so it needs its own measurement.
+
+Git lookups run `git` directly through `CommandProcess` (`src/PSCue.Shared/CommandProcess.cs`),
+which resolves the executable against `PATH` and starts the image with no shell in between.
+Scoop still goes through `Helpers.ExecuteCommand` (`src/PSCue.Shared/Helpers.cs:56`), which
+starts a full `pwsh -NoProfile -NonInteractive` per call for a shim that is itself a `.ps1`
+script, so one scoop lookup pays PowerShell startup twice.
 
 `benchmark/PSCue.Benchmarks` uses BenchmarkDotNet against the shared library **in process**.
 It cannot see process creation, PowerShell startup, or child-process launches. This harness
@@ -149,20 +154,44 @@ Standalone: bare `pwsh ... "exit 0"` = **354 ms**; `git` probes 418-444 ms; `sco
 **1,469 ms**, the most expensive single spawn. Scoop's shim is a `.ps1` run through pwsh, so
 one `scoop update ` completion pays PowerShell startup twice.
 
-### What both runs agree on
+### Findings from these runs
 
-- A single `pwsh` startup is the unit of cost, and the completer pays it 2-6 times per Tab.
-- The dynamic factory runs **twice** per request, once from `FindNode`
-  (`src/PSCue.Shared/Completions/Command.cs:37`) and again from `GetCompletions`
-  (`:82`). `git ` and `git pscue-no-match` therefore spawn 6 times where 3 would do; `git`
-  with no trailing space spawns 3 because navigation never runs.
-- Spawns account for essentially all wall time. Windows residuals are 64-150 ms, at or near
-  the spawn-free floor, and most WSL git scenarios have negative residuals, meaning the
-  spawns account for all observed wall time.
+Both runs predate the fixes that followed them. They are kept as the baseline that sized the
+work, so read them as the state of the code at their recorded source revision.
+
+- A single `pwsh` startup was the unit of cost, and the completer paid it 2-6 times per Tab.
+- The dynamic factory ran **twice** per request, once from `Command.FindNode` and again from
+  `Command.GetCompletions` (`src/PSCue.Shared/Completions/Command.cs`). `git ` and
+  `git pscue-no-match` therefore spawned 6 times where 3 would do; `git` with no trailing
+  space spawned 3 because navigation never runs.
+- Spawns accounted for essentially all wall time. Windows residuals were 64-150 ms, at or near
+  the spawn-free floor, and most WSL git scenarios had negative residuals, meaning the
+  spawns accounted for all observed wall time.
 
 One platform difference bears on the 50 ms target: the spawn-free floor is ~2.8 ms on WSL2
 but ~87 ms on Windows, so on the primary platform a Tab press is already near 2x target
 before any dynamic lookup runs.
+
+## State since these runs
+
+Two fixes landed against this baseline, each verified on both platforms with this harness by
+comparing spawn counts and `StdoutHash` across the whole scenario matrix:
+
+- **Dynamic arguments are evaluated once per request** (`DynamicArgumentsMemo`), halving
+  spawn counts: `git ` 6 to 3, `git pscue-no-match` 6 to 3, every branch/remote/tag/worktree
+  scenario 2 to 1, `scoop update ` 2 to 1. Completion output is byte-identical.
+- **Git is launched directly instead of through PowerShell** (`CommandProcess`), which removes
+  the `pwsh` startup per git lookup. On Windows this took `git ` from ~1,479 ms to ~575 ms and
+  each single-lookup scenario from ~540 ms to ~220-270 ms, with spawn counts unchanged.
+
+The remaining cost is real child processes: after both fixes, `git ` on Windows is three `git`
+invocations, and each of them pays git's own startup on top of the ~87 ms process floor.
+`scoop update ` is still ~1.6 s on Windows because `scoop list` remains a wrapper-launched
+spawn.
+
+The open steps (concurrent `--list-cmds` fetches and reading the scoop apps directory instead
+of running `scoop list`) are tracked in `TODO.md` under "Tab Completion Spawn Cost", with
+their spawn-count gates and the recorded before/after numbers.
 
 ## Noise controls and limits
 

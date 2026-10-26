@@ -8,7 +8,7 @@ Pre-built binaries support Windows and Linux. macOS is supported when built from
 
 ## Features
 
-- **🚀 Fast Tab Completion**: Native AOT executable for <10ms startup time
+- **🚀 Fast Tab Completion**: Native AOT executable, launched fresh on every Tab press
 - **💡 Inline Predictions**: Smart command suggestions as you type using `ICommandPredictor`
 - **🎯 Multi-Word Suggestions**: Shows common argument combinations (e.g., `git checkout master`)
 - **🤖 ML-Based Predictions**: N-gram sequence learning predicts your next command (e.g., `git add` → `git commit`)
@@ -35,7 +35,6 @@ PSCue uses a dual-architecture approach for optimal performance:
 2. **CommandPredictor** (`PSCue.Module.dll`) - Long-lived managed DLL for inline suggestions
 
 This architecture enables:
-- Sub-10ms Tab completion response time
 - Fresh completions computed on every Tab press (includes dynamic data like git branches)
 - Inline predictions learn from your command history
 - Learning feedback loop via `IFeedbackProvider` (PowerShell 7.4+)
@@ -364,7 +363,7 @@ Requires a TTY-capable terminal (Windows Terminal recommended). See [TROUBLESHOO
 
 **Note**: Full paths are still shown in tooltips for reference.
 
-**Performance**: Tab completion <10ms, Best-match resolution <50ms
+**Performance**: Best-match resolution <50ms; Tab completion depends on the dynamic lookups a command needs, see [`benchmark/spawn-cost`](benchmark/spawn-cost/README.md)
 
 ### Inline Predictions
 
@@ -448,7 +447,8 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 ### ArgumentCompleter (Short-lived)
 - **Binary**: `pscue-completer.exe` (NativeAOT)
 - **Purpose**: Handles Tab completion via `Register-ArgumentCompleter`
-- **Lifetime**: Launches on each Tab press (~10ms startup)
+- **Lifetime**: Launches on each Tab press
+- **Cost**: A no-op invocation measures ~2.8ms on Linux/WSL and ~87ms on Windows, and each dynamic lookup adds a child process on top. Measured numbers and method: [`benchmark/spawn-cost`](benchmark/spawn-cost/README.md)
 - **Features**: Fast, standalone, computes completions locally with full dynamic arguments support (git branches, scoop packages, etc.)
 
 ### CommandPredictor (Long-lived)
@@ -481,7 +481,7 @@ PSCue uses a two-component architecture optimized for both speed and intelligenc
 │  Tab Completion (independent)       │
 ├─────────────────────────────────────┤
 │  pscue-completer.exe                │
-│  - Fast startup (<10ms)             │
+│  - Fresh process per Tab press      │
 │  - Fresh computation each time      │
 │  - Uses PSCue.Shared.dll (compiled) │
 │  - Includes dynamic args (full)     │

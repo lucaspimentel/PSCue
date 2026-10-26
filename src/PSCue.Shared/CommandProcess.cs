@@ -34,8 +34,8 @@ internal static class CommandProcess
     /// <summary>
     /// Runs <paramref name="executable"/> with <paramref name="arguments"/> and returns the
     /// stdout lines it produced, giving up after <paramref name="timeout"/>. A missing
-    /// executable, a launch failure, a non-zero exit, or a child that outlives the timeout all
-    /// yield an empty or partial list instead of throwing.
+    /// executable, a launch failure, or a child that outlives the timeout yields an empty or
+    /// partial list instead of throwing; output written before a non-zero exit is kept.
     /// </summary>
     public static IReadOnlyList<string> Run(string executable, TimeSpan timeout, params string[] arguments)
     {
