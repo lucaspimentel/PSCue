@@ -6,16 +6,17 @@ cost to child-process spawns (pwsh) versus in-process work.
 
 .DESCRIPTION
 The ArgumentCompleter is a NativeAOT console app spawned fresh by PowerShell on every Tab
-press. Some completion scenarios shell out to `pwsh` via Helpers.ExecuteCommand, which is
-usually the dominant cost.
+press, and it launches child processes for dynamic completions. Git now launches directly,
+while scoop still runs through Helpers.ExecuteCommand, which pays a full pwsh startup.
 
 This harness measures three things, without modifying any production source:
 
   1. Wall time per scenario, by running the published native executable directly.
   2. Spawn count per scenario, by putting logging shims for `git`/`scoop` on PATH and
      counting invocations.
-  3. Standalone cost of each distinct spawned command, by timing the exact
-     `pwsh -NoProfile -NonInteractive -Command "<cmd>"` invocation.
+  3. Reference cost of each distinct command when launched through
+     `pwsh -NoProfile -NonInteractive -Command "<cmd>"`, which is the scoop path and the
+     former git path, plus a bare startup probe.
 
 .PARAMETER CompleterPath
 Path to the published pscue-completer executable. Auto-detected when omitted.
@@ -896,13 +897,15 @@ foreach ($row in $summaryRows) {
 $report.Add('')
 $report.Add('## Standalone spawn cost')
 $report.Add('')
-$report.Add('Each probe runs `pwsh -NoProfile -NonInteractive -Command "<command>"`, which is exactly how `Helpers.ExecuteCommand` launches children.')
+$report.Add('Each probe runs `pwsh -NoProfile -NonInteractive -Command "<command>"`, the form `Helpers.ExecuteCommand` uses. Git no longer launches this way, so its probes are reference costs rather than the current git launch path.')
 $report.Add('')
 $report.Add('| Probe | Command | Median ms | Min ms | Max ms | N |')
 $report.Add('| --- | --- | --- | --- | --- | --- |')
 foreach ($row in $spawnCostRows) {
     $report.Add("| $($row.Label) | `'$($row.Command)`' | $(Format-MillisecondsOrNull $row.MedianMs) | $(Format-MillisecondsOrNull $row.MinMs) | $(Format-MillisecondsOrNull $row.MaxMs) | $($row.Runs) |")
 }
+$report.Add('')
+$report.Add('These probes measure the PowerShell-wrapped form. Git now launches directly, so its rows are reference costs for the old path; only scoop still uses the wrapper.')
 $report.Add('')
 $report.Add('## Attribution')
 $report.Add('')

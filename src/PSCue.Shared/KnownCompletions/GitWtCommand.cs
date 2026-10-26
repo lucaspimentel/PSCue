@@ -302,7 +302,7 @@ public static class GitWtCommand
 
     private static IEnumerable<DynamicArgument> GetBranches()
     {
-        foreach (var line in Helpers.ExecuteCommand("git", "branch --format='%(refname:short)'"))
+        foreach (var line in CommandProcess.Run("git", "branch", "--format=%(refname:short)"))
         {
             var branch = line.Trim();
 

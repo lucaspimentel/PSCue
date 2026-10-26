@@ -21,8 +21,11 @@ covers exactly that gap.
 2. **Spawn count per scenario** - puts logging shims for `git` and `scoop` on the child's
    `PATH` and counts invocations, attributing each to a factory.
 3. **Standalone spawn cost** - times the exact
-   `pwsh -NoProfile -NonInteractive -Command "<command>"` invocation that
-   `Helpers.ExecuteCommand` performs, plus a bare `exit 0` probe for pure PowerShell startup.
+   `pwsh -NoProfile -NonInteractive -Command "<command>"` invocation, plus a bare `exit 0`
+   probe for pure PowerShell startup. Git no longer launches through PowerShell, so these
+   probes are reference costs for the wrapped form rather than the cost of the current git
+   path; scoop still uses the wrapper. They remain useful as a before/after of the wrapper
+   itself.
 
 No production source is modified. There is no instrumented build and nothing to revert.
 

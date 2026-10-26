@@ -8,4 +8,10 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- CommandProcess resolves and launches child processes; its internals are exercised
+         directly so resolution and failure handling can be tested on either host. -->
+    <InternalsVisibleTo Include="PSCue.ArgumentCompleter.Tests" />
+  </ItemGroup>
+
 </Project>
