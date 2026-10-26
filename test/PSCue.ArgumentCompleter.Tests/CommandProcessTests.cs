@@ -338,10 +338,8 @@ public class CommandProcessTests : IDisposable
 
         if (IsWindows)
         {
-            // A command script is the shape the interpreter path takes in production, and it
-            // keeps the payload out of the inline quoting that cmd.exe parses differently
-            // across Windows versions. CI rejects the inline '&exit /b' form that a one line
-            // payload would use.
+            // A command script is the shape the interpreter path takes in production, so covering
+            // it here exercises the same cmd.exe invocation the completer uses for a .cmd shim.
             var builder = new System.Text.StringBuilder("@echo off\r\n");
 
             foreach (var line in expected)
