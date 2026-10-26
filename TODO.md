@@ -721,6 +721,41 @@ The remaining work is (a) reducing the time the background task spends in SQLite
 
 ---
 
+### Flaky Persistence Concurrency Tests
+**Status**: Fixed in the working tree and verified on both platforms; fix not committed
+**Priority**: Was Medium (test reliability; narrow production impact)
+
+**Symptom**: `PersistenceConcurrencyTests` failed intermittently, in isolation as well as under a full suite. Before the fix: 1 failure in 20 runs, 3 in 16, and 7 in 30 with a partial fix applied. `StressTest_100ConcurrentWrites_DatabaseIntegrity` and the `ConcurrentSessions_*` tests all failed at some point. Two exception shapes, both a thread using a SQLite handle that had been closed underneath it:
+
+- `System.ObjectDisposedException: Cannot access a disposed object. Object name: 'SQLitePCL.sqlite3'`, from `sqlite3_changes` inside `SqliteConnection.BeginTransaction` at `SaveArgumentGraph`.
+- `System.ArgumentOutOfRangeException: Specified argument was out of the range of valid values.`, from `sqlite3_prepare_v2` while executing `PRAGMA busy_timeout=5000` or `PRAGMA journal_mode=WAL` during `InitializeDatabase`.
+
+**Two causes, both measured** (probe: 30 iterations x 100 writers, each iteration a fresh database, 3000 manager lifecycles):
+
+1. **Concurrent schema initialization.** Every `PersistenceManager` constructor switched the database to WAL and ran the schema block, so a fresh database was initialized by dozens of threads at once. With everything else already fixed, this shape still produced 17 failures in 3000 lifecycles, all of them inside the two PRAGMAs. Schema initialization is now serialized per database file.
+2. **Pooled connections cleared by another thread.** `Dispose()` called `SqliteConnection.ClearAllPools()`, which closes pooled connections process-wide. On a warm database this was the only observable failure (6 in 2000 with pooling enabled and the clear in place, 3 in 2000 with a private cache, 0 in 2000 with pooling off or the clear disabled).
+
+Handle sharing between connections was ruled out: 20 connections to one database, with and without `Cache=Shared`, produced 20 distinct native handles.
+
+**Fix** (`src/PSCue.Module/PersistenceManager.cs`):
+
+- `InitializeDatabase` now takes a lock from a static per-path dictionary and calls `InitializeDatabaseCore`. There is deliberately no "already initialized" memo: `Clear-PSCueLearning` deletes the database file, so a later manager must still be able to recreate the schema.
+- The connection string sets `Pooling=False`, and `Dispose()` no longer clears the process-wide pool. Each connection closes when its operation ends, so the database file is released without any global action. The `_disposed` field went with the old body.
+- `PersistenceManagerTests.DatabaseFileIsReleasedAfterOperations` covers the property the pool clear existed for: the database file can be deleted once the operations finish. That assertion is only meaningful on Windows, where an open handle blocks deletion.
+
+**Verification after the fix**: 0 failures in 3000 probe lifecycles; 0 in 30 isolated runs of `PersistenceConcurrencyTests` on WSL and 0 in 10 on Windows; 5 consecutive clean full-suite runs on WSL; persistence plus concurrency tests clean on Windows, including the new file-release test.
+
+---
+
+### Wall-Clock Test Assertions Flake Under Load
+**Status**: Known flake, no fix started
+
+The sibling problem to the flaky persistence tests: assertions on elapsed milliseconds. `PCDTests.Performance_LargeDataset_CompletesQuickly` asserts `Stopwatch.ElapsedMilliseconds < 10` and failed once in 5 full-suite runs with the machine otherwise idle. Same class as the Windows CI child-process timeouts that produced a false red build on `ed31b1c`: a hard wall-clock threshold is not stable on shared hardware.
+
+- [ ] Replace the raw threshold with a median or best-of-N budget, raise it to a value that only catches real regressions, or keep the correctness assertion and drop the timing one.
+
+---
+
 ### Tab Completion Spawn Cost (ArgumentCompleter)
 **Status**: Measured on both platforms (Linux/WSL + native Windows); steps 1 and 2 implemented and verified on both; steps 3-5 not started
 **Priority**: High (measured ~2.7s per `git ` Tab press and ~3.1s per `scoop update ` Tab press on Windows, ~50-60x the 50ms target)
