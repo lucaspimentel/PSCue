@@ -48,6 +48,25 @@ public class PersistenceManagerTests : IDisposable
     }
 
     [Fact]
+    public void DatabaseFileIsReleasedAfterOperations()
+    {
+        // Connections are deliberately not pooled so that the database file is released as soon
+        // as an operation ends. With pooling, deleting this file fails on Windows until the pool
+        // is cleared, and clearing the pool process-wide closes connections other threads use.
+        var graph = new ArgumentGraph(maxCommands: 10, maxArgumentsPerCommand: 5, scoreDecayDays: 30);
+        graph.RecordUsage("git", ["status"]);
+        _persistence.SaveArgumentGraph(graph);
+
+        _connection.Dispose();
+        _persistence.Dispose();
+
+        var exception = Record.Exception(() => File.Delete(_testDbPath));
+
+        Assert.Null(exception);
+        Assert.False(File.Exists(_testDbPath));
+    }
+
+    [Fact]
     public void SaveAndLoad_ArgumentGraph_RoundTrip()
     {
         // Arrange

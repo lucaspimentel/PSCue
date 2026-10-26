@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Data;
 using System.IO;
 using System.Linq;
@@ -17,7 +18,9 @@ public class PersistenceManager : IDisposable
 
     private readonly string _dbPath;
     private readonly string _connectionString;
-    private bool _disposed;
+
+    private static readonly ConcurrentDictionary<string, object> InitializationLocks =
+        new(OperatingSystem.IsWindows() ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal);
 
     /// <summary>
     /// Creates a new PersistenceManager.
@@ -42,8 +45,12 @@ public class PersistenceManager : IDisposable
             }
         }
 
-        // Enable WAL mode for better concurrency (multiple readers + one writer)
-        _connectionString = $"Data Source={_dbPath};Mode=ReadWriteCreate;Cache=Shared";
+        // Enable WAL mode for better concurrency (multiple readers + one writer).
+        // Pooling is off on purpose: a pooled connection outlives the operation that opened
+        // it, so releasing the database file (after Remove-Module, or for Clear-PSCueLearning)
+        // needs a process-wide pool clear, and that clear closes connections other threads are
+        // still using. Without pooling, each connection closes when its operation ends.
+        _connectionString = $"Data Source={_dbPath};Mode=ReadWriteCreate;Cache=Shared;Pooling=False";
 
         // Initialize database schema
         InitializeDatabase();
@@ -84,6 +91,20 @@ public class PersistenceManager : IDisposable
     /// Initializes the database schema if it doesn't exist.
     /// </summary>
     private void InitializeDatabase()
+    {
+        // Serialize initialization per database file. Switching a brand new database to WAL and
+        // running the schema block from several managers at once is not safe: it fails with
+        // driver-level exceptions (ArgumentOutOfRangeException / ObjectDisposedException) from
+        // inside the PRAGMAs. There is deliberately no "already initialized" shortcut, because
+        // the database file can be deleted and recreated (Clear-PSCueLearning) and every manager
+        // has to verify the schema it is about to use.
+        lock (InitializationLocks.GetOrAdd(Path.GetFullPath(_dbPath), static _ => new object()))
+        {
+            InitializeDatabaseCore();
+        }
+    }
+
+    private void InitializeDatabaseCore()
     {
         using var connection = CreateConnection();
 
@@ -1165,13 +1186,8 @@ public class PersistenceManager : IDisposable
 
     public void Dispose()
     {
-        if (!_disposed)
-        {
-            // Clear the connection pool to release file handles on the database
-            // and native SQLite DLL. Without this, pooled connections keep handles
-            // open even after Remove-Module.
-            SqliteConnection.ClearAllPools();
-            _disposed = true;
-        }
+        // Nothing to release: connections are not pooled (see the connection string), so each
+        // one closes when its operation ends. Dispose must not clear the process-wide pool,
+        // because that closes connections other threads are still using.
     }
 }
