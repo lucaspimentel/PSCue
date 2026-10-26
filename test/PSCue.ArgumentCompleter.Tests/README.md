@@ -7,9 +7,10 @@ Unit test project for PSCue.ArgumentCompleter using xUnit. Tests all completion 
 ## Test Coverage
 
 - **Command Completions**: Tests for git, gh, az, scoop, winget, wt, chezmoi, and other commands
-- **Dynamic Arguments**: Git branches, scoop packages, and other runtime-generated completions
+- **Dynamic Arguments**: Git branches, scoop packages, and other runtime-generated completions, evaluated once per request so a completion never launches the same children twice
 - **Directory Navigation**: `cd`/`Set-Location` completion behavior
 - **Edge Cases**: Empty inputs, invalid commands, partial matches
+- **Child Processes**: Executable resolution order, argument quoting, stderr isolation, bounded timeout, and the Windows `.cmd` fallback in `CommandProcess`
 - **Performance**: Completion speed and memory usage
 
 ## Test Framework
@@ -19,11 +20,13 @@ xUnit (with `Xunit.SkippableFact` for platform-specific tests)
 ## Dependencies
 
 ### NuGet Packages
-- `Microsoft.NET.Test.Sdk` (17.12.0) - Test SDK
-- `xunit` (2.9.2) - xUnit test framework
-- `xunit.runner.visualstudio` (2.8.2) - Visual Studio test adapter
-- `coverlet.collector` (6.0.2) - Code coverage collector
-- `Xunit.SkippableFact` (1.4.13) - Platform-specific test skipping
+- `Microsoft.NET.Test.Sdk` - Test SDK
+- `xunit` - xUnit test framework
+- `xunit.runner.visualstudio` - Visual Studio test adapter
+- `coverlet.collector` - Code coverage collector
+- `Xunit.SkippableFact` - Platform-specific test skipping
+
+See `PSCue.ArgumentCompleter.Tests.csproj` for exact pinned versions.
 
 ### Internal Dependencies
 - `PSCue.ArgumentCompleter` - The project being tested

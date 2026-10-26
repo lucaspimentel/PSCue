@@ -20,7 +20,7 @@ Unit test project for PSCue.Module using xUnit. Tests all module functionality i
 
 ## Test Framework
 
-xUnit
+xUnit v3
 
 ## Test Categories
 
@@ -35,11 +35,13 @@ xUnit
 ## Dependencies
 
 ### NuGet Packages
-- `Microsoft.NET.Test.Sdk` (17.12.0) - Test SDK
-- `xunit` (2.9.2) - xUnit test framework
-- `xunit.runner.visualstudio` (2.8.2) - Visual Studio test adapter
-- `coverlet.collector` (6.0.2) - Code coverage collector
-- `Microsoft.PowerShell.SDK` (7.5.0) - PowerShell SDK for testing CommandPredictor
+- `Microsoft.NET.Test.Sdk` - Test SDK
+- `xunit.v3` - xUnit test framework
+- `xunit.runner.visualstudio` - Visual Studio test adapter
+- `coverlet.collector` - Code coverage collector
+- `Microsoft.PowerShell.SDK` - PowerShell SDK for testing CommandPredictor
+
+See `PSCue.Module.Tests.csproj` for exact pinned versions.
 
 ### Internal Dependencies
 - `PSCue.Module` - The project being tested
