@@ -2,12 +2,14 @@
 
 ## Description
 
-Performance benchmark suite using BenchmarkDotNet to measure and optimize PSCue performance. Tracks completion speed, memory usage, and learning system performance to ensure performance targets are met.
+Home for BenchmarkDotNet benchmarks of PSCue's shared completion and learning logic.
+
+The project currently defines **no benchmarks**: `Program.cs` only invokes `BenchmarkSwitcher`, and the assembly contains no `[Benchmark]` types. The last benchmark classes were removed with the IPC layer in `e76b6dd`. Running the project prints `No [Benchmark] attribute found on 'PSCue.Benchmarks' assembly.` followed by a target summary that still lists the removed IPC layer.
 
 ## Dependencies
 
 ### NuGet Packages
-- `BenchmarkDotNet` (0.14.0) - Benchmarking framework
+- `BenchmarkDotNet` - Benchmarking framework
 
 ### Internal Dependencies
 - `PSCue.ArgumentCompleter` - ArgumentCompleter benchmarks
@@ -20,15 +22,17 @@ None - this is a benchmark project.
 
 ## Performance Targets
 
-| Scenario | Target | Critical? |
-|----------|--------|-----------|
-| ArgumentCompleter startup | <10ms | ✅ Yes - NativeAOT startup time |
-| Tab completion (no dynamic args) | <50ms | ✅ Yes - user-facing latency |
-| Tab completion (with dynamic args) | <50ms | ✅ Yes - includes git branches, etc. |
-| Learning feedback | <5ms | ✅ Yes - runs after every command |
-| ML prediction | <20ms | ✅ Yes - PowerShell prediction timeout |
-| PCD tab completion | <10ms | ✅ Yes - user-facing latency |
-| PCD best-match navigation | <50ms | ✅ Yes - directory search |
+Targets the project is meant to keep an eye on. None of them are currently verified by this
+project.
+
+| Scenario | Target |
+|----------|--------|
+| Tab completion (no dynamic args) | <50ms |
+| Tab completion (with dynamic args) | <50ms |
+| Learning feedback | <5ms |
+| ML prediction | <20ms (PowerShell prediction timeout) |
+| PCD tab completion | <10ms |
+| PCD best-match navigation | <50ms |
 
 ## Running Benchmarks
 
@@ -40,70 +44,37 @@ dotnet run -c Release --project benchmark/PSCue.Benchmarks/
 dotnet run -c Release --project benchmark/PSCue.Benchmarks/ --filter *ArgumentCompleter*
 ```
 
-These benchmarks run **in process** against the shared library, so they cannot observe
-process creation, PowerShell startup, or child-process launches. For the fresh-process cost
-of the `pscue-completer` executable itself, use
+Benchmarks in this project run **in process** against the shared library, so they cannot
+observe process creation, PowerShell startup, or child-process launches. For the
+fresh-process cost of the `pscue-completer` executable itself, use
 [`benchmark/spawn-cost`](../spawn-cost/README.md).
 
 ## Benchmark Scenarios
 
-### 1. ArgumentCompleter Startup
-Measures NativeAOT executable startup time. Critical for Tab completion responsiveness.
+None are implemented. The scenarios this project would cover, all in process against the
+shared library:
 
-**What it measures:**
-- Process creation overhead
-- Module initialization
-- First completion generation
-- Should complete in <10ms
+1. **Tab completion, static arguments** - command parsing, static matching, result formatting
+2. **Tab completion, dynamic arguments** - retrieval cost and caching for git branches, scoop packages
+3. **Learning feedback** - `FeedbackProvider` cost after a command runs
+4. **ML prediction** - `CommandPredictor` suggestion generation against the 20ms PowerShell timeout
 
-### 2. Tab Completion (Static Args)
-Measures completion generation for commands with static arguments (no dynamic data).
-
-**What it measures:**
-- Command parsing
-- Static completion matching
-- Result formatting
-- Should complete in <50ms
-
-### 3. Tab Completion (Dynamic Args)
-Measures completion with dynamic arguments (git branches, scoop packages, etc.).
-
-**What it measures:**
-- Dynamic data retrieval (git branch list, etc.)
-- Caching effectiveness
-- Total completion time
-- Should complete in <50ms
-
-### 4. Learning Feedback
-Measures FeedbackProvider performance after command execution.
-
-**What it measures:**
-- Command history updates
-- ArgumentGraph updates
-- Privacy filtering
-- Should complete in <5ms
-
-### 5. ML Prediction
-Measures CommandPredictor inline suggestion generation.
-
-**What it measures:**
-- N-gram sequence lookup
-- Workflow prediction
-- Generic learning suggestions
-- Should complete in <20ms (PowerShell timeout)
+Process creation and child-process launches are deliberately out of reach here; measure those
+with [`benchmark/spawn-cost`](../spawn-cost/README.md).
 
 ## Interpreting Results
 
-Example output:
+BenchmarkDotNet prints one row per benchmark method. Example of the shape of that output:
 ```
-| Method                          | Mean      | Error    | StdDev   | Gen0   | Allocated |
-|-------------------------------- |----------:|---------:|---------:|-------:|----------:|
-| ArgumentCompleter_Startup       |   8.23 ms | 0.045 ms | 0.042 ms |      - |    1.2 KB |
-| TabCompletion_Static            |   2.34 ms | 0.012 ms | 0.011 ms | 10.000 |   15.8 KB |
-| TabCompletion_Dynamic           |  35.67 ms | 0.167 ms | 0.156 ms | 15.000 |   42.3 KB |
-| LearningFeedback                |   1.12 ms | 0.008 ms | 0.007 ms |  5.000 |    8.4 KB |
-| MLPrediction                    |  12.45 ms | 0.089 ms | 0.083 ms |  8.000 |   24.1 KB |
+| Method                  | Mean     | Error    | StdDev   | Gen0   | Allocated |
+|------------------------ |---------:|---------:|---------:|-------:|----------:|
+| TabCompletion_Static    | 2.34 ms  | 0.012 ms | 0.011 ms | 10.000 |   15.8 KB |
+| TabCompletion_Dynamic   | 35.67 ms | 0.167 ms | 0.156 ms | 15.000 |   42.3 KB |
+| LearningFeedback        | 1.12 ms  | 0.008 ms | 0.007 ms |  5.000 |    8.4 KB |
+| MLPrediction            | 12.45 ms | 0.089 ms | 0.083 ms |  8.000 |   24.1 KB |
 ```
+
+These numbers are illustrative, not measurements from this repository.
 
 **Key metrics:**
 - **Mean**: Average execution time - must meet targets
@@ -113,20 +84,19 @@ Example output:
 ## Current Architecture
 
 PSCue uses a dual-component design:
-- **ArgumentCompleter** (NativeAOT exe): Sub-10ms startup for Tab completion
+- **ArgumentCompleter** (NativeAOT exe): fresh process per Tab press, computes completions locally
 - **Module** (managed DLL): Long-lived process for predictions and learning
-- **No IPC**: ArgumentCompleter computes completions locally (fast enough)
+- **No IPC**: ArgumentCompleter computes completions locally
 - **SQLite**: Cross-session persistence with concurrent access support
 
 **Key design decisions:**
 - Tab completion always computes locally (no IPC overhead)
-- Dynamic arguments (git branches, etc.) computed on every Tab press
+- Dynamic arguments (git branches, etc.) come from child processes on every Tab press; their cost is measured by [`benchmark/spawn-cost`](../spawn-cost/README.md)
 - Learning feedback runs after every command (sub-5ms target)
-- ML predictions cached for 20ms PowerShell timeout
+- ML predictions cached for the 20ms PowerShell timeout
 
 ## Notes
 
 - Benchmarks should be run on representative hardware
 - Dynamic arguments (git branches) will vary by repository size
 - Results vary by machine - focus on relative performance vs targets
-- NativeAOT provides consistent startup times across runs
