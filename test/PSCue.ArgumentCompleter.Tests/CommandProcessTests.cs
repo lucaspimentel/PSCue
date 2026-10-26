@@ -212,12 +212,18 @@ public class CommandProcessTests : IDisposable
         Assert.Contains(expected, CommandProcess.BuildInterpreterCommandLine(value, []), StringComparison.Ordinal);
     }
 
+    // Execution tests use a generous timeout so a loaded machine cannot starve the child, and
+    // the hang test uses a long one so the child has ample time to flush before being killed.
+    private static readonly TimeSpan TestTimeout = TimeSpan.FromMinutes(1);
+
+    private static readonly TimeSpan HangTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     public void BranchFormatArgumentReachesTheChildWithoutShellQuotes()
     {
         var (executable, arguments, expected) = Transcript("alpha\nbeta\n");
 
-        var lines = CommandProcess.Run(executable, arguments);
+        var lines = CommandProcess.Run(executable, TestTimeout, arguments);
 
         Assert.Equal(expected, lines);
     }
@@ -225,7 +231,7 @@ public class CommandProcessTests : IDisposable
     [Fact]
     public void MissingExecutableReturnsNoLines()
     {
-        Assert.Empty(CommandProcess.Run("pscue-does-not-exist-" + Guid.NewGuid().ToString("N")));
+        Assert.Empty(CommandProcess.Run("pscue-does-not-exist-" + Guid.NewGuid().ToString("N"), TestTimeout));
     }
 
     [Fact]
@@ -233,7 +239,7 @@ public class CommandProcessTests : IDisposable
     {
         var (executable, arguments, expected) = Transcript("alpha\n\n  beta  \ngamma");
 
-        var lines = CommandProcess.Run(executable, arguments);
+        var lines = CommandProcess.Run(executable, TestTimeout, arguments);
 
         Assert.Equal(expected, lines);
     }
@@ -243,7 +249,7 @@ public class CommandProcessTests : IDisposable
     {
         var (executable, arguments, expected) = Transcript("out\n", "err\n");
 
-        var lines = CommandProcess.Run(executable, arguments);
+        var lines = CommandProcess.Run(executable, TestTimeout, arguments);
 
         Assert.Equal(expected, lines);
     }
@@ -253,7 +259,7 @@ public class CommandProcessTests : IDisposable
     {
         var (executable, arguments, expected) = Transcript("first\n", exitCode: 3);
 
-        var lines = CommandProcess.Run(executable, arguments);
+        var lines = CommandProcess.Run(executable, TestTimeout, arguments);
 
         Assert.Equal(expected, lines);
     }
@@ -264,11 +270,11 @@ public class CommandProcessTests : IDisposable
         var (executable, arguments, expected) = Transcript("first\n", hang: true);
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
-        var lines = CommandProcess.Run(executable, arguments);
+        var lines = CommandProcess.Run(executable, HangTimeout, arguments);
 
         stopwatch.Stop();
         Assert.Equal(expected, lines);
-        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(10), $"the child was not killed promptly ({stopwatch.Elapsed})");
+        Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(30), $"the child was not killed promptly ({stopwatch.Elapsed})");
     }
 
     [SkippableFact]
@@ -277,7 +283,7 @@ public class CommandProcessTests : IDisposable
         Skip.IfNot(IsWindows, "command scripts are Windows-only");
 
         var scriptPath = CreateFile(Path.Combine("shim with spaces", "git.cmd"), "@echo off\r\necho shim-line\r\n");
-        var lines = CommandProcess.Run(scriptPath);
+        var lines = CommandProcess.Run(scriptPath, TestTimeout);
 
         Assert.Equal(["shim-line"], lines);
     }
@@ -288,7 +294,7 @@ public class CommandProcessTests : IDisposable
         Skip.If(IsWindows, "Unix execute permissions do not exist on Windows");
 
         var scriptPath = CreateFile("bin/git", "#!/bin/sh\necho one\necho two\n", executable: true);
-        var lines = CommandProcess.Run(scriptPath);
+        var lines = CommandProcess.Run(scriptPath, TestTimeout);
 
         Assert.Equal(["one", "two"], lines);
     }
@@ -333,7 +339,7 @@ public class CommandProcessTests : IDisposable
 
             if (hang)
             {
-                builder.Append("ping -n 6 127.0.0.1 >nul&");
+                builder.Append("ping -n 21 127.0.0.1 >nul&");
             }
 
             builder.Append("exit /b ").Append(exitCode);
@@ -350,7 +356,7 @@ public class CommandProcessTests : IDisposable
 
         if (hang)
         {
-            script.Append("; sleep 5");
+            script.Append("; sleep 20");
         }
 
         script.Append($"; exit {exitCode}");

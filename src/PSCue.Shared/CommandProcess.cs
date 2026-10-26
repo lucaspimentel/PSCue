@@ -12,8 +12,6 @@ internal static class CommandProcess
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(2);
 
-    private static readonly int TimeoutMilliseconds = (int)Timeout.TotalMilliseconds;
-
     // Bounds cleanup of the output readers after the child has exited or been killed.
     private const int ReaderShutdownMilliseconds = 500;
 
@@ -22,12 +20,16 @@ internal static class CommandProcess
     // cmd.exe treats these as syntax, so arguments containing them are wrapped in quotes.
     private const string CommandInterpreterSyntaxCharacters = "&()^<>|\"%";
 
+    public static IReadOnlyList<string> Run(string executable, params string[] arguments) =>
+        Run(executable, Timeout, arguments);
+
     /// <summary>
     /// Runs <paramref name="executable"/> with <paramref name="arguments"/> and returns the
-    /// stdout lines it produced. A missing executable, a launch failure, a non-zero exit, or a
-    /// child that outlives the timeout all yield an empty or partial list instead of throwing.
+    /// stdout lines it produced, giving up after <paramref name="timeout"/>. A missing
+    /// executable, a launch failure, a non-zero exit, or a child that outlives the timeout all
+    /// yield an empty or partial list instead of throwing.
     /// </summary>
-    public static IReadOnlyList<string> Run(string executable, params string[] arguments)
+    public static IReadOnlyList<string> Run(string executable, TimeSpan timeout, params string[] arguments)
     {
         try
         {
@@ -43,7 +45,7 @@ internal static class CommandProcess
                 return [];
             }
 
-            return StartAndRead(resolved, arguments);
+            return StartAndRead(resolved, timeout, arguments);
         }
         catch (Exception ex)
         {
@@ -126,7 +128,7 @@ internal static class CommandProcess
         return builder.Append('"').ToString();
     }
 
-    private static IReadOnlyList<string> StartAndRead(string resolved, string[] arguments)
+    private static IReadOnlyList<string> StartAndRead(string resolved, TimeSpan timeout, string[] arguments)
     {
         using var process = new Process { StartInfo = CreateStartInfo(resolved, arguments) };
 
@@ -138,16 +140,16 @@ internal static class CommandProcess
 
         var gate = new object();
         var lines = new List<string>();
-        using var timeout = new CancellationTokenSource(Timeout);
+        using var cancellation = new CancellationTokenSource(timeout);
 
-        var stdout = ReadLinesAsync(process.StandardOutput, lines, gate, timeout.Token);
-        var stderr = ReadToEndAsync(process.StandardError, timeout.Token);
+        var stdout = ReadLinesAsync(process.StandardOutput, lines, gate, cancellation.Token);
+        var stderr = ReadToEndAsync(process.StandardError, cancellation.Token);
 
         try
         {
-            if (!process.WaitForExit(TimeoutMilliseconds))
+            if (!process.WaitForExit((int)timeout.TotalMilliseconds))
             {
-                Logger.Write($"{resolved} did not finish within {Timeout.TotalSeconds} seconds and was killed");
+                Logger.Write($"{resolved} did not finish within {timeout.TotalSeconds} seconds and was killed");
                 TryKill(process);
             }
         }
