@@ -1,5 +1,27 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Add `pi` CLI completions
+- Add `wt` completions for worktrunk on Linux and macOS, keeping Windows Terminal completions on Windows
+
+### Changed
+- Launch `git` directly instead of through a PowerShell wrapper, cutting `git ` Tab completion on Windows from about 2.7s to 270ms
+- Read installed Scoop packages from the `apps` folder under `SCOOP` and `SCOOP_GLOBAL` instead of running `scoop list`, cutting `scoop update ` Tab completion on Windows from about 1.6s to 90ms
+- Evaluate a command's dynamic arguments once per completion request instead of twice
+- Fetch `git`'s three command list queries at the same time instead of one after another
+- Wait up to 5 seconds for an external lookup instead of 2, so a loaded machine no longer drops suggestions early
+- Bump Microsoft.Data.Sqlite to 10.0.11, System.Security.Cryptography.Xml to 10.0.11, and Microsoft.PowerShell.SDK to 7.5.10
+- Bump test packages to Microsoft.NET.Test.Sdk 18.9.0, coverlet.collector 10.0.1, xunit.runner.visualstudio 4.0.0, and Xunit.SkippableFact 1.5.85
+
+### Fixed
+- Compare paths case-sensitively on Linux and macOS
+- Keep output from a child process that arrives after it exits, so suggestions are no longer dropped on a busy machine
+- Fix failures when several PowerShell sessions open the learning database at the same time
+- Make `Clear-PSCueLearning` honor `PSCUE_DATA_DIR`, so it deletes the database the module is actually using
+- Suggest `scoop` itself among installed packages, which the previous `scoop list` lookup omitted
+
 ## [0.21.0] - 2026-04-22
 
 ### Changed
