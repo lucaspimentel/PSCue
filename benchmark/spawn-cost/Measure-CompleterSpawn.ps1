@@ -6,8 +6,9 @@ cost to child-process spawns (pwsh) versus in-process work.
 
 .DESCRIPTION
 The ArgumentCompleter is a NativeAOT console app spawned fresh by PowerShell on every Tab
-press, and it launches child processes for dynamic completions. Git now launches directly,
-while scoop still runs through Helpers.ExecuteCommand, which pays a full pwsh startup.
+press, and it launches child processes for dynamic completions. Git and Scoop now both resolve
+their dynamic arguments without a `pwsh` wrapper: git launches directly, and scoop reads its
+apps folders from disk.
 
 This harness measures three things, without modifying any production source:
 
@@ -15,8 +16,8 @@ This harness measures three things, without modifying any production source:
   2. Spawn count per scenario, by putting logging shims for `git`/`scoop` on PATH and
      counting invocations.
   3. Reference cost of each distinct command when launched through
-     `pwsh -NoProfile -NonInteractive -Command "<cmd>"`, which is the scoop path and the
-     former git path, plus a bare startup probe.
+     `pwsh -NoProfile -NonInteractive -Command "<cmd>"`, which is the former fat path, plus a
+     bare startup probe.
 
 .PARAMETER CompleterPath
 Path to the published pscue-completer executable. Auto-detected when omitted.
@@ -167,7 +168,7 @@ function Get-Scenarios {
         @{ Name = 'gitwt-branches';       Line = 'git-wt switch ';             Word = '';                  Requires = 'git';   Purpose = 'Worktrunk branch lookup, distinguishing the GitWt caller.' }
         @{ Name = 'gitwt-param-branches'; Line = 'git-wt switch --base ';      Word = '';                  Requires = 'git';   Purpose = 'Parameter-value dynamic lookup (CommandParameter path).' }
         @{ Name = 'scoop-root';           Line = 'scoop ';                     Word = '';                  Requires = 'scoop'; Purpose = 'Scoop root: no package lookup expected.' }
-        @{ Name = 'scoop-packages';       Line = 'scoop update ';              Word = '';                  Requires = 'scoop'; Purpose = 'Triggers scoop list (does not run an update).' }
+        @{ Name = 'scoop-packages';       Line = 'scoop update ';              Word = '';                  Requires = 'scoop'; Purpose = 'Package lookup from the apps folders (no spawn expected).' }
         @{ Name = 'cd-directory';         Line = 'cd ';                        Word = '';                  Requires = $null;   Purpose = 'Filesystem enumeration for directory completion.' }
     )
 
@@ -188,13 +189,17 @@ function Get-Scenarios {
 
 function Get-SpawnCommands {
     <#
-      The exact child commands Helpers.ExecuteCommand runs, mirrored from the factories:
+      The child commands the completion factories run:
         GitCommand.GetAllGitCommands   -> git --list-cmds=main,nohelpers | alias | others
         GitCommand.GetBranches         -> git branch --format='%(refname:short)'
         GitCommand.GetRemotes          -> git remote
         GitCommand.GetTags             -> git tag
         GitWtCommand.GetBranches       -> git branch --format='%(refname:short)'
-        ScoopCommand.GetInstalledPackages -> scoop list
+
+      The `scoop list` row is a reference cost, not a command the completer runs any more:
+      ScoopCommand.GetInstalledPackages reads the SCOOP and SCOOP_GLOBAL apps folders. It stays
+      in the table because the shim has to be able to recognize the command, so a regression
+      that reintroduces the launch is counted rather than missed.
     #>
     return @(
         [pscustomobject]@{ Owner = 'git-root';      Command = 'git --list-cmds=main,nohelpers';      Label = 'git main commands'; Requires = 'git' }
@@ -731,6 +736,16 @@ $baseEnvironment = @{
     PSCUE_DEBUG    = '0'
 }
 
+# Phase 1 runs against the machine's real Scoop installation so that identical stdout before and
+# after a change means the completions themselves did not change. Phase 2 pins SCOOP and
+# SCOOP_GLOBAL to an empty fixture instead, so a spawn count cannot depend on what happens to be
+# installed. The empty fixture is the point: any scoop process the child launches is a spawn that
+# should no longer happen.
+$scoopFixtureRoot = Join-Path $OutputDirectory 'scoop-fixture'
+$scoopGlobalFixtureRoot = Join-Path $OutputDirectory 'scoop-global-fixture'
+[void](New-Item -ItemType Directory -Path (Join-Path $scoopFixtureRoot 'apps') -Force)
+[void](New-Item -ItemType Directory -Path $scoopGlobalFixtureRoot -Force)
+
 # ---- Phase 1: wall time per scenario ---------------------------------------
 Write-Host ''
 Write-Host "Measuring wall time ($WarmupCount warmup + $RepeatCount measured per scenario) ..."
@@ -809,6 +824,8 @@ if (-not $SkipSpawnProbe) {
             PSCUE_DATA_DIR = $dataDir
             PSCUE_DEBUG    = '0'
             PATH           = $shimmedPath
+            SCOOP          = $scoopFixtureRoot
+            SCOOP_GLOBAL   = $scoopGlobalFixtureRoot
         }
 
         $probe = Invoke-Probe -FilePath $CompleterPath -Arguments $arguments `
@@ -963,7 +980,7 @@ foreach ($row in $summaryRows) {
 $report.Add('')
 $report.Add('## Standalone spawn cost')
 $report.Add('')
-$report.Add('Each probe runs `pwsh -NoProfile -NonInteractive -Command "<command>"`, the form `Helpers.ExecuteCommand` uses. Git no longer launches this way, so its probes are reference costs rather than the current git launch path.')
+$report.Add('Each probe runs `pwsh -NoProfile -NonInteractive -Command "<command>"`, the former wrapped launch path. Nothing in the completer launches children this way any more, so every row is a reference cost rather than a current path.')
 $report.Add('')
 $report.Add('| Probe | Command | Median ms | Min ms | Max ms | N |')
 $report.Add('| --- | --- | --- | --- | --- | --- |')
@@ -971,7 +988,7 @@ foreach ($row in $spawnCostRows) {
     $report.Add("| $($row.Label) | `'$($row.Command)`' | $(Format-MillisecondsOrNull $row.MedianMs) | $(Format-MillisecondsOrNull $row.MinMs) | $(Format-MillisecondsOrNull $row.MaxMs) | $($row.Runs) |")
 }
 $report.Add('')
-$report.Add('These probes measure the PowerShell-wrapped form. Git now launches directly, so its rows are reference costs for the old path; only scoop still uses the wrapper.')
+$report.Add('These probes measure the PowerShell-wrapped form. Git now launches directly and scoop reads the apps folders, so every row is a reference cost for a path the completer no longer takes.')
 $report.Add('')
 $report.Add('## Attribution')
 $report.Add('')
