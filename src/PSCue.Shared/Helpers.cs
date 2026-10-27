@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using PSCue.Shared.Completions;
 
@@ -51,33 +50,5 @@ public static class Helpers
                 result.Add(completion);
             }
         }
-    }
-
-    public static IEnumerable<string> ExecuteCommand(string executable, string arguments = "")
-    {
-        using var process = new Process();
-
-        // Use PowerShell to execute commands so they can be found in PATH
-        // This is necessary for commands like 'scoop' which are batch files/shims
-        var pwsh = OperatingSystem.IsWindows() ? "pwsh.exe" : "pwsh";
-        var command = string.IsNullOrEmpty(arguments) ? executable : $"{executable} {arguments}";
-
-        process.StartInfo = new ProcessStartInfo
-        {
-            FileName = pwsh,
-            Arguments = $"-NoProfile -NonInteractive -Command \"{command}\"",
-            RedirectStandardOutput = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-        };
-
-        process.Start();
-
-        while (process.StandardOutput.ReadLine() is { } line)
-        {
-            yield return line;
-        }
-
-        process.WaitForExit();
     }
 }

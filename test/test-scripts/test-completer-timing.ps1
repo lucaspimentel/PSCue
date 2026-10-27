@@ -92,6 +92,10 @@ if ($CompleterPath -and (Test-Path -Path $CompleterPath -PathType Leaf)) {
                 'git-tags'              = 1
                 'gitwt-branches'        = 1
                 'gitwt-param-branches'  = 1
+                # Scoop packages come from the apps folders, so nothing is launched. The scenario
+                # is absent on hosts without scoop, and the guard below tolerates that.
+                'scoop-root'            = 0
+                'scoop-packages'        = 0
             }
             foreach ($name in $expectedCounts.Keys) {
                 $row = $counts | Where-Object Scenario -eq $name | Select-Object -First 1

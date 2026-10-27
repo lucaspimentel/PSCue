@@ -41,7 +41,15 @@ namespace PSCue.Shared.KnownCompletions;
 
 public static class ScoopCommand
 {
-    public static Command Create()
+    private const string AppsFolderName = "apps";
+    private const string DefaultRootFolderName = "scoop";
+
+    private const string RootVariableName = "SCOOP";
+    private const string GlobalRootVariableName = "SCOOP_GLOBAL";
+
+    public static Command Create() => Create(GetInstalledPackages);
+
+    internal static Command Create(DynamicArgumentsFactory installedPackages)
     {
         return new Command("scoop")
         {
@@ -54,7 +62,7 @@ public static class ScoopCommand
                 new("checkup", "Check for potential problems"),
                 new("cleanup", "Cleanup apps by removing old versions")
                 {
-                    DynamicArguments = GetInstalledPackages
+                    DynamicArguments = installedPackages
                 },
                 new("config", "Get or set configuration values"),
                 new("create", "Create a custom app manifest"),
@@ -64,26 +72,26 @@ public static class ScoopCommand
                 new("help", "Show help for a command"),
                 new("hold", "Hold an app to disable updates")
                 {
-                    DynamicArguments = GetInstalledPackages
+                    DynamicArguments = installedPackages
                 },
                 new("home", "Opens the app homepage")
                 {
-                    DynamicArguments = GetInstalledPackages
+                    DynamicArguments = installedPackages
                 },
                 new("import", "Imports apps, buckets and configs from a Scoopfile in JSON format"),
                 new("info", "Display information about an app")
                 {
-                    DynamicArguments = GetInstalledPackages
+                    DynamicArguments = installedPackages
                 },
                 new("install", "Install apps"),
                 new("list", "List installed apps"),
                 new("prefix", "Returns the path to the specified app")
                 {
-                    DynamicArguments = GetInstalledPackages
+                    DynamicArguments = installedPackages
                 },
                 new("reset", "Reset an app to resolve conflicts")
                 {
-                    DynamicArguments = GetInstalledPackages
+                    DynamicArguments = installedPackages
                 },
                 new("search", "Search available apps"),
                 new("shim", "Manipulate Scoop shims"),
@@ -96,16 +104,16 @@ public static class ScoopCommand
                 },
                 new("unhold", "Unhold an app to enable updates")
                 {
-                    DynamicArguments = GetInstalledPackages
+                    DynamicArguments = installedPackages
                 },
                 new("uninstall", "Uninstall an app")
                 {
-                    DynamicArguments = GetInstalledPackages
+                    DynamicArguments = installedPackages
                 },
                 new("update", "Update apps, or Scoop itself")
                 {
                     Parameters = [new("*", "Update all apps")],
-                    DynamicArguments = GetInstalledPackages
+                    DynamicArguments = installedPackages
                 },
                 new("virustotal", "Look for app's hash or url on virustotal.com"),
                 new("which", "Locate a shim/executable (similar to 'which' on Linux)")
@@ -113,17 +121,60 @@ public static class ScoopCommand
         };
     }
 
-    private static IEnumerable<DynamicArgument> GetInstalledPackages()
+    // Reading the apps folder directly is what keeps this lookup spawn-free. `scoop` is a
+    // PowerShell script shim, so asking it to list packages costs a full pwsh startup, and
+    // one-shot completion cannot afford that on every Tab press.
+    private static IEnumerable<DynamicArgument> GetInstalledPackages() =>
+        GetInstalledPackages(GetScoopRoot(), GetScoopGlobalRoot());
+
+    internal static IEnumerable<DynamicArgument> GetInstalledPackages(string? root, string? globalRoot)
     {
-        foreach (var line in Helpers.ExecuteCommand("scoop", "list"))
+        var packages = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        AddPackages(packages, root);
+        AddPackages(packages, globalRoot);
+
+        return packages.Select(name => new DynamicArgument(name));
+    }
+
+    private static void AddPackages(SortedSet<string> packages, string? root)
+    {
+        if (string.IsNullOrWhiteSpace(root))
         {
-            if (!string.IsNullOrWhiteSpace(line) &&
-                !line.StartsWith("Installed apps:", StringComparison.Ordinal) &&
-                !line.StartsWith("\e[32;1m", StringComparison.Ordinal))
+            return;
+        }
+
+        var appsDirectory = Path.Combine(root, AppsFolderName);
+        if (!Directory.Exists(appsDirectory))
+        {
+            return;
+        }
+
+        try
+        {
+            foreach (var directory in Directory.EnumerateDirectories(appsDirectory))
             {
-                var index = line.IndexOf(' ');
-                yield return new DynamicArgument(index == -1 ? line : line[..index]);
+                var name = Path.GetFileName(directory);
+                if (!string.IsNullOrEmpty(name))
+                {
+                    packages.Add(name);
+                }
             }
         }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // A package folder we cannot read is not worth failing the whole completion for.
+            Logger.Write($"Could not read '{appsDirectory}': {exception.Message}");
+        }
     }
+
+    internal static string? GetScoopRoot() =>
+        ResolveRoot(Environment.GetEnvironmentVariable(RootVariableName), Environment.GetFolderPath(Environment.SpecialFolder.UserProfile));
+
+    internal static string? GetScoopGlobalRoot() =>
+        ResolveRoot(Environment.GetEnvironmentVariable(GlobalRootVariableName), Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData));
+
+    internal static string? ResolveRoot(string? rootVariable, string? defaultBaseDirectory) =>
+        !string.IsNullOrWhiteSpace(rootVariable) ? rootVariable
+        : string.IsNullOrWhiteSpace(defaultBaseDirectory) ? null
+        : Path.Combine(defaultBaseDirectory, DefaultRootFolderName);
 }

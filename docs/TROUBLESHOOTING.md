@@ -151,7 +151,7 @@ This removes the SQLite database files directly from:
 **Problem**: Tab completion takes longer than expected.
 
 **Common Causes**:
-1. **Dynamic arguments**: Completing something like `git checkout ` launches `git` to list branches, and `scoop update ` launches `scoop`. Every child process costs one PowerShell or git startup, and on Windows that is hundreds of milliseconds each
+1. **Dynamic arguments**: Completing something like `git checkout ` launches `git` to list branches. Every child process costs one git startup, and on Windows that is hundreds of milliseconds each. `scoop update ` reads the apps folders from disk instead of launching anything
 2. **Network drives**: Accessing network paths can be slow
 3. **Large directory trees**: Recursive search with deep hierarchies
 4. **Many learned entries**: Thousands of learned arguments
@@ -189,10 +189,12 @@ $env:PSCUE_MAX_ARGS_PER_CMD = "50"      # Default: 100
 
 **Problem**: `git checkout ` or `scoop update ` completes without suggestions, or only after a pause.
 
-**Cause**: Dynamic arguments come from child processes. If the executable cannot be found on `PATH`, cannot be started, does not finish within its timeout, or simply prints nothing, the completion returns an empty list instead of failing. `git branch` outside a repository is the common benign case: the lookup runs, finds nothing, and the completion stays empty. This behavior is deliberate: a completion must never block or throw. On a heavily loaded machine a child that would normally succeed can also exceed the timeout.
+**Cause**: Dynamic arguments come from child processes or from a folder listing. If the executable cannot be found on `PATH`, cannot be started, does not finish within its timeout, or simply prints nothing, the completion returns an empty list instead of failing. `git branch` outside a repository is the common benign case: the lookup runs, finds nothing, and the completion stays empty. This behavior is deliberate: a completion must never block or throw. On a heavily loaded machine a child that would normally succeed can also exceed the timeout.
+
+Scoop packages have no child process to blame: they come from the `apps` folders under the local root (`SCOOP`, default `%USERPROFILE%\scoop`) and the global root (`SCOOP_GLOBAL`, default `%ProgramData%\scoop`). An empty suggestion list there means one of those folders is missing or holds no package directories, and no fallback to `scoop list` runs.
 
 **Solutions**:
-1. Confirm the command works by hand: `git branch --format="%(refname:short)"`, `scoop list`
+1. Confirm the command works by hand: `git branch --format="%(refname:short)"`; for scoop packages compare the folder listing (`Get-ChildItem (Join-Path $env:SCOOP 'apps') -Directory` when `SCOOP` is set, `$HOME\scoop\apps` otherwise) against `scoop list`
 2. Look for the recorded reason by setting `PSCUE_DEBUG=1`, which appends to `log.txt` in the PSCue data directory (`%LOCALAPPDATA%\PSCue` on Windows, `~/.local/share/PSCue` on Linux, or `$PSCUE_DATA_DIR`). A child that cannot be started, times out, or writes to stderr is reported there
 3. The spawn-count phase of the harness shows how many children a scenario actually launched, which separates "the lookup never ran" from "the lookup ran and produced nothing"
 

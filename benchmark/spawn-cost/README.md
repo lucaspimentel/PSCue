@@ -9,11 +9,11 @@ spawns on every Tab press, and attributes that cost to child-process launches.
 completion scenarios launch child processes, and the cost of doing so is invisible to
 in-process benchmarking, so it needs its own measurement.
 
-Git lookups run `git` directly through `CommandProcess` (`src/PSCue.Shared/CommandProcess.cs`),
-which resolves the executable against `PATH` and starts the image with no shell in between.
-Scoop still goes through `Helpers.ExecuteCommand` (`src/PSCue.Shared/Helpers.cs:56`), which
-starts a full `pwsh -NoProfile -NonInteractive` per call for a shim that is itself a `.ps1`
-script, so one scoop lookup pays PowerShell startup twice.
+No completion scenario launches a child process through a shell any more. Git lookups run `git`
+directly through `CommandProcess` (`src/PSCue.Shared/CommandProcess.cs`), which resolves the
+executable against `PATH` and starts the image with no shell in between, and the scoop package
+lookup reads the `apps` folders under `SCOOP` and `SCOOP_GLOBAL` instead of launching `scoop`,
+which is a `.ps1` shim and therefore cost a full PowerShell startup per lookup.
 
 `benchmark/PSCue.Benchmarks` uses BenchmarkDotNet against the shared library **in process**.
 It cannot see process creation, PowerShell startup, or child-process launches. This harness
@@ -191,15 +191,15 @@ comparing spawn counts and `StdoutHash` across the whole scenario matrix:
   Spawn counts stay at 3, one per category. On Windows this took `git ` from ~590 ms to
   ~270 ms, `git pscue-no-match` from ~576 ms to ~326 ms, and `git` (no trailing space) from
   ~604 ms to ~340 ms; the single-lookup and spawn-free scenarios did not move beyond noise.
+- **Scoop packages are read from the apps folders** (`ScoopCommand`), so `scoop update `
+  launches nothing. The lookup enumerates `SCOOP`\`apps` and `SCOOP_GLOBAL`\`apps`, falling
+  back to `%USERPROFILE%\scoop` and `%ProgramData%\scoop` when those variables are unset, and
+  returns an empty list when a folder is missing. On Windows this removed the last spawn from
+  a Tab press that previously took ~1565 ms, leaving it near the ~93 ms spawn-free floor.
 
-The remaining cost is real child processes: `git ` on Windows is still three `git`
-invocations, now overlapping, and each pays git's own startup on top of the ~87 ms process
-floor. `scoop update ` is still ~1.6 s on Windows because `scoop list` remains a
-wrapper-launched spawn.
-
-The remaining open step (reading the scoop apps directory instead of running `scoop list`) is
-tracked in `TODO.md` under "Tab Completion Spawn Cost", with its spawn-count gate and the
-recorded before/after numbers.
+No completion scenario launches a process through a PowerShell wrapper any more. The remaining
+cost is real child processes: `git ` on Windows is still three `git` invocations, overlapping,
+and each pays git's own startup on top of the ~87 ms process floor.
 
 ## Noise controls and limits
 
