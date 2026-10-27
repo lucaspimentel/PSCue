@@ -293,19 +293,36 @@ function Invoke-Probe {
 function New-ShimDirectory {
     param(
         [Parameter(Mandatory)][string]$Path,
-        [Parameter(Mandatory)][string]$LogFile,
+        [Parameter(Mandatory)][string]$LogDirectory,
         [Parameter(Mandatory)][bool]$IsWindowsPlatform
     )
 
     if (Test-Path $Path) { Remove-Item -Recurse -Force $Path }
     [void](New-Item -ItemType Directory -Path $Path -Force)
+    if (Test-Path $LogDirectory) { Remove-Item -Recurse -Force $LogDirectory }
+    [void](New-Item -ItemType Directory -Path $LogDirectory -Force)
 
     if ($IsWindowsPlatform) {
         # Windows shims stay deliberately simple: the goal is counting invocations,
         # not reproducing git output. A fixed small payload keeps stdout comparable.
+        # Each invocation records itself in a directory of its own. Sharing one log file
+        # across concurrent children is not reliable, and cmd.exe cannot build a unique name
+        # here: %RANDOM% is seeded identically in every cmd process on a machine, so parallel
+        # shims would all pick the same file name. mkdir is atomic, so racing shims land in
+        # distinct directories.
         $gitShim = @"
 @echo off
-echo git %* >> "$LogFile"
+setlocal
+set /a attempt=0
+:attempt
+set /a attempt+=1
+set "target=$LogDirectory\%RANDOM%-%attempt%"
+mkdir "%target%" 2>nul
+if errorlevel 1 (
+  if %attempt% LSS 100 goto attempt
+  exit /b 0
+)
+echo git %* > "%target%\entry.txt"
 echo shim-main
 exit /b 0
 "@
@@ -313,7 +330,17 @@ exit /b 0
 
         $scoopShim = @"
 @echo off
-echo scoop %* >> "$LogFile"
+setlocal
+set /a attempt=0
+:attempt
+set /a attempt+=1
+set "target=$LogDirectory\%RANDOM%-%attempt%"
+mkdir "%target%" 2>nul
+if errorlevel 1 (
+  if %attempt% LSS 100 goto attempt
+  exit /b 0
+)
+echo scoop %* > "%target%\entry.txt"
 echo Installed apps:
 echo shim-package 1.0.0
 exit /b 0
@@ -323,7 +350,9 @@ exit /b 0
     else {
         $gitShim = @"
 #!/bin/bash
-echo "git `$*" >> "$LogFile"
+record="$LogDirectory/`$-`$RANDOM"
+mkdir -p "`$record"
+echo "git `$*" > "`$record/entry.txt"
 case "`$*" in
   *--list-cmds=main*) echo add; echo status; echo commit ;;
   *--list-cmds=alias*) echo st ;;
@@ -341,7 +370,9 @@ exit 0
 
         $scoopShim = @"
 #!/bin/bash
-echo "scoop `$*" >> "$LogFile"
+record="$LogDirectory/`$-`$RANDOM"
+mkdir -p "`$record"
+echo "scoop `$*" > "`$record/entry.txt"
 echo "Installed apps:"
 echo "shim-package 1.0.0"
 exit 0
@@ -352,12 +383,33 @@ exit 0
     }
 }
 
+function Get-ShimEntries {
+    param(
+        [Parameter(Mandatory)][string]$LogDirectory
+    )
+    # Every invocation records itself, so the count does not depend on when each child ran.
+    # The file is named entry.txt because Windows redirects to a fixed name inside the
+    # directory mkdir reserved for the invocation.
+    if (-not (Test-Path $LogDirectory)) { return @() }
+    return @(Get-ChildItem -Path $LogDirectory -Recurse -Filter 'entry.txt' -File -ErrorAction SilentlyContinue |
+        ForEach-Object { Get-Content -Path $_.FullName -ErrorAction SilentlyContinue } |
+        Where-Object { $_ -and $_.Trim() })
+}
+
+function Clear-ShimEntries {
+    param(
+        [Parameter(Mandatory)][string]$LogDirectory
+    )
+    if (-not (Test-Path $LogDirectory)) { return }
+    Get-ChildItem -Path $LogDirectory -Directory -ErrorAction SilentlyContinue |
+        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+}
+
 function Get-SpawnCounts {
     param(
-        [Parameter(Mandatory)][string]$LogFile
+        [Parameter(Mandatory)][string]$LogDirectory
     )
-    if (-not (Test-Path $LogFile)) { return @() }
-    $entries = @(Get-Content -Path $LogFile -ErrorAction SilentlyContinue)
+    $entries = @(Get-ShimEntries -LogDirectory $LogDirectory)
     if ($entries.Count -eq 0) { return @() }
     # Group by the spawned command line, normalizing "git"/"scoop" prefixes.
     $grouped = $entries | ForEach-Object { [pscustomobject]@{ Command = $_.Trim() } }
@@ -516,8 +568,8 @@ function Invoke-SelfTest {
     [void](New-Item -ItemType Directory -Path $tempRoot -Force)
     try {
         $shimDir = Join-Path $tempRoot 'shim'
-        $logFile = Join-Path $tempRoot 'spawns.txt'
-        New-ShimDirectory -Path $shimDir -LogFile $logFile -IsWindowsPlatform $IsWindows
+        $logDirectory = Join-Path $tempRoot 'spawns'
+        New-ShimDirectory -Path $shimDir -LogDirectory $logDirectory -IsWindowsPlatform $IsWindows
         $leaf = if ($IsWindows) { 'git.cmd' } else { 'git' }
         Assert-True (Test-Path (Join-Path $shimDir $leaf)) 'git shim created'
 
@@ -530,11 +582,26 @@ function Invoke-SelfTest {
                     -EnvironmentOverrides @{ PATH = "${shimDir}$([System.IO.Path]::PathSeparator)$env:PATH" } `
                     -Timeout 60
                 Assert-Equal 0 $shimmed.ExitCode 'shim invocation exit code'
-                $counts = Get-SpawnCounts -LogFile $logFile
+                # @() keeps a single group from unwrapping: without it, .Count reads the group's
+                # own member count instead of the number of groups.
+                $counts = @(Get-SpawnCounts -LogDirectory $logDirectory)
                 Assert-Equal 1 $counts.Count 'shim recorded one command'
                 Assert-Equal 1 $counts[0].Count 'shim recorded one invocation'
             }
         }
+
+        # Concurrent launches must all be counted. A shim that shares one log file, or that names
+        # its file from %RANDOM%, drops entries when children overlap, which is exactly the case
+        # the completion tree creates.
+        Clear-ShimEntries -LogDirectory $logDirectory
+        $shimPath = Join-Path $shimDir $leaf
+        $concurrent = @(1..4 | ForEach-Object {
+            Start-Process -FilePath $shimPath -ArgumentList 'branch' -PassThru
+        })
+        $null = $concurrent | Wait-Process -Timeout 60 -ErrorAction SilentlyContinue
+        $concurrentCounts = @(Get-SpawnCounts -LogDirectory $logDirectory)
+        Assert-Equal 1 $concurrentCounts.Count 'concurrent shims recorded one command'
+        Assert-Equal 4 $concurrentCounts[0].Count 'concurrent shim recorded every invocation'
     }
     finally {
         Remove-Item -Recurse -Force $tempRoot -ErrorAction SilentlyContinue
@@ -725,14 +792,14 @@ if (-not $SkipSpawnProbe) {
 
     $shimRoot = Join-Path $OutputDirectory 'shims'
     $shimDir = Join-Path $shimRoot 'bin'
-    $shimLog = Join-Path $shimRoot 'spawns.txt'
-    New-ShimDirectory -Path $shimDir -LogFile $shimLog -IsWindowsPlatform $isWindowsPlatform
+    $shimLog = Join-Path $shimRoot 'spawns'
+    New-ShimDirectory -Path $shimDir -LogDirectory $shimLog -IsWindowsPlatform $isWindowsPlatform
 
     $pathSeparator = [System.IO.Path]::PathSeparator
     $shimmedPath = "$shimDir$pathSeparator$env:PATH"
 
     foreach ($scenario in $scenarios) {
-        if (Test-Path $shimLog) { Remove-Item -Force $shimLog }
+        Clear-ShimEntries -LogDirectory $shimLog
 
         $arguments = @()
         if ($null -ne $scenario.CommandLine) {
@@ -749,8 +816,7 @@ if (-not $SkipSpawnProbe) {
             -EnvironmentOverrides $env2 `
             -Timeout $TimeoutSeconds
 
-        $entries = @()
-        if (Test-Path $shimLog) { $entries = @(Get-Content -Path $shimLog) }
+        $entries = @(Get-ShimEntries -LogDirectory $shimLog)
         $total = $entries.Count
 
         $byCommand = @{}

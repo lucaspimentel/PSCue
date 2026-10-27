@@ -24,7 +24,10 @@ covers exactly that gap.
 1. **Wall time per scenario** - runs the published native executable directly and times the
    child process lifetime.
 2. **Spawn count per scenario** - puts logging shims for `git` and `scoop` on the child's
-   `PATH` and counts invocations, attributing each to a factory.
+   `PATH` and counts invocations, attributing each to a factory. Each invocation records
+   itself in a directory it reserves with `mkdir` (atomic, and the only reliable way to get a
+   unique name here: `cmd.exe` seeds `%RANDOM%` identically in every process), so concurrent
+   launches cannot lose or overwrite each other's entry.
 3. **Standalone spawn cost** - times the exact
    `pwsh -NoProfile -NonInteractive -Command "<command>"` invocation, plus a bare `exit 0`
    probe for pure PowerShell startup. Git no longer launches through PowerShell, so these
@@ -204,6 +207,7 @@ their spawn-count gates and the recorded before/after numbers.
   the spawns account for all observed wall time.
 - Spawn counts come from `PATH` shims, so they are exact for name resolution but the shim
   replaces the real command output; stdout comparisons across shim runs are not meaningful.
+  Compare `StdoutHash` between wall-time runs instead, which use the real commands.
 - `cd ` is reachable through the executable dispatcher but is not how the installed module
   reaches `cd` completion.
 - Latency assertions belong nowhere in CI: results are machine-dependent.
