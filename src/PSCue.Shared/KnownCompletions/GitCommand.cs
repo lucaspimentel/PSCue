@@ -349,36 +349,60 @@ public static class GitCommand
         };
     }
 
-    private static IEnumerable<DynamicArgument> GetAllGitCommands()
+    private static IEnumerable<DynamicArgument> GetAllGitCommands() =>
+        GetAllGitCommands(static argument => CommandProcess.Run("git", argument));
+
+    /// <summary>
+    /// Lists the git commands, aliases, and extensions, querying the three categories at the
+    /// same time. Results are merged in a fixed order, so the suggestion set does not depend on
+    /// which query finishes first. A category that fails or times out contributes nothing and
+    /// leaves the other two intact, which is how <see cref="CommandProcess.Run"/> already
+    /// behaves for a missing or unhealthy child.
+    /// </summary>
+    /// <param name="fetch">Runs one <c>--list-cmds</c> query and returns its output lines.</param>
+    internal static IEnumerable<DynamicArgument> GetAllGitCommands(Func<string, IReadOnlyList<string>> fetch)
     {
-        // Get main git commands (excluding helper commands)
-        // These already have hardcoded entries with detailed tooltips, but this catches any new ones
-        foreach (var line in CommandProcess.Run("git", "--list-cmds=main,nohelpers"))
+        // Two queries get a dedicated thread rather than a worker-pool thread: this process is
+        // one-shot, so its pool starts cold and a blocked pool thread competes with the
+        // continuations that drain each child's output. The third query runs on this thread.
+        Task<IReadOnlyList<string>> Start(string argument) =>
+            Task.Factory.StartNew(
+                () => fetch(argument),
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default);
+
+        var mainCommands = Start("--list-cmds=main,nohelpers");
+        var aliases = Start("--list-cmds=alias");
+        var extensions = fetch("--list-cmds=others");
+
+        var mainLines = mainCommands.GetAwaiter().GetResult();
+        var aliasLines = aliases.GetAwaiter().GetResult();
+
+        foreach (var argument in ToArguments(mainLines, "Git command"))
         {
-            var command = line.Trim();
-            if (!string.IsNullOrWhiteSpace(command))
-            {
-                yield return new DynamicArgument(command, "Git command");
-            }
+            yield return argument;
         }
 
-        // Get user-defined aliases from git config
-        foreach (var line in CommandProcess.Run("git", "--list-cmds=alias"))
+        foreach (var argument in ToArguments(aliasLines, "Git alias"))
         {
-            var alias = line.Trim();
-            if (!string.IsNullOrWhiteSpace(alias))
-            {
-                yield return new DynamicArgument(alias, "Git alias");
-            }
+            yield return argument;
         }
 
-        // Get other git commands (git-* executables in PATH)
-        foreach (var line in CommandProcess.Run("git", "--list-cmds=others"))
+        foreach (var argument in ToArguments(extensions, "Git extension"))
         {
-            var command = line.Trim();
-            if (!string.IsNullOrWhiteSpace(command))
+            yield return argument;
+        }
+    }
+
+    private static IEnumerable<DynamicArgument> ToArguments(IReadOnlyList<string> lines, string tooltip)
+    {
+        foreach (var line in lines)
+        {
+            var value = line.Trim();
+            if (!string.IsNullOrWhiteSpace(value))
             {
-                yield return new DynamicArgument(command, "Git extension");
+                yield return new DynamicArgument(value, tooltip);
             }
         }
     }

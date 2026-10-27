@@ -186,15 +186,20 @@ comparing spawn counts and `StdoutHash` across the whole scenario matrix:
 - **Git is launched directly instead of through PowerShell** (`CommandProcess`), which removes
   the `pwsh` startup per git lookup. On Windows this took `git ` from ~1,479 ms to ~575 ms and
   each single-lookup scenario from ~540 ms to ~220-270 ms, with spawn counts unchanged.
+- **The three `--list-cmds` categories are fetched concurrently** (`GitCommand`), merged in a
+  fixed order (main, aliases, extensions) so the completion set and its order are unchanged.
+  Spawn counts stay at 3, one per category. On Windows this took `git ` from ~590 ms to
+  ~270 ms, `git pscue-no-match` from ~576 ms to ~326 ms, and `git` (no trailing space) from
+  ~604 ms to ~340 ms; the single-lookup and spawn-free scenarios did not move beyond noise.
 
-The remaining cost is real child processes: after both fixes, `git ` on Windows is three `git`
-invocations, and each of them pays git's own startup on top of the ~87 ms process floor.
-`scoop update ` is still ~1.6 s on Windows because `scoop list` remains a wrapper-launched
-spawn.
+The remaining cost is real child processes: `git ` on Windows is still three `git`
+invocations, now overlapping, and each pays git's own startup on top of the ~87 ms process
+floor. `scoop update ` is still ~1.6 s on Windows because `scoop list` remains a
+wrapper-launched spawn.
 
-The open steps (concurrent `--list-cmds` fetches and reading the scoop apps directory instead
-of running `scoop list`) are tracked in `TODO.md` under "Tab Completion Spawn Cost", with
-their spawn-count gates and the recorded before/after numbers.
+The remaining open step (reading the scoop apps directory instead of running `scoop list`) is
+tracked in `TODO.md` under "Tab Completion Spawn Cost", with its spawn-count gate and the
+recorded before/after numbers.
 
 ## Noise controls and limits
 

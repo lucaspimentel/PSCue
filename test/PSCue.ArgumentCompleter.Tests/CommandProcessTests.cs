@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using PSCue.Shared;
+using PSCue.Shared.KnownCompletions;
 
 namespace PSCue.ArgumentCompleter.Tests;
 
@@ -310,6 +311,104 @@ public class CommandProcessTests : IDisposable
         var lines = CommandProcess.Run(scriptPath, TestTimeout);
 
         Assert.Equal(["one", "two"], lines);
+    }
+
+    // The git command list composes three category queries, and two of them run on their own
+    // thread. These tests drive that composition with one category backed by a real child process
+    // and the other two backed by in-memory lines, so the failure path is covered without
+    // depending on a git installation and without weakening the other categories to fakes.
+    private const string GitMainCategory = "--list-cmds=main,nohelpers";
+
+    private const string GitAliasCategory = "--list-cmds=alias";
+
+    private const string GitExtensionCategory = "--list-cmds=others";
+
+    private static readonly string[] GitCategories = [GitMainCategory, GitAliasCategory, GitExtensionCategory];
+
+    [Theory]
+    [InlineData(GitMainCategory)]
+    [InlineData(GitAliasCategory)]
+    [InlineData(GitExtensionCategory)]
+    public void MissingChildLeavesTheOtherGitCategoriesIntact(string unhealthyCategory)
+    {
+        var fetch = GitFetchWith(
+            () => CommandProcess.Run("pscue-does-not-exist-" + Guid.NewGuid().ToString("N"), TestTimeout),
+            unhealthyCategory);
+
+        var arguments = GitCommand.GetAllGitCommands(fetch).Select(argument => argument.CompletionText);
+
+        Assert.Equal(ExpectedGitArguments(unhealthyCategory, []), arguments);
+    }
+
+    [Theory]
+    [InlineData(GitMainCategory)]
+    [InlineData(GitAliasCategory)]
+    [InlineData(GitExtensionCategory)]
+    public void GitCategoryWithANonZeroExitKeepsItsPartialOutput(string unhealthyCategory)
+    {
+        var (executable, payloadArguments, expected) = Transcript("partial-a\npartial-b\n", exitCode: 3);
+        var fetch = GitFetchWith(
+            () => CommandProcess.Run(executable, TestTimeout, payloadArguments),
+            unhealthyCategory);
+
+        var arguments = GitCommand.GetAllGitCommands(fetch).Select(argument => argument.CompletionText);
+
+        Assert.Equal(ExpectedGitArguments(unhealthyCategory, expected), arguments);
+    }
+
+    [Theory]
+    [InlineData(GitMainCategory)]
+    [InlineData(GitAliasCategory)]
+    [InlineData(GitExtensionCategory)]
+    public void GitCategoryThatHangsKeepsItsFlushedOutput(string unhealthyCategory)
+    {
+        var (executable, payloadArguments, expected) = Transcript("flushed\n", hang: true);
+        var fetch = GitFetchWith(
+            () => CommandProcess.Run(executable, HangTimeout, payloadArguments),
+            unhealthyCategory);
+
+        var arguments = GitCommand.GetAllGitCommands(fetch).Select(argument => argument.CompletionText);
+
+        Assert.Equal(ExpectedGitArguments(unhealthyCategory, expected), arguments);
+    }
+
+    // Routes one category through a real child process and answers the other two from memory.
+    private static Func<string, IReadOnlyList<string>> GitFetchWith(
+        Func<IReadOnlyList<string>> unhealthyFetch,
+        string unhealthyCategory) =>
+        argument => argument == unhealthyCategory
+            ? unhealthyFetch()
+            : argument switch
+            {
+                GitMainCategory => ["main-a"],
+                GitAliasCategory => ["alias-a"],
+                _ => ["ext-a"],
+            };
+
+    // The healthy categories contribute one line each, so the expected sequence is the fixed
+    // category order with the unhealthy category's own lines substituted in its position.
+    private static string[] ExpectedGitArguments(string unhealthyCategory, IReadOnlyList<string> unhealthyLines)
+    {
+        var expected = new List<string>();
+
+        foreach (var category in GitCategories)
+        {
+            if (category == unhealthyCategory)
+            {
+                expected.AddRange(unhealthyLines);
+            }
+            else
+            {
+                expected.Add(category switch
+                {
+                    GitMainCategory => "main-a",
+                    GitAliasCategory => "alias-a",
+                    _ => "ext-a",
+                });
+            }
+        }
+
+        return [.. expected];
     }
 
     // Splits a payload the way ReadLine does: line terminators are dropped, blank lines and
