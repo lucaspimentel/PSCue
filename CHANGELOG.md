@@ -22,6 +22,7 @@
 - Make `Clear-PSCueLearning` honor `PSCUE_DATA_DIR`, so it deletes the database the module is actually using
 - Suggest `scoop` itself among installed packages, which the previous `scoop list` lookup omitted
 - Fix intermittent failures in the persistence and performance test suites, caused by concurrent database teardown and by timing a single call
+- Update `System.Security.Cryptography.Xml` to 10.0.14, clearing three high-severity denial-of-service advisories (CVE-2026-96958, CVE-2026-96959, CVE-2026-96960) reported against the previously pinned 10.0.11
 
 ## [0.21.0] - 2026-04-22
 
