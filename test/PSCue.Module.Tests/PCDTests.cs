@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Management.Automation;
 using PSCue.Module;
@@ -359,29 +358,7 @@ public class PCDTests
 
     #region Performance Tests
 
-    private const int TimingWarmupAttempts = 10;
     private const int TimingAttempts = 200;
-
-    // Best of many attempts rather than one sample: a single sample flakes on loaded hardware, because a
-    // stall that lands mid-call inflates that one call. Only the attempt in flight during a stall is
-    // charged, so the fastest of many attempts is stable, and the warm-up attempts keep JIT out of it.
-    private static double BestMilliseconds(Action action)
-    {
-        for (var i = 0; i < TimingWarmupAttempts; i++)
-        {
-            action();
-        }
-
-        var best = double.MaxValue;
-        for (var i = 0; i < TimingAttempts; i++)
-        {
-            var start = Stopwatch.GetTimestamp();
-            action();
-            best = Math.Min(best, Stopwatch.GetElapsedTime(start).TotalMilliseconds);
-        }
-
-        return best;
-    }
 
     [Fact]
     public void Performance_LargeDataset_CompletesQuickly()
@@ -394,8 +371,9 @@ public class PCDTests
 
         // Act - Request all results (default maxResults is 10)
         var suggestions = _graph.GetSuggestions("cd", Array.Empty<string>(), maxResults: 100).ToList();
-        var bestMs = BestMilliseconds(
-            () => _graph.GetSuggestions("cd", Array.Empty<string>(), maxResults: 100).ToList());
+        var bestMs = BestOfNTimer.BestMilliseconds(
+            () => _graph.GetSuggestions("cd", Array.Empty<string>(), maxResults: 100).ToList(),
+            TimingAttempts);
 
         // Assert - Correctness first, then a budget that only trips on a real regression
         Assert.Equal(100, suggestions.Count);
@@ -419,10 +397,11 @@ public class PCDTests
         var suggestions = _graph.GetSuggestions("cd", Array.Empty<string>(), maxResults: 100)
             .Where(s => s.Argument.StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase))
             .ToList();
-        var bestMs = BestMilliseconds(
+        var bestMs = BestOfNTimer.BestMilliseconds(
             () => _graph.GetSuggestions("cd", Array.Empty<string>(), maxResults: 100)
                 .Where(s => s.Argument.StartsWith(wordToComplete, StringComparison.OrdinalIgnoreCase))
-                .ToList());
+                .ToList(),
+            TimingAttempts);
 
         // Assert
         // Should match project5, project50-59

@@ -12,6 +12,10 @@ public class SequencePerformanceTests
 {
     private readonly ITestOutputHelper _output;
 
+    // Both assertions here build or load thousands of entries per call, so the attempt count stays well
+    // below the 200 used for the purely in-memory assertions in PCDTests.
+    private const int TimingAttempts = 50;
+
     public SequencePerformanceTests(ITestOutputHelper output)
     {
         _output = output;
@@ -190,15 +194,16 @@ public class SequencePerformanceTests
 
         var predictor = new SequencePredictor(ngramOrder: 2);
 
-        // Act
-        var sw = Stopwatch.StartNew();
+        // Act - Initialize clears and repopulates the cache every call, so repeating it on one instance
+        // measures the same load work each time.
         predictor.Initialize(sequences);
-        sw.Stop();
+        var bestMs = BestOfNTimer.BestMilliseconds(() => predictor.Initialize(sequences), TimingAttempts);
 
-        _output.WriteLine($"Initialize with 10,000 entries: {sw.ElapsedMilliseconds}ms");
+        _output.WriteLine($"Best of {TimingAttempts} attempts: {bestMs:F3}ms");
 
         // Assert - Should complete in reasonable time (<100ms)
-        Assert.True(sw.ElapsedMilliseconds < 100, $"Initialize took {sw.ElapsedMilliseconds}ms, expected <100ms");
+        Assert.True(bestMs < 100.0,
+            $"Initialize best of {TimingAttempts} attempts took {bestMs:F3}ms, expected < 100ms");
     }
 
     [Fact]
@@ -213,16 +218,17 @@ public class SequencePerformanceTests
             predictor.RecordSequence(new[] { $"cmd{i % 10}", $"next{i % 5}" });
         }
 
-        // Act
-        var sw = Stopwatch.StartNew();
+        // Act - GetDelta snapshots the pending delta without clearing it (clearing is ClearDelta), so
+        // every iteration of the loop below returns the same non-empty result.
         var delta = predictor.GetDelta();
-        sw.Stop();
+        var bestMs = BestOfNTimer.BestMilliseconds(() => predictor.GetDelta(), TimingAttempts);
 
-        _output.WriteLine($"GetDelta time: {sw.ElapsedMilliseconds}ms");
+        _output.WriteLine($"Best of {TimingAttempts} attempts: {bestMs:F3}ms");
 
         // Assert - Should be <10ms
-        Assert.True(sw.ElapsedMilliseconds < 10, $"GetDelta took {sw.ElapsedMilliseconds}ms, expected <10ms");
         Assert.NotEmpty(delta);
+        Assert.True(bestMs < 10.0,
+            $"GetDelta best of {TimingAttempts} attempts took {bestMs:F3}ms, expected < 10ms");
     }
 
     [Fact]
