@@ -1,10 +1,12 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using PSCue.Shared;
 using PSCue.Shared.KnownCompletions;
 using Xunit;
+using Xunit.Abstractions;
 
 namespace PSCue.ArgumentCompleter.Tests;
 
@@ -13,14 +15,48 @@ public class SetLocationCommandTests
     private static readonly bool IsWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
     private static readonly string TestDir = Path.Combine(Path.GetTempPath(), $"PSCueTests_{Guid.NewGuid():N}");
 
-    public SetLocationCommandTests()
+    /// <summary>Calls run before measurement so JIT compilation is not charged to a timed attempt.</summary>
+    private const int WarmupAttempts = 10;
+
+    private readonly ITestOutputHelper _output;
+
+    public SetLocationCommandTests(ITestOutputHelper output)
     {
+        _output = output;
+
         // Create test directory structure
         Directory.CreateDirectory(TestDir);
         Directory.CreateDirectory(Path.Combine(TestDir, "subdir1"));
         Directory.CreateDirectory(Path.Combine(TestDir, "subdir2"));
         Directory.CreateDirectory(Path.Combine(TestDir, "src"));
         Directory.CreateDirectory(Path.Combine(TestDir, "test"));
+    }
+
+    /// <summary>
+    /// Runs the warm-up attempts, then <paramref name="attempts"/> measured attempts, and returns the
+    /// fastest measured attempt, in milliseconds.
+    /// A single sample flakes on loaded hardware, because a stall that lands mid-call inflates that one
+    /// call. Only the attempt in flight during a stall is charged, so the fastest of many attempts is
+    /// stable.
+    /// </summary>
+    private static double BestMilliseconds(Action action, int attempts)
+    {
+        ArgumentOutOfRangeException.ThrowIfLessThan(attempts, 1);
+
+        for (var i = 0; i < WarmupAttempts; i++)
+        {
+            action();
+        }
+
+        var best = double.MaxValue;
+        for (var i = 0; i < attempts; i++)
+        {
+            var start = Stopwatch.GetTimestamp();
+            action();
+            best = Math.Min(best, Stopwatch.GetElapsedTime(start).TotalMilliseconds);
+        }
+
+        return best;
     }
 
     [Fact]
@@ -286,6 +322,12 @@ public class SetLocationCommandTests
         }
     }
 
+    /// <summary>
+    /// Directory enumeration dominates this assertion, so the attempt count stays well below the 200 used
+    /// for the in-memory assertions, and it is still far more samples than the single sample it replaced.
+    /// </summary>
+    private const int TimingAttempts = 50;
+
     [Fact]
     public void GetDirectorySuggestions_Performance_Under_50ms()
     {
@@ -303,12 +345,19 @@ public class SetLocationCommandTests
 
             Directory.SetCurrentDirectory(testDir);
 
-            var startTime = DateTime.UtcNow;
+            // Empty input takes only the first few entries, so the directory is re-enumerated on every
+            // attempt instead of being served from the shared cache the module keeps.
+            // Assert first for correctness, then a budget that only trips on a real regression.
             var suggestions = SetLocationCommand.GetDirectorySuggestions("").ToList();
-            var elapsed = DateTime.UtcNow - startTime;
+            var bestMs = BestMilliseconds(
+                () => SetLocationCommand.GetDirectorySuggestions("").ToList(),
+                TimingAttempts);
 
-            Assert.True(elapsed.TotalMilliseconds < 50);
             Assert.NotEmpty(suggestions);
+            _output.WriteLine($"Best of {TimingAttempts} attempts: {bestMs:F3}ms");
+            Assert.True(
+                bestMs < 50.0,
+                $"Tab completion best of {TimingAttempts} attempts took {bestMs:F3}ms, expected < 50ms");
 
             // Cleanup
             Directory.SetCurrentDirectory(originalDir);
