@@ -21,6 +21,7 @@
 - Fix failures when several PowerShell sessions open the learning database at the same time
 - Make `Clear-PSCueLearning` honor `PSCUE_DATA_DIR`, so it deletes the database the module is actually using
 - Suggest `scoop` itself among installed packages, which the previous `scoop list` lookup omitted
+- Fix intermittent failures in the persistence and performance test suites, caused by concurrent database teardown and by timing a single call
 
 ## [0.21.0] - 2026-04-22
 
