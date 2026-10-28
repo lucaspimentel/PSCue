@@ -748,11 +748,18 @@ Handle sharing between connections was ruled out: 20 connections to one database
 ---
 
 ### Wall-Clock Test Assertions Flake Under Load
-**Status**: Known flake, no fix started
+**Status**: `PCDTests` fixed in the working tree and verified; fix not committed. The remaining timing assertions are tracked below as follow-up.
 
-The sibling problem to the flaky persistence tests: assertions on elapsed milliseconds. `PCDTests.Performance_LargeDataset_CompletesQuickly` asserts `Stopwatch.ElapsedMilliseconds < 10` and failed once in 5 full-suite runs with the machine otherwise idle. Same class as the Windows CI child-process timeouts that produced a false red build on `ed31b1c`: a hard wall-clock threshold is not stable on shared hardware.
+The sibling problem to the flaky persistence tests: assertions on elapsed milliseconds. `PCDTests.Performance_LargeDataset_CompletesQuickly` asserted `Stopwatch.ElapsedMilliseconds < 10` and failed once in 5 full-suite runs with the machine otherwise idle. Same class as the Windows CI child-process timeouts that produced a false red build on `ed31b1c`: a hard wall-clock threshold is not stable on shared hardware.
 
-- [ ] Replace the raw threshold with a median or best-of-N budget, raise it to a value that only catches real regressions, or keep the correctness assertion and drop the timing one.
+- [x] **The two `PCDTests` performance tests now compare the fastest of 200 attempts against 25ms** (`test/PSCue.Module.Tests/PCDTests.cs`). A single sample flakes because a stall that lands mid-call inflates that one call, and only the attempt in flight during a stall is charged, so the fastest of many is stable. A median was rejected: with per-call cost around 0.07ms, nearly every sample sits below the timer's practical resolution, so a median of a handful of samples is exactly as noisy as one sample. Each test now runs 10 warm-up attempts (keeps JIT out of the measurement), then 200 measured attempts, asserts correctness first, prints the measured best, and asserts `bestMs < 25.0`.
+  - **Correctness assertions unchanged**: `Assert.Equal(100, suggestions.Count)` for the unfiltered query and at least 11 prefix matches for the filtered one.
+  - **Budget rationale**: 25ms is 2.5x the documented 10ms PCD tab-completion target (`CLAUDE.md` "Performance Targets"), and it is applied to the fastest of 200 uncontended attempts rather than to one sample, so it only trips on a real per-call regression (or a machine orders of magnitude slower than healthy), never on a scheduling stall.
+  - **Measured best of 200 attempts**: 0.063ms (unfiltered) and 0.066ms (filtered), roughly 380x below the budget.
+  - **The assertion is live**: temporarily setting the budget to `0.0` failed both tests with the new messages (`Tab completion best of 200 attempts took 0.068ms, expected < 25ms`, `Filtered completion best of 200 attempts took 0.068ms, expected < 25ms`), then the `25.0` budget was restored.
+  - **Stability**: 5 consecutive filtered runs passed, then 3 consecutive full module-suite runs passed (549 passed, 1 skipped each). `PSCue.ArgumentCompleter.Tests` is unaffected (191 passed, 64 skipped).
+  - Parallel test collections in `test/PSCue.Module.Tests` are the likely source of the original one-in-five failure, so the timing assertion was made robust rather than test parallelization being disabled.
+- [ ] **Apply the same best-of-N treatment to the remaining wall-clock assertions**, which exercise the real file system and are likelier to flake: `test/PSCue.Module.Tests/PcdEnhancedTests.cs` (`Integration_Performance_TabCompletionUnder50ms`, `Integration_Performance_PredictorUnder10ms`, `Integration_AllPhase21Features_Together`) and `test/PSCue.Module.Tests/SequencePerformanceTests.cs` (`Initialize_LargeDataset_ShouldBeReasonablyFast`, `GetDelta_ShouldBeFast`). `test/PSCue.ArgumentCompleter.Tests` has no threshold of this class; its only timing bound is a generous 30-second promptness check used as a post-kill sanity bound.
 
 ---
 
